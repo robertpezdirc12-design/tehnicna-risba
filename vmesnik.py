@@ -38,7 +38,7 @@ NAPISI = {
     "stranka": "Naročnik / stranka", "objekt": "Objekt (lokacija)",
     "podlaga": "Podlaga", "pritrditev_nacin": "Način pritrditve",
     "vijak_lamela": "Vijak lamela↔profil", "vijak_nosilec": "Vijak nosilec↔podlaga",
-    "material_lamel": "Material lamel",
+    "material_lamel": "Material lamel", "dobavitelj": "Dobavitelj",
     "vrzel": "Vrzel med deskami", "kerf": "Kerf (širina rezila)",
     "dolzine_deske": "Dolžine desk v nabavi",
     "dolzina_palice": "Tovarniška dolžina alu palice",
@@ -202,6 +202,7 @@ class App(tk.Tk):
         self._polje(f1, 1, 0, "material", 30)
         self._polje(f1, 1, 1, "profil", 14)
         self._polje(f1, 1, 2, "material_lamel", 22)
+        self._polje(f1, 1, 3, "dobavitelj", 14)
         if "barva" not in self.v:
             self.v["barva"] = tk.StringVar()
         lbl_b = ttk.Label(f1, text="Barva lamel:")
@@ -359,6 +360,7 @@ class App(tk.Tk):
                                        p.get("dolzine_deske", [5800])),
             "dolzina_palice": f"{p.get('dolzina_palice', 6000):g}",
             "material_lamel": p.get("material_lamel") or "",
+            "dobavitelj": p.get("dobavitelj") or "",
         }
 
     # ------------------------------------------------------------- akcije
@@ -467,6 +469,7 @@ class App(tk.Tk):
             "barva": self.v["barva"].get() or None,
             "profil": self.v["profil"].get().strip() or None,
             "material_lamel": self.v["material_lamel"].get().strip() or None,
+            "dobavitelj": self.v["dobavitelj"].get().strip() or None,
             "kerf": dec("kerf", 3.0),
             "dolzina_palice": dec("dolzina_palice", 6000.0),
             "dolzine_deske": (dl_dolzine or None),
@@ -532,7 +535,7 @@ class App(tk.Tk):
     ADVANS = ("podjetje", "pregledal", "odobril", "stranka", "objekt",
               "material", "profil", "razmak_nosilcev", "barva", "meri_slike",
               "podlaga", "pritrditev_nacin", "vijak_lamela", "vijak_nosilec",
-              "material_lamel", "vrzel", "kerf", "dolzine_deske",
+              "material_lamel", "dobavitelj", "vrzel", "kerf", "dolzine_deske",
               "dolzina_palice", "uporabi_ostanke",
               "cene_wpc_deska_m", "cene_alu_m", "cene_rocaj_kos",
               "cene_nosilec_kos", "cene_vijak_kos", "cene_fasadni_kos",
@@ -625,7 +628,7 @@ class App(tk.Tk):
                   "odobril", "stranka", "objekt", "material", "profil",
                   "barva", "izhod", "foto", "podlaga", "pritrditev_nacin",
                   "vijak_lamela", "vijak_nosilec", "material_lamel",
-                  "kerf", "dolzina_palice"):
+                  "dobavitelj", "kerf", "dolzina_palice"):
             nast(k, cfg.get(k))
         for k in ("sirina", "visina", "globina", "lamele", "lamela_v",
                   "debelina", "odcep", "razmak_nosilcev", "vrzel"):
