@@ -16,6 +16,7 @@ import argparse
 import datetime
 import math
 import os
+import re
 import sys
 import textwrap
 
@@ -89,6 +90,12 @@ def zdruzi_traki(traki):
     for B, t in traki:
         agg[B] = agg.get(B, 0) + t
     return sorted(agg.items())
+
+
+def vijak_dim(naziv, priv="M8×70"):
+    """Dimenzija vijaka iz konfiguracijskega naziva (npr. 'RF M8×70 Inox')."""
+    najdi = re.search(r"(M\d+\s*[×x]\s*\d+|Ø\d+\s*[×x]\s*\d+)", naziv or "")
+    return najdi.group(1).replace("x", "×").replace(" ", "") if najdi else priv
 
 
 # ---------------------------------------------------------------- risalni motor
@@ -295,11 +302,15 @@ def naslovni_blok(ax, polja):
 
 
 def opombe_blok(ax, x0, y_top, sirina, opombe,
-                naslov_t="TEHNIČNI PODATKI IN OPOMBE"):
+                naslov_t="TEHNIČNI PODATKI IN OPOMBE",
+                velikost=8.5, wrap=None):
+    if wrap is None:
+        wrap = 86
     vrstice = []
     for i, o in enumerate(opombe, 1):
-        vrstice.extend(textwrap.wrap(f"{i}. {o}", width=86) or [f"{i}."])
-    visina = 8.5 + len(vrstice) * 3.9 + 2
+        vrstice.extend(textwrap.wrap(f"{i}. {o}", width=wrap) or [f"{i}."])
+    raz = velikost * 0.459
+    visina = 8.5 + len(vrstice) * raz + 2
     pravokotnik(ax, x0, y_top - visina, sirina, visina, fill="white", lw=0.8)
     pravokotnik(ax, x0, y_top - 8.5, sirina, 8.5, fill=BARVA_OZN, lw=0)
     ax.text(x0 + sirina / 2, y_top - 4.25, naslov_t,
@@ -307,8 +318,8 @@ def opombe_blok(ax, x0, y_top, sirina, opombe,
             color="white")
     y = y_top - 12
     for vrsta in vrstice:
-        ax.text(x0 + 2.5, y, vrsta, ha="left", va="center", fontsize=8.5)
-        y -= 3.9
+        ax.text(x0 + 2.5, y, vrsta, ha="left", va="center", fontsize=velikost)
+        y -= raz
     return y_top - visina
 
 
@@ -727,8 +738,8 @@ def narisi_pokoncna(ax, c):
              f"{p['n_stebrov']} kos"],
             ["Osnova za steber (vrh)", "Jeklo", "90×90×6",
              f"{p['n_stebrov']} kos"],
-            ["Vijaki M8×70 (deska↔steber)", "Inox A2", "M8×70",
-             f"{n_vij} kos"],
+            [c.get("vijak_lamela") or "Vijaki M8×70 (deska↔steber)",
+             "Inox A2", vijak_dim(c.get("vijak_lamela")), f"{n_vij} kos"],
             ["Anker M10 (osnova)", "Inox", "M10", f"{p['n_stebrov'] * 2} kos"],
         ]
     vrste = [["Št.", "Naziv dela", "Material", "Dimenzije (mm)", "Količina"]]
@@ -978,7 +989,7 @@ def narisi_ogrado(ax, c):
              f"{fmt(m['lamela_v'])}×{fmt(m['debelina'])}", f"{n_lamel} kos"],
             ["Spodnji profil", mat, "60×40×3", "1 kos"],
             ["Nosilni nosilec 50×50×5", "Jeklo", "50×50×5", f"{n_nos} kos"],
-            [vijak_lamela_naziv, "Inox A2", "M8×70",
+            [vijak_lamela_naziv, "Inox A2", vijak_dim(vijak_lamela_naziv),
              f"{n_lamel * n_nos * 2} kos"],
             [vijak_nosilec_naziv, "Inox", "Ø8×80",
              f"{n_nos * 2} kos"],
@@ -1199,9 +1210,18 @@ def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki,
            [["NAZIV", "SPECIFIKACIJA", "KOLIČINA", "OPOMBA"], *pot_rows],
            naslov="POTREBŠČINE")
 
+    y_rez_konec = 197 - 20
     if rez_rows:
-        tabela(ax, 20, 197, [45, 55, 75, 45, 40], 7.0, rez_rows,
+        n_vrst_r = len(rez_rows) - 1
+        vrstice_rez = rez_rows
+        if n_vrst_r > 10:
+            vrstice_rez = rez_rows[:11] + [[
+                f"… ostalih {n_vrst_r - 10} vrst", "",
+                "polna kosovnica: CSV + nalepke", ""]]
+            n_vrst_r = 11
+        tabela(ax, 20, 197, [45, 55, 75, 45, 40], 7.0, vrstice_rez,
                naslov="REZALNI NAČRT")
+        y_rez_konec = 197 - (8.5 + 7 + n_vrst_r * 7)
     else:
         opombe_blok(ax, 20, 197, 260,
                     ["Deska je krajša od enega kosa — spoj/rez po dogovoru "
@@ -1209,18 +1229,18 @@ def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki,
 
     kerf = c.get("kerf", 3.0)
     b_lam = barva_hex(c.get("barva"))
-    y = 130
+    y = y_rez_konec - 21
     if viz_traki:
         maxdl = max(dl for dl, _ in viz_traki)
         sk = 260.0 / maxdl
         prikaz_b = min(len(viz_traki), 5)
-        n_vrst_r = (len(rez_rows) - 1) if rez_rows else 1
-        y = 197 - (8.5 + 7 + n_vrst_r * 7) - 8
         skup_k = sum(ln for _, kosi in viz_traki for _, ln in kosi)
         skup_d = sum(dl for dl, _ in viz_traki)
         izk = skup_k / skup_d * 100 if skup_d else 0
         ax.text(20, y + 2, f"VIZUALNI REZ • kerf {fmt(kerf)} mm • "
-                f"izkoristek {izk:.0f} % • ostanek = trak − kosi − rez",
+                f"izkoristek {izk:.0f} % • ostanek = trak − kosi − rez"
+                + (f" • prikazanih {prikaz_b} od {len(viz_traki)} trakov"
+                   if len(viz_traki) > prikaz_b else ""),
                 fontsize=7, color="#555555", ha="left", va="center")
         for ti, (dl, kosi) in enumerate(viz_traki[:prikaz_b]):
             y -= 10
@@ -1240,13 +1260,16 @@ def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki,
                         ha="center", va="center", fontsize=6)
             ax.text(18, y + 3.5, f"{ti + 1}", ha="right", va="center",
                     fontsize=6.5, fontweight="bold")
-        if len(viz_traki) > prikaz_b:
-            y -= 8
-            ax.text(20, y, f"… ostali traki po istem vzorcu "
-                    f"(skupaj {len(viz_traki)})", fontsize=6.5,
-                    color="#555555", ha="left", va="center")
+        y -= 8
 
-    opombe_blok(ax, 20, y - 6, 260, koraki, naslov_t="MONTAŽNI KORAKI")
+    vrst_k = sum(len(textwrap.wrap(f"{i}. {o}", width=86) or [""])
+                 for i, o in enumerate(koraki, 1))
+    h_kor = 8.5 + vrst_k * 3.9 + 2
+    if y - 6 - h_kor < 30 and sestava is None:
+        opombe_blok(ax, 288, 173, 120, koraki, naslov_t="MONTAŽNI KORAKI",
+                    velikost=7.5, wrap=68)
+    else:
+        opombe_blok(ax, 20, y - 6, 260, koraki, naslov_t="MONTAŽNI KORAKI")
 
     kontrola = [
         "□ preveri dejanske mere objekta",
@@ -1330,7 +1353,6 @@ def narisi_montazni_list(ax, c):
     podlaga = c.get("podlaga") or ""
     pritrditev = c.get("pritrditev") or "bočno"
     vijak_lamela_naziv = c.get("vijak_lamela") or "RF vijak M8×70 (lamela↔profil)"
-    vijak_lamela_dim = "M8×70"
     vijak_nosilec_naziv = c.get("vijak_nosilec") or         f"Pritrdilni vijaki za {podlaga or 'podlago'}"
 
     # ostanki iz skladišča (ostanki.yaml) — najprej se porabijo
@@ -1400,8 +1422,8 @@ def narisi_montazni_list(ax, c):
 
     # izračun višine + poraba/odpad (viden na montažnem listu)
     cona_z = zg[0] - sp[1]
-    n_vrst_r = (len(rez_rows) - 1) if rez_rows else 0
-    y_iz = 197 - (8.5 + 7 + n_vrst_r * 7) - 22
+    n_vrst_r = min(len(rez_rows) - 1, 11) if rez_rows else 0
+    y_iz = 197 - (8.5 + 7 + n_vrst_r * 7) - 5.5
     ax.text(20, y_iz, f"IZRAČUN VIŠINE: {fmt(m['visina'])} = "
             f"{fmt(m['profil_v'])} (zgornji profil) + {fmt(cona_z)} "
             f"(lamele: {n} × {fmt(m['lamela_v'])} + {n - 1} × vrzel "
@@ -1455,7 +1477,7 @@ def narisi_montazni_list(ax, c):
         ("Alu profili (nabava)", f"{palice} kos = {fmt(por_alu)}", "m",
          "alu_m", por_alu),
         ("Nosilni nosilci 50×50×5", f"{n_nos}", "kos", "nosilec_kos", n_nos),
-        ("RF vijaki M8×70", f"{vijaki}", "kos", "vijak_kos", vijaki),
+        (vijak_lamela_naziv, f"{vijaki}", "kos", "vijak_kos", vijaki),
         ("Fasadni vijaki Ø8×80 + tipli", f"{n_nos * 2}", "kos",
          "fasadni_kos", n_nos * 2),
     ],
@@ -1481,7 +1503,6 @@ def narisi_montazni_pokoncna(ax, c):
     podlaga = c.get("podlaga") or ""
     pritrditev = c.get("pritrditev") or "vrh"
     vijak_lamela_naziv = c.get("vijak_lamela") or "Vijak M8×70 (deska↔steber)"
-    vijak_lamela_dim = "M8×70"
     vijak_nosilec_naziv = c.get("vijak_nosilec") or         f"Osnova za steber + anker M10 × 2 (vrh)"
     dl_deske = c.get("dolzina_deske", 5800)
     dl_palice = c.get("dolzina_palice", 6000)
@@ -1547,8 +1568,8 @@ def narisi_montazni_pokoncna(ax, c):
         "Pritrdi osnove z anker M10 (vrh v ploščo — glej DETAJL "
         "PRITRJEVANJA); kontroliraj ravnost.",
         "Postavi stebre; kontroliraj navpičnost.",
-        "Vgradi deske (2 vijaka M8×70 na desko na steber; predrtje "
-        "Ø + 1 mm).",
+        f"Vgradi deske (2 × {vijak_lamela_naziv} na desko na steber; "
+        "predrtje Ø + 1 mm).",
         "Vgradi ročaj, kontrola ravni in višine, slika izvedbo, podpis "
         "stranke.",
     ]
@@ -1578,8 +1599,8 @@ def narisi_montazni_pokoncna(ax, c):
     montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki)
 
     cona_z = p["deske_z"][1] - p["deske_z"][0]
-    n_vrst_r = (len(rez_rows) - 1) if rez_rows else 0
-    y_iz = 197 - (8.5 + 7 + n_vrst_r * 7) - 22
+    n_vrst_r = min(len(rez_rows) - 1, 11) if rez_rows else 0
+    y_iz = 197 - (8.5 + 7 + n_vrst_r * 7) - 5.5
     ax.text(20, y_iz, f"IZRAČUN VIŠINE: {fmt(vis)} = {fmt(m['rocaj_v'])} "
             f"(ročaj) + {fmt(deska_h)} (deske) + {fmt(odcep)} (odcep) • "
             f"ŠIRINA: {fmt(sir)} = {n_d} × {fmt(m['deska_sirina'])} + "
@@ -1614,7 +1635,7 @@ def narisi_montazni_pokoncna(ax, c):
          "alu_m", por_st),
         ("Ročaj", "1", "kos", "rocaj_kos", 1),
         ("Osnove za steber", f"{n_s}", "kos", "osnova_kos", n_s),
-        ("Vijaki M8×70", f"{vijaki}", "kos", "vijak_kos", vijaki),
+        (vijak_lamela_naziv, f"{vijaki}", "kos", "vijak_kos", vijaki),
         ("Anker M10", f"{n_s * 2}", "kos", "anker_kos", n_s * 2),
     ],
     "narocilo": "\n".join(nar),
