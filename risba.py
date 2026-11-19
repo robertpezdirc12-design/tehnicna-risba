@@ -658,13 +658,15 @@ def narisi_ogrado(ax, c):
             [f"WPC deska {profil}", ml,
              f"{fmt(m['lamela_v'])}×{fmt(m['debelina'])}", f"{n_lamel} kos"],
             ["Spodnji profil", mat, "60×40×3", "1 kos"],
-            ["Nosilni nosilec", "Jeklo", "50×50×5", f"{n_nos} kos"],
-            ["Pritrdilni vijaki", "Inox", "M8",
+            ["Nosilni nosilec 50×50×5", "Jeklo", "50×50×5", f"{n_nos} kos"],
+            ["RF vijaki M8×70 (lamela↔profil)", "Inox A2", "M8×70",
              f"{n_lamel * n_nos * 2} kos"],
+            ["Fasadni vijaki Ø8×80 + tipli", "Inox", "Ø8×80",
+             f"{n_nos * 2} kos"],
         ]
     vrste = [["Št.", "Naziv dela", "Material", "Dimenzije (mm)", "Količina"]]
     vrste += [[i] + list(d) for i, d in enumerate(deli, 1)]
-    tabela(ax, 246, 131, [10, 58, 44, 30, 20], 7.0, vrste,
+    tabela(ax, 246, 131, [10, 58, 44, 30, 20], 6.5, vrste,
            naslov="SEZNAM SESTAVNIH DELOV")
 
     # ==================== OPOMBE ====================
@@ -677,13 +679,16 @@ def narisi_ogrado(ax, c):
         f"Razmak nosilcev največ {fmt(m.get('razmak_nosilcev', 1000))} mm; "
         "količine pritrdilnih elementov orientacijske.",
     ]
-    opombe_blok(ax, 246, 78, 162, opombe)
+    opombe_blok(ax, 246, 74, 162, opombe)
 
     # ==================== ISO NASLOVNI BLOK + REVIZIJE ====================
     datum = c.get("datum") or datetime.date.today().strftime("%d.%m.%Y")
     revizije = c.get("revizije") or [
         ["A", datum, "Prva izdaja", c["izdelal"] or "—"]]
     tabela_revizij(ax, 10, 10, [15, 35, 150, 30], revizije)
+    mat_cel = ("ALU okvir + WPC lamele"
+               if "WPC" in (c.get("material_lamel") or "").upper()
+               else c["material"])[:26]
     naslovni_blok(ax, {
         "podjetje": c.get("podjetje") or "—",
         "ime": c["ime"], "risba_st": c["risba_st"],
@@ -691,7 +696,7 @@ def narisi_ogrado(ax, c):
         "datum": datum, "izdelal": c["izdelal"],
         "pregledal": c.get("pregledal") or "—",
         "odobril": c.get("odobril") or "—",
-        "material": c["material"], "list": "1 od 1",
+        "material": mat_cel, "list": "1 od 1",
         "stranka": c.get("stranka") or "—", "objekt": c.get("objekt") or "—",
     })
 
@@ -818,7 +823,10 @@ def narisi_montazni_list(ax, c):
          "spodnji profil"],
         ["Nosilni nosilec 50×50×5", "—", f"{n_nos} kos",
          f"razmak ≤ {fmt(raz)} mm"],
-        ["Vijaki Inox M8 (RF)", "—", f"{vijaki} kos", "predrtje Ø + 1 mm"],
+        ["RF vijaki M8×70 (lamela↔profil)", "—", f"{vijaki} kos",
+         f"2 na priključek ({n * n_nos}) • Ø+1 mm"],
+        ["Fasadni vijaki Ø8×80 + tipli", "—", f"{n_nos * 2} kos",
+         "2 na nosilec"],
     ]
     tabela(ax, 20, 256, [90, 60, 35, 75], 7.0,
            [["NAZIV", "SPECIFIKACIJA", "KOLIČINA", "OPOMBA"], *pot],
@@ -836,10 +844,10 @@ def narisi_montazni_list(ax, c):
                           fmt(sir), fmt(ost)])
         if deske > prikaz:
             vrste.append(["…", "", f"skupaj {deske} desk", "", ""])
-        tabela(ax, 20, 200, [45, 55, 75, 45, 40], 7.0, vrste,
+        tabela(ax, 20, 197, [45, 55, 75, 45, 40], 7.0, vrste,
                naslov="REZALNI NAČRT — LAMELE")
     else:
-        opombe_blok(ax, 20, 200, 260,
+        opombe_blok(ax, 20, 197, 260,
                     ["Deska je krajša od lamele — spoj/rez po dogovoru "
                      "s proizvajalcem."], naslov_t="REZALNI NAČRT — LAMELE")
 
@@ -849,7 +857,7 @@ def narisi_montazni_list(ax, c):
     if na_desko and deske:
         sk = 260.0 / dl_deske
         prikaz_b = min(deske, 5)
-        y = 200 - (8.5 + 7 + (min(deske, 6) + (1 if deske > 6 else 0)) * 7) - 8
+        y = 197 - (8.5 + 7 + (min(deske, 6) + (1 if deske > 6 else 0)) * 7) - 8
         izkoristek = n * sir / (deske * dl_deske) * 100
         ax.text(20, y + 2, f"VIZUALNI REZ • kerf {fmt(kerf)} mm • "
                 f"izkoristek {izkoristek:.0f} % • ostanek = deska − kosi − "
