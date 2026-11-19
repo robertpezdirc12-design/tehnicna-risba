@@ -24,12 +24,23 @@ measurement assistant.
   koraki s sklici na detajle, kontrola terena, podpis stranke
 - **Predračun (stran 3 PDF-a, neobvezno)** — če v konfiguracijo vpišeš `cene:`
   (EUR/m, EUR/kos, delo), se samodejno ustvari orientacijski predračun
+- **Kosovnica + nalepke (stran 4 PDF-a)** — CSV `<nalog>-kosovnica.csv`
+  (vsak kos: dolžina, vir — ostanek ali nabava) in nalepke za kose
+  (izreži, označi, prilepi)
 - **Naročilnik** — datoteka `<nalog>-narocilo.txt` s pripravljenim naročilom
   materiala (deske po modelu/barvi/dolžini, profili, pritrdila) za
   copy-paste v e-pošto dobavitelju
-- **Skladišče ostankov** (`ostanki.yaml`) — ostanki po rezanju se samodejno
-  shranijo; naslednji nalog jih najprej porabi (CLI: `--potrosi-ostanke`,
-  GUI: gumb „ODPIŠI OSTANKE“)
+- **Razrez čez več tovarniških dolžin** — vpišeš npr. `5800; 4000; 2200` in
+  optimizator izbere trakove z najmanj odpada (kerf-pozavestno); nabavne
+  deske so štete po dolžinah v potrebščinah, naročilu in predračunu
+- **Konfigurabilna pritrdila** — vijak lamela↔profil in vijak
+  nosilec/osnova↔podlaga sta prosto besedilo; sledijo jim potrebščine,
+  naročilo, detajli, montažni koraki in material (Inox/Pocinkano) iz naziva;
+  dobavitelj v naročilu je nastavljiv (privzeto WoodCore)
+- **Skladišče ostankov** (`ostanki.yaml`) — naslednji nalog ostanki.yaml
+  samodejno najprej porabi (po barvi in profilu, najdaljši prvi); odpis
+  porabljenih pa potrdiš sam (CLI: `--potrosi-ostanke`, GUI: gumb
+  „ODPIŠI OSTANKE”)
 - **Kontrola pravilnosti** — pred izvozom program preveri mere in geometrijo;
   pri napaki NE nastane nepopoln PDF
 - **Konstrukcijska varnost** — risba izrecno NI statični izračun; nosilnost,
@@ -104,27 +115,49 @@ foto: poslikava_terena.jpg       # neobvezno — vstavi se na risbo
 ## Struktura projekta
 
 ```
-risba.py            risalni motor (kote, šrafura, tabele, ISO glava) + predloga "ograda"
+risba.py            risalni motor (kote, šrafura, tabele, ISO glava) + obe predlogi
+razrez.py           optimizacija razreza (več dolžin, ostanki, kosovnica)
 vmesnik.py          grafični vmesnik (Tkinter)
 merjenje.py         pomožno merjenje s fotografije (kalibracija + zaznavanje)
+api/index.py        spletni generator (Vercel, Flask)
+cene.yaml           javni cenik za spletni predračun
+TehnicnaRisba.spec  PyInstaller spec za Windows EXE
 projekt_primer.yaml primer konfiguracije s komentarji
 slike/              primeri izhodov
 ```
 
 ## Kako deluje izračun rezalnega načrta
 
-Iz širine ograje, števila lamel in tovarniške dolžine deske (privzeto 5 800 mm)
-skripta izračuna: koliko kosov gre na eno desko (uposteva **kerf** — širino
-rezila), koliko desk je potrebnih, ostanek vsake deske in izkoristek. Nosilci se
-razporedijo po izbranem največjem razmaku, količina vijakov pa se izračuna iz
-števila lamel in nosilcev.
+Iz širine ograje, števila lamel in tovarniških dolžin desk (npr. `5800; 4000;
+2200`) optimizator izbere trakove z najmanjšim odpadom na kos (upošteva
+**kerf** — širino rezila), najprej porabi skladišče ostankov, nato izpiše
+ostanek vsakega traku in izkoristek. Nosilci se razporedijo po izbranem
+največjem razmaku, količina vijakov pa se izračuna iz števila lamel in
+nosilcev.
+
+## Izdelava Windows EXE (samostojni program)
+
+```bash
+python -m pip install pyinstaller
+pyinstaller TehnicnaRisba.spec --noconfirm
+# rezultat: dist/TehnicnaRisba.exe (pribl. 177 MB, brez namestitve)
+```
+
+Spec vključi risba.py + razrez.py + vmesnik.py; nastavitve se shranijo poleg
+EXE (`zadnje_nastavitve.yaml`), ostanki v delovno mapo (`ostanki.yaml`).
 
 ## Znane omejitve
 
 - Samodejno zaznavanje lamel/vijakov na fotografijah je **pomožno** — na
   terenskih posnetkih pod kotom ni zanesljivo; zanesljiva pot je kalibracija +
   klik-merjenje. Odtenek WPC se potrdi s vzorcem proizvajalca (ni RAL).
-- Predloga pokriva **prečno** ograjo (vodoravne lamele); pokončna je v pripravi.
+- Predlogi **prečno** (vodoravne lamele) in **pokončno** (navpične deske na
+  stebrih) sta polno podprti.
+- Odpis ostankov po rezanju je ročen: gumb „ODPIŠI OSTANKE" v GUI ali
+  CLI zastavica `--potrosi-ostanke` (namenoma — potrdiš, da so kosove res
+  rezali po načrtu).
+- Če se kakšen dodaten list (montažni list, predračun) ne more izrisati,
+  program to javi kot opozorilo — PDF strani 1 ostane.
 
 ## Avtorske pravice
 

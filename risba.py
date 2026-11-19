@@ -27,9 +27,10 @@ from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 import yaml
 
-from razrez import (razrez_podatki,
-                     nalozi_ostanke,
+from razrez import (nalozi_ostanke,
                      shrani_ostanke,
+                     pot_ostanki,
+                     porazdeli_z_ostanki,
                      optimiziraj_zalogo)
 from matplotlib.patches import Circle, Polygon, Rectangle
 
@@ -290,29 +291,6 @@ def tabela(ax, x0, y_top, sirine, vh, vrste, naslov=None, fs=8.5):
             x += w
         y -= vh
     return y
-
-
-def naslovni_blok(ax, polja):
-    x0, y0, x1, y1 = 6, 7, 414, 25
-    pravokotnik(ax, x0, y0, x1 - x0, y1 - y0, fill="white", lw=1.4)
-    delitve = [
-        ("PROJEKT", polja["ime"], 0.36, 14),
-        ("MERILO", polja["merilo"], 0.12, 10.5),
-        ("FORMAT", polja["format"], 0.10, 10.5),
-        ("DATUM", polja["datum"], 0.13, 10.5),
-        ("IZDELAL", polja["izdelal"], 0.15, 10.5),
-        ("RISBA ŠT.", polja["risba_st"], 0.14, 13),
-    ]
-    x = x0
-    for i, (ozn, vred, frak, fs) in enumerate(delitve):
-        w = (x1 - x0) * frak
-        if i > 0:
-            crta(ax, x, y0, x, y1, lw=0.9)
-        ax.text(x + 2, y1 - 4.2, ozn, fontsize=6.5, color="#555555",
-                ha="left", va="center")
-        ax.text(x + 2, y0 + (y1 - y0) / 2 - 2.2, vred, fontsize=fs,
-                fontweight="bold", ha="left", va="center")
-        x += w
 
 
 def opombe_blok(ax, x0, y_top, sirina, opombe,
@@ -1202,7 +1180,7 @@ def montazni_sestava(ax, x0, y_top, sirina, sestava):
         y -= 9
         w = sirina - 34
         pravokotnik(ax, sred - w / 2, y - hh, w, hh, fill="#c9d2e0",
-                    edgecolor=CRNA, lw=0.6)
+                    lw=0.6)
         ax.text(sred, y - hh / 2, naziv, ha="center", va="center",
                 fontsize=6.5, fontweight="bold")
         ax.text(sred + w / 2 + 4, y - hh / 2, dim, fontsize=6.5, ha="left",
@@ -1271,7 +1249,8 @@ def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki,
                     ax.text(x + w / 2, y + 3.5, lab, ha="center",
                             va="center", fontsize=6, color="white")
                 x += w
-            ost = dl - sum(ln for _, ln in kosi) - kerf * len(kosi)
+            ost = max(0, dl - sum(ln for _, ln in kosi)
+                      - kerf * len(kosi))
             w_ost = max(2.0, ost * sk)
             pravokotnik(ax, x, y, w_ost, 7, fill="#e9e9e9", lw=0.5)
             if w_ost > 16:
@@ -1312,48 +1291,6 @@ def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki,
         ax.text(x0 + 2, 24.5, ime, fontsize=6.5, color="#555555",
                 ha="left", va="center")
         crta(ax, x0 + 6, 18, x0 + w - 6, 18, lw=0.5)
-
-
-def pot_ostanki():
-    return os.path.join(os.getcwd(), "ostanki.yaml")
-
-
-def nalozi_ostanke():
-    try:
-        with open(pot_ostanki(), encoding="utf-8") as f:
-            return yaml.safe_load(f) or []
-    except Exception:
-        return []
-
-
-def shrani_ostanke(seznam):
-    with open(pot_ostanki(), "w", encoding="utf-8") as f:
-        yaml.safe_dump(seznam, f, allow_unicode=True, sort_keys=False)
-
-
-def porazdeli_z_ostanki(dol_kosa, n_kosov, ostanki, kerf, barva, profil):
-    """Prvi primer prileganja: kosi iz ostankov iste barve in profila.
-
-    Vrne (iz_ost [(indeks, št. kosov)], preostalo št. kosov, novi_ostanki).
-    Ostanek se uporabi, če je dolg vsaj kos + kerf; po rezanju ostane manjši
-    ostanek (izpuščen, če je krajši od 100 mm).
-    """
-    pari = [(i, o) for i, o in enumerate(ostanki)
-            if str(o.get("barva", "")).lower() == str(barva).lower()
-            and str(o.get("profil", "")).lower() == str(profil).lower()]
-    pari.sort(key=lambda p: -p[1].get("dolzina", 0))
-    iz_ost = []
-    preost = n_kosov
-    for (i, o) in pari:
-        if preost == 0:
-            break
-        if o.get("dolzina", 0) >= dol_kosa + kerf:
-            kol = min(int((o["dolzina"] + kerf) // (dol_kosa + kerf)), preost)
-            iz_ost.append((i, kol))
-            preost -= kol
-            o["dolzina"] = o["dolzina"] - kol * (dol_kosa + kerf)
-    novi = [o for o in ostanki if o.get("dolzina", 0) >= 100]
-    return iz_ost, preost, novi
 
 
 def narisi_montazni_list(ax, c):
@@ -1613,7 +1550,14 @@ def narisi_montazni_pokoncna(ax, c):
         f"- {vijak_lamela_naziv} — {vijaki} kos",
         f"- {vijak_nosilec_naziv} — {n_s * 2} kos",
     ]
-    montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki)
+    sestava = [
+        ("Ročaj (WPC/alu)", f"L = {fmt(sir)} mm"),
+        (f"WPC deska {profil}",
+         f"{fmt(m['deska_sirina'])}×{fmt(m['deska_debelina'])} mm"),
+        ("Alu steber 60×40", f"L = {fmt(vis)} mm"),
+        ("Osnova za steber 90×90×6", f"{vijak_nosilec_naziv} × 2"),
+    ]
+    montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki, sestava=sestava)
 
     cona_z = p["deske_z"][1] - p["deske_z"][0]
     n_vrst_r = min(len(rez_rows) - 1, 11) if rez_rows else 0
@@ -1672,6 +1616,22 @@ def preveri_cfg(cfg):
     if not isinstance(odcep, (int, float)) or odcep < 0:
         nap.append("Mera 'odcep' ne sme biti negativna.")
     if cfg.get("predloga") == "pokončna":
+        raz = m.get("razmak_stebrov", 1500)
+        if not isinstance(raz, (int, float)) or raz <= 0:
+            nap.append("Razmak stebrov mora biti pozitiven.")
+        ds = m.get("deska_sirina", 0)
+        if not isinstance(ds, (int, float)) or ds <= 0:
+            nap.append("Širina deske mora biti pozitivno število.")
+    else:
+        for klj, napis in (("lamela_v", "Višina lamel"),
+                           ("debelina", "Debelina lamel")):
+            v = m.get(klj)
+            if not isinstance(v, (int, float)) or v <= 0:
+                nap.append(f"Mera '{napis}' mora biti pozitivno število.")
+        raz = m.get("razmak_nosilcev", 1000)
+        if not isinstance(raz, (int, float)) or raz <= 0:
+            nap.append("Razmak nosilcev mora biti pozitiven.")
+    if cfg.get("predloga") == "pokončna":
         rv = m.get("rocaj_v", 40)
         cona = m.get("visina", 0) - odcep - rv
         if cona <= 0:
@@ -1684,6 +1644,9 @@ def preveri_cfg(cfg):
             nap.append("Razmak stebrov mora biti večji od širine stebra.")
         if m.get("lamele", 0) < 1:
             nap.append("Število desk mora biti vsaj 1.")
+        vrzel = m.get("vrzel", 20.0)
+        if not isinstance(vrzel, (int, float)) or vrzel < 0:
+            nap.append("Vrzel med deskami ne sme biti negativna.")
     else:
         cona = m.get("visina", 0) - odcep - 2 * m.get("profil_v", 40)
         if cona <= 0:
@@ -1792,8 +1755,15 @@ def narisi_predracun(ax, c, postavke):
 
 
 # ---------------------------------------------------------------- glavno
+ZADNJA_OPOZORILA = []   # opozorila zadnjega generiraj() (npr. padel list 2)
+
+
 def generiraj(cfg, dpi_png=200):
-    """Iz konfiguracije nariše risbo in vrne (pot_pdf, pot_png)."""
+    """Iz konfiguracije nariše risbo in vrne (pot_pdf, pot_png).
+
+    Opozorila o delno izdelanem PDF (npr. brez montažnega lista) so v
+    ZADNJA_OPOZORILA in na stderr — risba strani 1 ostane na voljo.
+    """
     pred_norm = ("pokončna" if str(cfg.get("predloga", "")).strip().lower()
                  == "pokončna" else "ograja")
     predloga = PREDLOGE.get(pred_norm) or PREDLOGE.get("ograja")
@@ -1812,14 +1782,19 @@ def generiraj(cfg, dpi_png=200):
     ml_fn = {"ograja": narisi_montazni_list,
              "ograda": narisi_montazni_list,
              "pokončna": narisi_montazni_pokoncna}.get(pred_norm)
+    del ZADNJA_OPOZORILA[:]
     if ml_fn:
         try:
             fig2, ax2 = nov_list()
             kolicine = ml_fn(ax2, cfg)
-        except Exception:
+        except Exception as napaka:
             if fig2 is not None:
                 plt.close(fig2)
             fig2 = None
+            sporocilo = (f"Montažni list ni bil izdelan — PDF ima samo "
+                         f"risbo. Vzrok: {napaka}")
+            ZADNJA_OPOZORILA.append(sporocilo)
+            print("OPOZORILO: " + sporocilo, file=sys.stderr)
     izhod = os.path.abspath(cfg["izhod"])
     with PdfPages(izhod) as pdf:
         pdf.savefig(fig)
@@ -1831,10 +1806,14 @@ def generiraj(cfg, dpi_png=200):
                 fig3, ax3 = nov_list()
                 narisi_predracun(ax3, cfg, kolicine["postavke"])
                 pdf.savefig(fig3)
-            except Exception:
+            except Exception as napaka:
                 if fig3 is not None:
                     plt.close(fig3)
                 fig3 = None
+                sporocilo = (f"Predračun ni bil izdelan — PDF je brez "
+                             f"strani 3. Vzrok: {napaka}")
+                ZADNJA_OPOZORILA.append(sporocilo)
+                print("OPOZORILO: " + sporocilo, file=sys.stderr)
     png = os.path.splitext(izhod)[0] + ".png"
     fig.savefig(png, dpi=dpi_png)
     dodatni = []

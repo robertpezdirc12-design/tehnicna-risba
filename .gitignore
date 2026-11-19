@@ -24,8 +24,8 @@ _gui_test*
 _potrebscine*
 dist/
 build/
-dist/
 *.spec
+!TehnicnaRisba.spec
 _gui_nar*
 _jezik.py
 _patch*

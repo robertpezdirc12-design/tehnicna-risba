@@ -47,7 +47,7 @@ NAPISI = {
 
 # cene za predračun (stran 3 PDF) — ključi so enaki kot v yaml 'cene:'
 CENE_KLJUCI = ("wpc_deska_m", "alu_m", "rocaj_kos", "nosilec_kos",
-               "vijak_kos", "fasadni_kos", "anker_kos",
+               "vijak_kos", "fasadni_kos", "anker_kos", "osnova_kos",
                "dela_ure", "dela_ur_cena")
 
 CENE_NAPISI = {
@@ -58,6 +58,7 @@ CENE_NAPISI = {
     "vijak_kos": "Vijak (EUR/kos):",
     "fasadni_kos": "Fasadni vijak (EUR/kos):",
     "anker_kos": "Anker M10 (EUR/kos):",
+    "osnova_kos": "Osnova za steber (EUR/kos):",
     "dela_ure": "Delo (ure):",
     "dela_ur_cena": "Delo (EUR/h):",
 }
@@ -525,9 +526,16 @@ class App(tk.Tk):
             self.btn_ost.config(state="normal")
         self.btn_narisi.config(state="normal", text="NARIŠI RISBO")
         dok = " + ".join(os.path.basename(p) for p in dodatni)
+        opozorila = list(getattr(risba, "ZADNJA_OPOZORILA", []))
         self.status.config(text=f"Napisano: {os.path.basename(izhod)} • {dok} "
                                 f"• nastavitve samodejno shranjene",
                            fg="#1b5e20")
+        if opozorila:
+            self.status.config(text="Napisano z OPOZORILI — PDF ni popoln "
+                                    "(glej sporočilo).", fg="#b26a00")
+            messagebox.showwarning(
+                "Opozorila", "PDF je nastal, a ni popoln:\n\n"
+                + "\n\n".join(opozorila))
         self._shrani_zadnje()
         self._pokazi_predogled(png)
 

@@ -4,7 +4,7 @@
 #  Vse mere v milimetrih.
 # ============================================================
 
-predloga: ograja          # trenutno na voljo: ograda
+predloga: ograja          # 'ograja' (vodoravne lamele) ali 'pokončna' (navpične deske)
 ime: BALKONSKA OGRAJA
 risba_st: BO-001
 izdelal: R. Pezdirc

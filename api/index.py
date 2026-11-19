@@ -9,7 +9,7 @@ import os
 import sys
 import tempfile
 
-from flask import Flask, request, send_file, Response
+from flask import Flask, request, send_file, Response, after_this_request
 
 import yaml
 
@@ -91,6 +91,10 @@ a{color:#1f2a3a}
 <option value="Po dogovoru">Po dogovoru</option>
 </select> <span class="opomba">(odtenek vedno potrdi s vzorcem proizvajalca)</span></label>
 <label>Material profilov:<input name="material" value="Aluminij (prašno barvano)"></label>
+<label>Material lamel:<input name="material_lamel" value="WPC lesni kompozit"></label>
+<div class="grid">
+<div><label>Dobavitelj:<input name="dobavitelj" value="WoodCore"></label></div>
+</div>
 <div class="grid">
 <div><label>Podjetje:<input name="podjetje"></label></div>
 <div><label>Pregledal:<input name="pregledal"></label></div>
@@ -118,8 +122,26 @@ a{color:#1f2a3a}
 <div><label>Razmak nosilcev oz. stebrov:<input name="razmak" value="1000"></label></div>
 <div><label>Vrzel med deskami (samo pokončna):<input name="vrzel" value="20"></label></div>
 </div>
+<div class="grid">
+<div><label>Kerf (širina rezila):<input name="kerf" value="3"></label></div>
+<div><label>Dolžine desk v nabavi (mm, loči z ;):<input name="dolzine_deske" value="5800; 4000"></label></div>
+</div>
 <p class="opomba">(višina zgornjega/spodnjega profila je 40 mm; ročaj pri
 pokončni 40 mm)</p>
+</fieldset>
+
+<fieldset><legend>PRITRDITEV</legend>
+<div class="grid">
+<div><label>Podlaga:<input name="podlaga" placeholder="npr. beton, zid, les"></label></div>
+<div><label>Način pritrditve:<select name="pritrditev">
+<option value="bočno">bočno (skoz)</option>
+<option value="vrh">vrh (nosilec spredaj)</option>
+</select></label></div>
+</div>
+<div><label>Vijak lamela↔profil:<input name="vijak_lamela" placeholder="npr. RF M8×70 Inox"></label></div>
+<div><label>Vijak nosilec/osnova↔podlaga:<input name="vijak_nosilec" placeholder="npr. fasadni Ø8×80 + tipli / anker M10"></label></div>
+<p class="opomba">(pritrdila so prosto besedilo — izpišejo se v potrebščinah,
+naročilu in detajlih)</p>
 </fieldset>
 
 <fieldset><legend>PREDRAČUN</legend>
@@ -150,6 +172,20 @@ def _stev(f, kljuc, privzeto):
     if not raw:
         return privzeto
     return float(raw)
+
+
+def _dolzine(raw):
+    """Dolžine desk iz vpisa ('5800; 4000') — seznam števil ali None."""
+    vred = []
+    for x in (raw or "").replace(";", ",").split(","):
+        x = x.strip().replace(",", ".")
+        if not x:
+            continue
+        try:
+            vred.append(float(x))
+        except ValueError:
+            continue
+    return vred or None
 
 
 @app.route("/generiraj", methods=["POST"])
@@ -194,7 +230,15 @@ def generiraj_web():
             "profil": (f.get("profil") or ("POLNA DESKA 100" if pok
                         else "ROMB 67")).strip(),
             "material": (f.get("material") or "Aluminij (prašno barvano)").strip(),
-            "material_lamel": "WPC lesni kompozit",
+            "material_lamel": (f.get("material_lamel")
+                               or "WPC lesni kompozit").strip(),
+            "dobavitelj": (f.get("dobavitelj") or "WoodCore").strip() or None,
+            "podlaga": (f.get("podlaga") or "").strip() or None,
+            "pritrditev": (f.get("pritrditev") or "bočno").strip(),
+            "vijak_lamela": (f.get("vijak_lamela") or "").strip() or None,
+            "vijak_nosilec": (f.get("vijak_nosilec") or "").strip() or None,
+            "kerf": _stev(f, "kerf", 3.0),
+            "dolzine_deske": _dolzine(f.get("dolzine_deske", "")),
             "deli": None, "opombe": None, "revizije": None,
             "mere": m,
         }
@@ -210,6 +254,23 @@ def generiraj_web():
         risba.generiraj(cfg, dpi_png=80)
         varno = "".join(ch for ch in cfg["risba_st"]
                         if ch.isalnum() or ch in "-_") or "risba"
+        # stranski izhodi (png/csv/txt) uporabnik prek spleta ne dobi —
+        # po pošiljanju PDF jih počistimo iz /tmp
+        osnova = os.path.splitext(pdf_pot)[0]
+        brisi = [osnova + kon for kon in
+                 ("-montazni-list.png", "-predracun.png", "-nalepke.png",
+                  "-kosovnica.csv", "-narocilo.txt", ".png")]
+        brisi = [p for p in brisi if os.path.isfile(p)]
+
+        @after_this_request
+        def pocisti(resp):
+            for p in brisi:
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
+            return resp
+
         return send_file(pdf_pot, mimetype="application/pdf",
                          as_attachment=True, download_name=f"{varno}.pdf")
     except ValueError as e:
