@@ -1,0 +1,60 @@
+# ============================================================
+#  PRIMER KONFIGURACIJE — balkonska ograja (predloga "ograda")
+#  Poženi:  python risba.py projekt_primer.yaml
+#  Vse mere v milimetrih.
+# ============================================================
+
+predloga: ograda          # trenutno na voljo: ograda
+ime: BALKONSKA OGRAJA
+risba_st: BO-001
+izdelal: R. Pezdirc
+podjetje: ""              # ime podjetja v glavi (ISO 7200; neobvezno)
+pregledal: ""             # neobvezno
+odobril: ""               # neobvezno
+# revizije:                # tabela sprememb (privzeto se doda "A — Prva izdaja")
+#   - ["A", "19.11.2026", "Prva izdaja", "R. Pezdirc"]
+#   - ["B", "20.11.2026", "Spremenjen razmak nosilcev", "R. Pezdirc"]
+datum: ""                 # prazno = današnji datum (npr. 19.11.2026)
+merilo: auto              # "auto" ali npr. "1:20"
+format: A3
+izhod: BO-001.pdf
+
+foto: ""                  # pot do fotografije objekta (neobvezno);
+                          # če je navedena, se vstavi namesto izometričnega pogleda
+
+material: Aluminij (prašno barvano)
+material_lamel: WPC lesni kompozit
+
+# Barva lamel na risbi — ime iz ponudbe (Antracit, Siva, Teak, Rustic Oak,
+# Rustic Walnut, Kava, Bež, RAL 7016 (prašno barvanje)) ali #hex.
+# Točni odtenek WPC se vedno potrdi s vzorcem proizvajalca (WoodCore ne dela po RAL).
+barva: "Antracit"
+
+profil: ROMB 67           # WoodCore deska: ROMB 67, POLNA DESKA 100,
+                          # POLNA DESKA 128, POLNA DESKA 57/32, KUBO 80×42 …
+
+# Dolžine materiala za rezalni načrt / potrebščine (montażni list, str. 2)
+dolzina_deske: 5800       # tovarniška dolžina WPC deske (mm)
+dolzina_palice: 6000      # tovarniška dolžina alu profila (mm)
+kerf: 3                   # širina rezila (mm) — upoštevana v ostankih in izkoristku
+
+mere:
+  sirina: 3000            # dolžina ograje (sprednji pogled)
+  visina: 1200            # višina od tal do vrha
+  globina: 1200           # globina / stranska dolžina
+  odcep: 60               # višina spodnjega profila nad tlemi
+  profil_v: 40            # višina zgornjega in spodnjega profila
+  lamela_v: 60            # višina lamel (navpična)
+  debelina: 20            # debelina lamel
+  lamele: 13              # število lamel (če se ne prilega, se prilagodi)
+  razmak_nosilcev: 1000   # največji razmak pritrdilnih nosilcev (mm);
+                          # lega nosilcev in količina v listu delov se izračunata
+
+# Neobvezno: ročni seznam delov (sicer se sestavi samodejno)
+# deli:
+#   - [Zgornji profil, Aluminij, 80×40×3, 1 kos]
+#   - [Lamela, Aluminij, 60×20×2, 13 kos]
+
+# Neobvezno: ročne tehnične opombe (sicer privzete)
+# opombe:
+#   - Vse mere so v milimetrih (mm).

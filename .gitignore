@@ -1,0 +1,17 @@
+# zasebne / delovne datoteke — ne grejo v repo
+zadnje_nastavitve.yaml
+testi/
+__pycache__/
+*.pyc
+
+# terenske fotografije in lokalni poskusi
+teren_*
+foto_ograda.png
+pravokotna_foto.jpg
+projekt_test.yaml
+
+# posamezni izhodi (v repo gre samo slike/ z dobrimi primeri)
+*.pdf
+BO-001.png
+BO-001-montazni-list.png
+*-oznaceno.png
