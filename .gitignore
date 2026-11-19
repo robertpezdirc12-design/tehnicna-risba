@@ -17,3 +17,6 @@ BO-001-montazni-list.png
 *-oznaceno.png
 _potrebscine*
 dist/
+build/
+dist/
+*.spec
