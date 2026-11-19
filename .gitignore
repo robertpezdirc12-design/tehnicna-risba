@@ -15,6 +15,12 @@ projekt_test.yaml
 BO-001.png
 BO-001-montazni-list.png
 *-oznaceno.png
+*-kosovnica.csv
+*-nalepke.png
+*-narocilo.txt
+*-montazni-list.png
+*-predracun.png
+_gui_test*
 _potrebscine*
 dist/
 build/
