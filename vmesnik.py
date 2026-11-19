@@ -142,11 +142,21 @@ class App(tk.Tk):
                  font=("Segoe UI", 15, "bold")).pack(pady=(12, 0))
         tk.Label(self, text="Balkonska ograja iz lamel — vpiši mere in nariši (A3 PDF za tisk)",
                  fg="#555555").pack(pady=(0, 4))
-        ttk.Checkbutton(self, text="Preprosti način — pokaži samo osnovno "
+        fr_p = ttk.Frame(self)
+        fr_p.pack(fill="x", padx=14, pady=(0, 4))
+        if "predloga" not in self.v:
+            self.v["predloga"] = tk.StringVar(value="ograda")
+        ttk.Label(fr_p, text="Predloga:").pack(side="left", padx=(0, 4))
+        self.cb_pred = ttk.Combobox(fr_p, width=12, state="readonly",
+                                    textvariable=self.v["predloga"],
+                                    values=["ograda", "pokončna"])
+        self.cb_pred.pack(side="left")
+        self.cb_pred.bind("<<ComboboxSelected>>",
+                          lambda e: self._preklopi_predlogo())
+        ttk.Checkbutton(fr_p, text="Preprosti način — pokaži samo osnovno "
                         "(mere, fotografija, NARIŠI)",
                         variable=self.st_preprost,
-                        command=self._preklopi_nacin).pack(anchor="e",
-                                                           padx=14, pady=(0, 4))
+                        command=self._preklopi_nacin).pack(side="right")
 
         zg = ttk.Frame(self, padding=(14, 4))
         zg.pack(fill="x")
@@ -319,6 +329,10 @@ class App(tk.Tk):
             "lamela_v": stev("lamela_v"), "debelina": stev("debelina"),
             "odcep": stev("odcep"), "profil_v": 40.0,
             "razmak_nosilcev": stev("razmak_nosilcev"),
+            "deska_sirina": stev("lamela_v"), "deska_debelina": stev("debelina"),
+            "vrzel": 20.0, "rocaj_v": 40.0,
+            "razmak_stebrov": stev("razmak_nosilcev"),
+            "steber_sirina": 60.0, "steber_debelina": 40.0,
         }
 
     def _zberi_cfg(self):
@@ -329,7 +343,7 @@ class App(tk.Tk):
         if foto and not os.path.isfile(foto):
             raise ValueError(f"Fotografija ne obstaja: {foto}")
         return {
-            "predloga": "ograda", "ime": ime,
+            "predloga": self.v["predloga"].get() or "ograda", "ime": ime,
             "risba_st": self.v["risba_st"].get().strip() or "BO-001",
             "izdelal": self.v["izdelal"].get().strip() or "",
             "stranka": self.v["stranka"].get().strip() or None,
@@ -390,6 +404,22 @@ class App(tk.Tk):
     # napredna polja — skrita v preprostem načinu
     ADVANS = ("podjetje", "pregledal", "odobril", "stranka", "objekt",
               "material", "profil", "razmak_nosilcev", "barva", "meri_slike")
+
+    def _preklopi_predlogo(self):
+        """Prilagodi napise polj predlogi (ograda / pokončna)."""
+        pok = self.v["predloga"].get() == "pokončna"
+        if "lamele" in self.polja:
+            self.polja["lamele"][0].config(
+                text="Število desk:" if pok else "Število lamel:")
+        if "lamela_v" in self.polja:
+            self.polja["lamela_v"][0].config(
+                text="Širina desk (mm):" if pok else "Višina lamel (mm):")
+        if "debelina" in self.polja:
+            self.polja["debelina"][0].config(
+                text="Debelina desk (mm):" if pok else "Debelina lamel (mm):")
+        if "razmak_nosilcev" in self.polja:
+            self.polja["razmak_nosilcev"][0].config(
+                text="Razmak stebrov (mm):" if pok else "Razmak nosilcev (mm):")
 
     def _preklopi_nacin(self):
         """Preprosti način: skrije napredna polja, pokaže samo osnovno."""
@@ -459,6 +489,9 @@ class App(tk.Tk):
         if "preprost_nacin" in cfg:
             self.st_preprost.set(bool(cfg["preprost_nacin"]))
             self._preklopi_nacin()
+        if "predloga" in cfg:
+            self.v["predloga"].set(str(cfg["predloga"]))
+            self._preklopi_predlogo()
 
     def _pokazi_predogled(self, png):
         if IMA_PIL:

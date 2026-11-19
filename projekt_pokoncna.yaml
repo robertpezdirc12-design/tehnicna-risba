@@ -1,0 +1,41 @@
+# ============================================================
+#  PRIMER — POKONČNA OGRAJA (stebri + navpične deske)
+#  Poženi:  python risba.py projekt_pokoncna.yaml
+#  Vse mere v milimetrih.
+# ============================================================
+
+predloga: pokončna
+ime: POKONČNA OGRAJA
+risba_st: PO-001
+izdelal: R. Pezdirc
+stranka: ""
+objekt: ""
+podjetje: ""
+datum: ""
+merilo: auto
+format: A3
+izhod: PO-001.pdf
+
+foto: ""                  # neobvezno — slika izvedbe
+
+material: Aluminij (prašno barvano)
+material_lamel: WPC lesni kompozit
+barva: "Antracit"
+profil: POLNA DESKA 100   # WoodCore: POLNA DESKA 100/128, 57/32 …
+
+dolzina_deske: 5800       # tovarniška dolžina WPC deske (mm)
+dolzina_palice: 6000      # tovarniška dolžina alu profila (mm)
+kerf: 3                   # širina rezila (mm)
+
+mere:
+  sirina: 3000            # dolžina ograje
+  visina: 1200            # višina od tal do vrha ročaja
+  odcep: 60               # spodnji rob desk nad tlemi
+  rocaj_v: 40             # višina ročaja (zgornji profil)
+  deska_sirina: 100       # širina deske (WoodCore POLNA DESKA 100)
+  deska_debelina: 20      # debelina deske
+  vrzel: 20               # vrzel med deskami (Roksal: 5–30 mm)
+  lamele: 20              # število desk (samodejno se prilagodi)
+  razmak_stebrov: 1500    # največji razmak stebrov (mm)
+  steber_sirina: 60       # prerez stebra (širina)
+  steber_debelina: 40     # prerez stebra (globina)

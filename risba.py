@@ -455,6 +455,303 @@ def narisi_zgradbo(v, zg, sp, lamele, x0r, x1r, b_lam, b_pro, cut=False):
         v.kocka(x0r, z0, x1r, z1, fill=b_lam)
 
 
+# ---------------------------------------------------------------- predloga: pokončna
+def razpored_pokoncna(m):
+    """Razpored pokončne ograje: stebri (lego), deske (x0), višine.
+
+    Stebri po krajih in z največjim razmakom; deske med stebri z enakomerno
+    vrzeljo; če se ne prilegajo, se število samodejno prilagodi.
+    """
+    sir, vis = m["sirina"], m["visina"]
+    odcep, rv = m["odcep"], m["rocaj_v"]
+    ss, sd = m["steber_sirina"], m["steber_debelina"]
+    ds, dd = m["deska_sirina"], m["deska_debelina"]
+    vrzel, n = m["vrzel"], m["lamele"]
+    raz = m["razmak_stebrov"]
+
+    n_stebrov = max(2, math.ceil((sir - ss) / raz) + 1)
+    centri = [ss / 2 + i * (sir - ss) / (n_stebrov - 1) for i in range(n_stebrov)]
+
+    cona = sir - n_stebrov * ss               # za deske (med stebri)
+    n_max = max(1, int((cona + vrzel) // (ds + vrzel)))
+    if n > n_max:
+        print(f"[OPOZORILO] {n} desk × {ds} mm se ne prilega v cono "
+              f"{cona:.0f} mm — prilagojeno na {n_max} desk.")
+        n = n_max
+    if n * ds > cona:
+        raise ValueError("Deske se ne prilegajo — zmanjšaj število ali "
+                         "širino desk.")
+    vrzel_r = (cona - n * ds) / (n - 1) if n > 1 else 0
+    x0_prva = ss / 2 + (cona - n * ds - (n - 1) * vrzel_r) / 2
+    deske_x = [x0_prva + i * (ds + vrzel_r) for i in range(n)]
+    deske_h = vis - rv - odcep
+    return {"centri": centri, "deske_x": deske_x, "deske_h": deske_h,
+            "vrzel": vrzel_r, "n_stebrov": n_stebrov, "n_desk": n,
+            "rocaj": (vis - rv, vis), "deske_z": (odcep, odcep + deske_h)}
+
+
+def narisi_pokoncna(ax, c):
+    m = c["mere"]
+    sir, vis = m["sirina"], m["visina"]
+    odcep, rv = m["odcep"], m["rocaj_v"]
+    ss, sd = m["steber_sirina"], m["steber_debelina"]
+    ds, dd = m["deska_sirina"], m["deska_debelina"]
+    p = razpored_pokoncna(m)
+    cona_z = p["deske_z"][1] - p["deske_z"][0]
+
+    b_lam = barva_hex(c.get("barva"))
+    b_pro = odsteni(b_lam, 0.72)
+
+    if str(c["merilo"]).lower() == "auto":
+        d = next((q for q in (2, 5, 10, 20, 25, 50, 100)
+                  if sir / q <= 150 and vis / q <= 72), 100)
+    else:
+        d = int(str(c["merilo"]).split(":")[-1])
+    s = 1.0 / d
+    merilo_niz = f"1:{d}"
+
+    iso_okvir(ax)
+
+    # ==================== SPREDNJI POGLLED ====================
+    oznaka(ax, 30, 286, "SPREDNJI POGLLED")
+    v = Pogled(ax, 35, 206, s)
+    for xr in p["deske_x"]:                    # deske (za stebri)
+        v.kocka(xr, p["deske_z"][0], xr + ds, p["deske_z"][1], fill=b_lam)
+    for xc in p["centri"]:                     # stebri (pred deskami)
+        v.kocka(xc - ss / 2, 0, xc + ss / 2, vis, fill=b_pro)
+        v.kocka(xc - ss / 2 - 15, 0, xc + ss / 2 + 15, 6, fill=b_pro)  # osnova
+    v.kocka(0, vis - rv, sir, vis, fill=b_pro)  # ročaj
+    tla(ax, v.X(-3), v.X(sir + 3), v.Y(0))
+    # vijaki (pika = priključek deska↔steber, 2 vijaka)
+    for xc in p["centri"]:
+        for xr in p["deske_x"]:
+            for fz in (0.25, 0.75):
+                z = p["deske_z"][0] + cona_z * fz
+                ax.add_patch(Circle((v.X(xc), v.Y(z)), 0.55,
+                                    facecolor="#e8e8e8", edgecolor="none",
+                                    zorder=4))
+    dim_h(ax, v.X(0), v.X(sir), v.Y(vis) + 8, v.Y(vis), v.Y(vis),
+          f"{fmt(sir)} mm")
+    dim_v(ax, v.Y(0), v.Y(vis), v.X(0) - 3, v.X(-3), v.X(0), f"{fmt(vis)} mm")
+    xk = v.X(sir) + 8
+    dim_v(ax, v.Y(vis - rv), v.Y(vis), xk, v.X(sir), v.X(sir),
+          f"{fmt(rv)} mm")
+    dim_v(ax, v.Y(p["deske_z"][0]), v.Y(p["deske_z"][1]), xk, v.X(sir),
+          v.X(sir), f"{fmt(cona_z)} mm")
+    dim_v(ax, v.Y(0), v.Y(odcep), xk, v.X(sir), v.X(sir), f"{fmt(odcep)} mm")
+    if len(p["centri"]) >= 2:
+        dim_h(ax, v.X(p["centri"][0]), v.X(p["centri"][1]), v.Y(0) - 5,
+              None, None, f"{fmt(p['centri'][1] - p['centri'][0])} mm")
+    # širina deske + vrzel (kota na prvih dveh deskah, zgoraj)
+    if len(p["deske_x"]) >= 2:
+        pass  # širina deske se kotira na DETAJL DESKE
+
+    # ==================== STRANSKI POGLLED ====================
+    oznaka(ax, 268, 286, "STRANSKI POGLLED")
+    v2 = Pogled(ax, 276, 206, s)
+    skupna_d = sd + dd                         # steber + deska pred njim
+    v2.kocka(0, 0, sd, vis, fill=b_pro)        # steber (prerez)
+    v2.kocka(sd, p["deske_z"][0], skupna_d, p["deske_z"][1], fill=b_lam)
+    v2.kocka(0, vis - rv, skupna_d, vis, fill=b_pro)   # ročaj
+    pravokotnik(ax, v2.X(0) - 4.5, v2.Y(0) - 2, (skupna_d + 4.5) * s,
+                6 * s + 2, fill=b_pro, lw=0.5)          # osnova
+    tla(ax, v2.X(0) - 4.5, v2.X(skupna_d + 3), v2.Y(0))
+    dim_h(ax, v2.X(0), v2.X(skupna_d), v2.Y(vis) + 8, v2.Y(vis), v2.Y(vis),
+          f"{fmt(skupna_d)} mm")
+    dim_v(ax, v2.Y(0), v2.Y(vis), v2.X(skupna_d) + 8, v2.X(skupna_d),
+          v2.X(skupna_d), f"{fmt(vis)} mm")
+
+    # ==================== TLORIS ====================
+    oznaka(ax, 30, 130, "TLORIS")
+    v3 = Pogled(ax, 35, 120, s)                # y = globina (od tal)
+    pravokotnik(ax, v3.X(0), v3.Y(0), sir * s, skupna_d * s, fill="none",
+                lw=LW_THICK)
+    for xc in p["centri"]:                     # stebri v tlorisu
+        pravokotnik(ax, v3.X(xc - ss / 2), v3.Y(0) + 1,
+                    ss * s, (skupna_d - 2) * s, fill=b_pro, lw=0.5)
+    xa = v3.X(sir - 100)
+    crta(ax, xa, v3.Y(0) - 3, xa, v3.Y(0) + skupna_d * s + 3, lw=1.1,
+         stil=(0, (6, 2, 1, 2)))
+    puscica(ax, xa + 3, v3.Y(0) - 3, 1, 0, vel=2.2)
+    puscica(ax, xa + 3, v3.Y(0) + skupna_d * s + 3, 1, 0, vel=2.2)
+    ax.text(xa + 7, v3.Y(0) - 3, "A", ha="left", va="center", fontsize=10.5,
+            fontweight="bold")
+    ax.text(xa + 7, v3.Y(0) + skupna_d * s + 3, "A", ha="left", va="center",
+            fontsize=10.5, fontweight="bold")
+    dim_h(ax, v3.X(0), v3.X(sir), v3.Y(0) + skupna_d * s + 10,
+          v3.Y(0) + skupna_d * s + 6, v3.Y(0) + skupna_d * s + 6, f"{fmt(sir)} mm")
+    dim_v(ax, v3.Y(0), v3.Y(0) + skupna_d * s, v3.X(sir) + 8, v3.X(sir),
+          v3.X(sir), f"{fmt(skupna_d)} mm")
+
+    # ==================== PREREZ A - A (1:5, prekinjen) ====================
+    oznaka(ax, 20, 39, "PREREZ A - A")
+    s2 = 1.0 / 5
+    px0 = 30                                   # levi rob (steber) na papirju
+    pw_s, pw_d = ss * s2, dd * s2              # širini na papirju
+    y_tla = 45
+    # spodnji del: plošča + osnova + ankerja + steber + deska
+    sachiranje(ax, px0 - 8, y_tla - 2, px0 + pw_s + pw_d + 8, y_tla + 3)
+    pravokotnik(ax, px0 - 3, y_tla + 3, pw_s + pw_d + 6, 4, fill=b_pro,
+                lw=0.5)                        # osnova
+    pravokotnik(ax, px0 + 2, y_tla + 5, 3, 5, fill="white", lw=0.4)   # anker
+    pravokotnik(ax, px0 + pw_s + pw_d - 5, y_tla + 5, 3, 5, fill="white",
+                lw=0.4)                        # anker
+    h_b = 14
+    y_b0 = y_tla + 7
+    pravokotnik(ax, px0, y_b0, pw_s, h_b, fill=b_pro, lw=LW_THICK)
+    pravokotnik(ax, px0 + pw_s, y_b0, pw_d, h_b, fill=b_lam, lw=LW_THICK)
+    for xx in (px0, px0 + pw_s, px0 + pw_s + pw_d):
+        crta(ax, xx - 1.5, y_b0 + h_b - 2, xx + 1.5, y_b0 + h_b + 3, lw=0.7)
+    # zgornji del: steber + deska + ročaj
+    y_top_top = 101
+    h_t = 16
+    pravokotnik(ax, px0, y_top_top - h_t, pw_s, h_t - 8, fill=b_pro,
+                lw=LW_THICK)
+    pravokotnik(ax, px0 + pw_s, y_top_top - h_t, pw_d, h_t - 8, fill=b_lam,
+                lw=LW_THICK)
+    pravokotnik(ax, px0 - 2, y_top_top - 8, pw_s + pw_d + 4, 8, fill=b_pro,
+                lw=LW_THICK)                   # ročaj
+    for xx in (px0, px0 + pw_s, px0 + pw_s + pw_d):
+        crta(ax, xx - 1.5, y_top_top - h_t - 3, xx + 1.5, y_top_top - h_t - 8,
+             lw=0.7)
+    dim_h(ax, px0 - 2, px0 + pw_s + pw_d + 2, y_top_top + 4, y_top_top,
+          y_top_top, f"{fmt(skupna_d)} mm")
+    dim_h(ax, px0, px0 + pw_s, y_tla - 7, None, None, f"{fmt(ss)} mm")
+    dim_h(ax, px0 + pw_s, px0 + pw_s + pw_d, y_tla - 14, None, None,
+          f"{fmt(dd)} mm")
+    ax.text(px0 + pw_s + pw_d + 10, y_tla + 10, "M10 × 2", fontsize=7,
+            ha="left", va="center")
+    ax.text(px0 + pw_s + pw_d + 10, y_tla + 22, "(prekinjeno)", fontsize=6,
+            color="#555555", ha="left", va="center")
+    ozna_st(ax, px0 - 2, y_top_top - 4, 106, y_top_top - 4, 1)
+    ozna_st(ax, px0 + pw_s + pw_d, y_top_top - 12, 106, y_top_top - 12, 2)
+    ozna_st(ax, px0 + pw_s + pw_d, y_b0 + h_b - 6, 106, y_b0 + h_b - 14, 3)
+    ozna_st(ax, px0 - 3, y_tla + 5, 16, 30, 4)
+
+    # ==================== DETAJL PRITRJEVANJA ====================
+    oznaka(ax, 106, 121, "DETAJL PRITRJEVANJA")
+    cx, cy, r = 138, 74, 23
+    sachiranje(ax, cx - r, cy - r, cx + r, cy - r + 7)      # plošča (spodaj)
+    pravokotnik(ax, cx - 15, cy - 7, 30, 5, fill=b_pro, lw=0.5)  # osnova
+    pravokotnik(ax, cx - 9, cy - 16, 4, 9, fill="white", lw=0.4)  # anker L
+    pravokotnik(ax, cx + 5, cy - 16, 4, 9, fill="white", lw=0.4)  # anker D
+    pravokotnik(ax, cx - 7.5, cy - 2, 15, 20, fill=b_pro, lw=0.5)  # steber
+    pravokotnik(ax, cx + 7.5, cy + 2, 8, 15, fill=b_lam, lw=0.5)   # deska
+    ax.add_patch(Circle((cx + 11.5, cy + 6), 1.2, facecolor="#e8e8e8",
+                        edgecolor="none", zorder=4))
+    ax.add_patch(Circle((cx + 11.5, cy + 13), 1.2, facecolor="#e8e8e8",
+                        edgecolor="none", zorder=4))
+    dim_h(ax, cx - 7.5, cx + 7.5, cy + 21, None, None, "60 mm")
+    ax.add_patch(Circle((cx, cy), r, facecolor="none", edgecolor=CRNA,
+                        lw=LW_THICK, zorder=8))
+    ax.text(cx, cy - r - 3, "NERAZMERJENO", ha="center", va="center",
+            fontsize=7, color="#555555")
+    ax.text(cx, cy - r - 7, "anker M10 × 2 • predrtje Ø + 1 mm", ha="center",
+            va="center", fontsize=7, color="#555555")
+
+    # ==================== DETAJL DESKE ====================
+    oznaka(ax, 172, 121, "DETAJL DESKE")
+    cx2, cy2, r2 = 192, 74, 20
+    sl = min(0.4, 36 / ds, 14 / dd)
+    lw_, hh_ = ds * sl, dd * sl
+    pravokotnik(ax, cx2 - lw_ / 2, cy2 - hh_ / 2, lw_, hh_, fill=b_lam,
+                lw=0.5)
+    ax.add_patch(Circle((cx2, cy2), r2, facecolor="none", edgecolor=CRNA,
+                        lw=LW_THICK, zorder=8))
+    dim_h(ax, cx2 - lw_ / 2, cx2 + lw_ / 2, cy2 + hh_ / 2 + 4, None, None,
+          f"{fmt(ds)} mm")
+    dim_v(ax, cy2 - hh_ / 2, cy2 + hh_ / 2, cx2 + r2 + 4, cx2 + lw_ / 2,
+          cx2 + lw_ / 2, f"{fmt(dd)} mm")
+
+    # ==================== IZOMETRIČNI POGLLED / FOTO ====================
+    foto = c.get("foto") or ""
+    if foto and os.path.isfile(foto):
+        oznaka(ax, 256, 200, "POGLED IZVEDBE")
+        img = plt.imread(foto)
+        h_px, w_px = img.shape[0], img.shape[1]
+        rx0, ry0, rw, rh = 258, 132, 148, 58
+        f_fit = min(rw / w_px, rh / h_px)
+        w_mm, h_mm = w_px * f_fit, h_px * f_fit
+        ax.imshow(img, extent=[rx0 + (rw - w_mm) / 2, rx0 + (rw + w_mm) / 2,
+                               ry0 + (rh - h_mm) / 2, ry0 + (rh + h_mm) / 2],
+                  zorder=2, interpolation="bilinear")
+        pravokotnik(ax, rx0 + (rw - w_mm) / 2, ry0 + (rh - h_mm) / 2,
+                    w_mm, h_mm, fill="none", lw=0.6)
+    else:
+        oznaka(ax, 256, 200, "IZOMETRIČNI POGLLED")
+        D = skupna_d
+        f = min(148 / ((sir + D) * C30), 58 / ((sir + D) * 0.5 + vis))
+        gap_iso = 4.0 / f
+        xs = [izo_tocka(x, y, 0, f)[0] for x, y in ((0, D), (sir, 0))]
+        ys = [izo_tocka(x, y, z, f)[1] for x, y, z in
+              ((0, 0, 0), (sir, D, vis))]
+        ox = 331 - (min(xs) + max(xs)) / 2
+        oy = 162 - (min(ys) + max(ys)) / 2
+        barve_izo = (b_lam, odsteni(b_lam, 0.72), odsteni(b_lam, 1.55))
+        for xr in p["deske_x"]:                # deske (navpične)
+            izo_kocka(ax, xr, 0, odcep, ds, dd, cona_z, f, ox, oy, barve_izo)
+        for xc in p["centri"]:                 # stebri (pred deskami)
+            izo_kocka(ax, xc - ss / 2, 0, 0, ss, sd, vis, f, ox, oy,
+                      (b_pro, odsteni(b_pro, 0.75), odsteni(b_pro, 1.4)))
+        izo_kocka(ax, 0, 0, vis - rv, sir, D, rv, f, ox, oy,
+                  (b_pro, odsteni(b_pro, 0.72), odsteni(b_pro, 1.5)))
+
+    # ==================== SEZNAM SESTAVNIH DELOV ====================
+    deli = c.get("deli")
+    if not deli:
+        mat = c["material"]
+        profil = c.get("profil") or "POLNA DESKA 100"
+        ml = c.get("material_lamel") or "WPC lesni kompozit"
+        n_vij = p["n_desk"] * p["n_stebrov"] * 2
+        deli = [
+            ["Ročaj", mat, f"{fmt(sir)} mm", "1 kos"],
+            [f"WPC deska {profil}", ml, f"{fmt(ds)}×{fmt(dd)}",
+             f"{p['n_desk']} kos"],
+            ["Alu steber 60×40", "Aluminij", "60×40",
+             f"{p['n_stebrov']} kos"],
+            ["Osnova za steber (vrh)", "Jeklo", "90×90×6",
+             f"{p['n_stebrov']} kos"],
+            ["Vijaki M8×70 (deska↔steber)", "Inox A2", "M8×70",
+             f"{n_vij} kos"],
+            ["Anker M10 (osnova)", "Inox", "M10", f"{p['n_stebrov'] * 2} kos"],
+        ]
+    vrste = [["Št.", "Naziv dela", "Material", "Dimenzije (mm)", "Količina"]]
+    vrste += [[i] + list(d) for i, d in enumerate(deli, 1)]
+    tabela(ax, 246, 131, [10, 58, 44, 30, 20], 6.5, vrste,
+           naslov="SEZNAM SESTAVNIH DELOV")
+
+    # ==================== OPOMBE ====================
+    opombe = c.get("opombe") or [
+        "Vse mere v mm; pred izdelavo preveri dejanske mere na objektu.",
+        "Splošne tolerance: ISO 2768-m (razen drugače navedeno).",
+        f"Deske: {profil} — WPC (bambus + HDPE), pritrditev z 2 vijaki na "
+        "desko na vsak steber; predrtje Ø + 1 mm.",
+        "Stebri: aluminij, na osnove z anker M10 (vrh v ploščo).",
+        f"Razmak stebrov največ {fmt(m['razmak_stebrov'])} mm.",
+        "Količine pritrdilnih elementov so orientacijske.",
+    ]
+    opombe_blok(ax, 246, 74, 162, opombe)
+
+    # ==================== ISO NASLOVNI BLOK + REVIZIJE ====================
+    datum = c.get("datum") or datetime.date.today().strftime("%d.%m.%Y")
+    revizije = c.get("revizije") or [
+        ["A", datum, "Prva izdaja", c["izdelal"] or "—"]]
+    tabela_revizij(ax, 10, 10, [15, 35, 150, 30], revizije)
+    mat_cel = ("ALU stebri + WPC deske"
+               if "WPC" in (c.get("material_lamel") or "").upper()
+               else c["material"])[:26]
+    naslovni_blok(ax, {
+        "podjetje": c.get("podjetje") or "—",
+        "ime": c["ime"], "risba_st": c["risba_st"],
+        "rev": revizije[-1][0], "merilo": merilo_niz,
+        "datum": datum, "izdelal": c["izdelal"],
+        "pregledal": c.get("pregledal") or "—",
+        "odobril": c.get("odobril") or "—",
+        "material": mat_cel, "list": "1 od 1",
+        "stranka": c.get("stranka") or "—", "objekt": c.get("objekt") or "—",
+    })
+
+
 # ---------------------------------------------------------------- predloga: ograda
 def narisi_ogrado(ax, c):
     m = c["mere"]
@@ -702,6 +999,7 @@ def narisi_ogrado(ax, c):
 
 
 PREDLOGE["ograda"] = narisi_ogrado
+PREDLOGE["pokončna"] = narisi_pokoncna
 
 
 # ---------------------------------------------------------------- konfiguracija
@@ -732,7 +1030,11 @@ PRIVZETO = {
     "opombe": None,
     "mere": {"sirina": 3000, "visina": 1200, "globina": 1200,
              "odcep": 60, "profil_v": 40, "lamela_v": 60,
-             "debelina": 20, "lamele": 13, "razmak_nosilcev": 1000},
+             "debelina": 20, "lamele": 13, "razmak_nosilcev": 1000,
+             # predloga "pokončna":
+             "deska_sirina": 100, "deska_debelina": 20, "vrzel": 20,
+             "rocaj_v": 40, "razmak_stebrov": 1500,
+             "steber_sirina": 60, "steber_debelina": 40},
 }
 
 
@@ -756,25 +1058,41 @@ def vprasanje(besedilo, privzeto, tip=str):
 
 def interaktivno():
     print("=" * 52)
-    print(" GENERATOR TEHNIČNE RISBE — balkonska ograja")
+    print(" GENERATOR TEHNIČNE RISBE — ograje")
     print("=" * 52)
     print("(Pritisni Enter za privzeto vrednost v oglatih oklepajih.)\n")
     c = {}
-    c["ime"] = vprasanje("Ime projekta", PRIVZETO["ime"])
+    c["predloga"] = vprasanje("Predloga (ograda / pokončna)", "ograda")
+    pok = c["predloga"] == "pokončna"
+    c["ime"] = vprasanje("Ime projekta", "BALKONSKA OGRAJA" if not pok
+                         else "POKONČNA OGRAJA")
     c["risba_st"] = vprasanje("Številka risbe", PRIVZETO["risba_st"])
     c["izdelal"] = vprasanje("Izdelal", PRIVZETO["izdelal"])
     c["podjetje"] = vprasanje("Podjetje (Enter = brez)", PRIVZETO["podjetje"])
+    c["stranka"] = vprasanje("Naročnik / stranka (Enter = brez)", "")
+    c["objekt"] = vprasanje("Objekt / lokacija (Enter = brez)", "")
     m = {}
     m["sirina"] = vprasanje("Širina ograje (mm)", 3000, float)
     m["visina"] = vprasanje("Višina od tal do vrha (mm)", 1200, float)
-    m["globina"] = vprasanje("Globina / stranska dolžina (mm)", 1200, float)
-    m["lamele"] = vprasanje("Število lamel", 13, int)
-    m["lamela_v"] = vprasanje("Višina lamel (mm)", 60, float)
-    m["debelina"] = vprasanje("Debelina lamel (mm)", 20, float)
     m["odcep"] = vprasanje("Odcep od tal (mm)", 60, float)
-    m["razmak_nosilcev"] = vprasanje("Razmak nosilcev (mm)", 1000, float)
+    if pok:
+        m["lamele"] = vprasanje("Število desk", 20, int)
+        m["deska_sirina"] = vprasanje("Širina desk (mm)", 100, float)
+        m["deska_debelina"] = vprasanje("Debelina desk (mm)", 20, float)
+        m["vrzel"] = vprasanje("Vrzel med deskami (mm)", 20, float)
+        m["razmak_stebrov"] = vprasanje("Razmak stebrov (mm)", 1500, float)
+        c["profil"] = vprasanje("Model deske", "POLNA DESKA 100")
+    else:
+        m["globina"] = vprasanje("Globina / stranska dolžina (mm)", 1200,
+                                 float)
+        m["lamele"] = vprasanje("Število lamel", 13, int)
+        m["lamela_v"] = vprasanje("Višina lamel (mm)", 60, float)
+        m["debelina"] = vprasanje("Debelina lamel (mm)", 20, float)
+        m["razmak_nosilcev"] = vprasanje("Razmak nosilcev (mm)", 1000, float)
+        c["profil"] = vprasanje("Profil / model deske", "ROMB 67")
     c["material"] = vprasanje("Material profilov", PRIVZETO["material"])
-    c["profil"] = vprasanje("Profil / model deske", PRIVZETO["profil"])
+    c["material_lamel"] = vprasanje("Material lamel/desk",
+                                    PRIVZETO["material_lamel"])
     c["foto"] = vprasanje("Pot do fotografije (Enter = brez)", "")
     c["izhod"] = vprasanje("Ime izhodne datoteke", PRIVZETO["izhod"])
     c["mere"] = m
@@ -787,121 +1105,72 @@ def nalozi_konf(pot):
     return zdruzi(podatki)
 
 
-def narisi_montazni_list(ax, c):
-    """Stran 2: potrebščine, rezalni načrt, montażni koraki, podpisi."""
-    m = c["mere"]
-    sir = m["sirina"]
-    zg, sp, lamele, vrzel, n = razpored(m)
-    raz = m.get("razmak_nosilcev", 1000)
-    n_nos = max(2, math.ceil(sir / raz) + 1)
-    vijaki = n * n_nos * 2
-    profil = c.get("profil") or "ROMB 67"
-    datum = c.get("datum") or datetime.date.today().strftime("%d.%m.%Y")
-
+def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki):
+    """Skupni izgled montažnega lista (stran 2) za vse predloge."""
     iso_okvir(ax)
     oznaka(ax, 20, 286, "MONTAŽNI LIST — POTREBŠČINE")
+    datum = c.get("datum") or datetime.date.today().strftime("%d.%m.%Y")
     ax.text(20, 278, f"Nalog: {c['risba_st']}   •   Datum: {datum}",
             fontsize=9, ha="left", va="center")
     ax.text(20, 272, f"Stranka: {c.get('stranka') or '—'}   •   Objekt: "
             f"{c.get('objekt') or '—'}", fontsize=9, ha="left", va="center")
 
-    dl_deske = c.get("dolzina_deske", 5800)
-    dl_palice = c.get("dolzina_palice", 6000)
-    kerf = c.get("kerf", 3.0)
-    na_desko = (max(1, int((dl_deske + kerf) // (sir + kerf)))
-                if dl_deske >= sir else 0)
-    deske = (math.ceil(n / na_desko) if na_desko
-             else math.ceil(n * sir / dl_deske))
-    palice = math.ceil((2 * sir + 2 * kerf) / dl_palice)
-    b_lam = barva_hex(c.get("barva"))
-    pot = [
-        [f"WPC deska {profil}", f"{fmt(dl_deske)} mm", f"{deske} kos",
-         f"skupaj {fmt(n * sir / 1000)} m lamel"],
-        ["Alu profil 80×40×3", f"{fmt(dl_palice)} mm", f"{palice} kos",
-         "zgornji profil"],
-        ["Alu profil 60×40×3", f"{fmt(dl_palice)} mm", "1 kos",
-         "spodnji profil"],
-        ["Nosilni nosilec 50×50×5", "—", f"{n_nos} kos",
-         f"razmak ≤ {fmt(raz)} mm"],
-        ["RF vijaki M8×70 (lamela↔profil)", "—", f"{vijaki} kos",
-         f"2 na priključek ({n * n_nos}) • Ø+1 mm"],
-        ["Fasadni vijaki Ø8×80 + tipli", "—", f"{n_nos * 2} kos",
-         "2 na nosilec"],
-    ]
     tabela(ax, 20, 256, [90, 60, 35, 75], 7.0,
-           [["NAZIV", "SPECIFIKACIJA", "KOLIČINA", "OPOMBA"], *pot],
+           [["NAZIV", "SPECIFIKACIJA", "KOLIČINA", "OPOMBA"], *pot_rows],
            naslov="POTREBŠČINE")
 
-    if na_desko:
-        vrste = [["DESKA", "KOSOV NA DESKI", "LAMELE ŠT.",
-                  "DOLŽINA (mm)", "OSTANEK (mm)"]]
-        prikaz = min(deske, 6)
-        for i in range(prikaz):
-            zac = min(na_desko, n - i * na_desko)
-            prva = i * na_desko + 1
-            ost = dl_deske - zac * sir - zac * kerf
-            vrste.append([str(i + 1), str(zac), f"{prva}–{prva + zac - 1}",
-                          fmt(sir), fmt(ost)])
-        if deske > prikaz:
-            vrste.append(["…", "", f"skupaj {deske} desk", "", ""])
-        tabela(ax, 20, 197, [45, 55, 75, 45, 40], 7.0, vrste,
-               naslov="REZALNI NAČRT — LAMELE")
+    if rez_rows:
+        tabela(ax, 20, 197, [45, 55, 75, 45, 40], 7.0, rez_rows,
+               naslov="REZALNI NAČRT")
     else:
         opombe_blok(ax, 20, 197, 260,
-                    ["Deska je krajša od lamele — spoj/rez po dogovoru "
-                     "s proizvajalcem."], naslov_t="REZALNI NAČRT — LAMELE")
+                    ["Deska je krajša od enega kosa — spoj/rez po dogovoru "
+                     "s proizvajalcem."], naslov_t="REZALNI NAČRT")
 
-    # vizualni rezalni načrt (po vzoru rezalnih optimizatorjev):
-    # vsaka deska = trak s segmenti lamel + ostanek (kerf upoštevan)
-    y = 140
-    if na_desko and deske:
-        sk = 260.0 / dl_deske
-        prikaz_b = min(deske, 5)
-        y = 197 - (8.5 + 7 + (min(deske, 6) + (1 if deske > 6 else 0)) * 7) - 8
-        izkoristek = n * sir / (deske * dl_deske) * 100
+    kerf = c.get("kerf", 3.0)
+    b_lam = barva_hex(c.get("barva"))
+    y = 130
+    if viz_traki:
+        maxdl = max(dl for dl, _ in viz_traki)
+        sk = 260.0 / maxdl
+        prikaz_b = min(len(viz_traki), 5)
+        n_vrst_r = (len(rez_rows) - 1) if rez_rows else 1
+        y = 197 - (8.5 + 7 + n_vrst_r * 7) - 8
+        skup_k = sum(ln for _, kosi in viz_traki for _, ln in kosi)
+        skup_d = sum(dl for dl, _ in viz_traki)
+        izk = skup_k / skup_d * 100 if skup_d else 0
         ax.text(20, y + 2, f"VIZUALNI REZ • kerf {fmt(kerf)} mm • "
-                f"izkoristek {izkoristek:.0f} % • ostanek = deska − kosi − "
-                "rez", fontsize=7, color="#555555", ha="left", va="center")
-        for i in range(prikaz_b):
+                f"izkoristek {izk:.0f} % • ostanek = trak − kosi − rez",
+                fontsize=7, color="#555555", ha="left", va="center")
+        for ti, (dl, kosi) in enumerate(viz_traki[:prikaz_b]):
             y -= 10
-            zac = min(na_desko, n - i * na_desko)
             x = 20
-            for j in range(zac):
-                w_seg = sir * sk
-                pravokotnik(ax, x, y, w_seg, 7, fill=b_lam, lw=0.5)
-                ax.text(x + w_seg / 2, y + 3.5, f"L{i * na_desko + j + 1}",
-                        ha="center", va="center", fontsize=6, color="white")
-                x += w_seg
-            ost = dl_deske - zac * sir - zac * kerf
+            for lab, ln in kosi:
+                w = max(2.0, ln * sk)
+                pravokotnik(ax, x, y, w, 7, fill=b_lam, lw=0.5)
+                if w > 14:
+                    ax.text(x + w / 2, y + 3.5, lab, ha="center",
+                            va="center", fontsize=6, color="white")
+                x += w
+            ost = dl - sum(ln for _, ln in kosi) - kerf * len(kosi)
             w_ost = max(2.0, ost * sk)
             pravokotnik(ax, x, y, w_ost, 7, fill="#e9e9e9", lw=0.5)
-            ax.text(x + w_ost / 2, y + 3.5, f"ostanek {fmt(ost)}",
-                    ha="center", va="center", fontsize=6)
-            ax.text(18, y + 3.5, f"D{i + 1}", ha="right", va="center",
+            if w_ost > 16:
+                ax.text(x + w_ost / 2, y + 3.5, f"ostanek {fmt(ost)}",
+                        ha="center", va="center", fontsize=6)
+            ax.text(18, y + 3.5, f"{ti + 1}", ha="right", va="center",
                     fontsize=6.5, fontweight="bold")
-        if deske > prikaz_b:
+        if len(viz_traki) > prikaz_b:
             y -= 8
-            ax.text(20, y, f"… ostale deske po istem vzorcu "
-                    f"(skupaj {deske} desk)", fontsize=6.5, color="#555555",
-                    ha="left", va="center")
+            ax.text(20, y, f"… ostali traki po istem vzorcu "
+                    f"(skupaj {len(viz_traki)})", fontsize=6.5,
+                    color="#555555", ha="left", va="center")
 
-    opombe_blok(ax, 20, y - 6, 260, [
-        "Preveri dejanske mere objekta in primerjaj z risbo.",
-        f"Označi lego nosilcev (razmak največ {fmt(raz)} mm); "
-        "preveri razvod inštalacij pred vrtanjem.",
-        "Pritrdi nosilce (bočno/vrh po dogovoru); za WPC vedno "
-        "predrtje Ø + 1 mm.",
-        "Vgradi zgornji in spodnji alu profil; kontroliraj višino "
-        "in ravnost.",
-        "Vgradi lamele (RF vijaki skozi notranjo alu cev; brez "
-        "predrtja ne vrtaj!).",
-        "Kontrola ravni in višine, slika izvedbo, pridobi podpis "
-        "stranke.",
-    ], naslov_t="MONTAŽNI KORAKI")
+    opombe_blok(ax, 20, y - 6, 260, koraki, naslov_t="MONTAŽNI KORAKI")
 
     kontrola = [
         "□ preveri dejanske mere objekta",
-        "□ označi lego nosilcev (razmak)",
+        "□ označi lege pritrditve (razmak)",
         "□ preveri razvod inštalacij",
         "□ sidranje po nosilnosti stene/plošče",
         "□ kontrola višine in ravni",
@@ -918,6 +1187,136 @@ def narisi_montazni_list(ax, c):
         crta(ax, x0 + 6, 18, x0 + w - 6, 18, lw=0.5)
 
 
+def narisi_montazni_list(ax, c):
+    """Stran 2 za predlogo "ograda" (prečna)."""
+    m = c["mere"]
+    sir = m["sirina"]
+    zg, sp, lamele, vrzel, n = razpored(m)
+    raz = m.get("razmak_nosilcev", 1000)
+    n_nos = max(2, math.ceil(sir / raz) + 1)
+    vijaki = n * n_nos * 2
+    profil = c.get("profil") or "ROMB 67"
+    dl_deske = c.get("dolzina_deske", 5800)
+    dl_palice = c.get("dolzina_palice", 6000)
+    kerf = c.get("kerf", 3.0)
+    na_desko = (max(1, int((dl_deske + kerf) // (sir + kerf)))
+                if dl_deske >= sir else 0)
+    deske = (math.ceil(n / na_desko) if na_desko
+             else math.ceil(n * sir / dl_deske))
+    palice = math.ceil((2 * sir + 2 * kerf) / dl_palice)
+    pot = [
+        [f"WPC deska {profil}", f"{fmt(dl_deske)} mm", f"{deske} kos",
+         f"skupaj {fmt(n * sir / 1000)} m lamel"],
+        ["Alu profil 80×40×3", f"{fmt(dl_palice)} mm", f"{palice} kos",
+         "zgornji profil"],
+        ["Alu profil 60×40×3", f"{fmt(dl_palice)} mm", "1 kos",
+         "spodnji profil"],
+        ["Nosilni nosilec 50×50×5", "—", f"{n_nos} kos",
+         f"razmak ≤ {fmt(raz)} mm"],
+        ["RF vijaki M8×70 (lamela↔profil)", "—", f"{vijaki} kos",
+         f"2 na priključek ({n * n_nos}) • Ø+1 mm"],
+        ["Fasadni vijaki Ø8×80 + tipli", "—", f"{n_nos * 2} kos",
+         "2 na nosilec"],
+    ]
+    rez_rows = None
+    viz_traki = []
+    if na_desko:
+        rez_rows = [["DESKA", "KOSOV NA DESKI", "LAMELE ŠT.",
+                     "DOLŽINA (mm)", "OSTANEK (mm)"]]
+        prikaz = min(deske, 6)
+        for i in range(prikaz):
+            zac = min(na_desko, n - i * na_desko)
+            prva = i * na_desko + 1
+            ost = dl_deske - zac * sir - zac * kerf
+            rez_rows.append([str(i + 1), str(zac), f"{prva}–{prva + zac - 1}",
+                             fmt(sir), fmt(ost)])
+        if deske > prikaz:
+            rez_rows.append(["…", "", f"skupaj {deske} desk", "", ""])
+        for i in range(min(deske, 5)):
+            zac = min(na_desko, n - i * na_desko)
+            prva = i * na_desko + 1
+            viz_traki.append((dl_deske,
+                              [(f"L{prva + j + 1}", sir) for j in range(zac)]))
+    koraki = [
+        "Preveri dejanske mere objekta in primerjaj z risbo.",
+        f"Označi lego nosilcev (razmak največ {fmt(raz)} mm); "
+        "preveri razvod inštalacij pred vrtanjem.",
+        "Pritrdi nosilce (bočno/vrh po dogovoru); za WPC vedno "
+        "predrtje Ø + 1 mm.",
+        "Vgradi zgornji in spodnji alu profil; kontroliraj višino "
+        "in ravnost.",
+        "Vgradi lamele (RF vijaki skozi notranjo alu cev; brez "
+        "predrtja ne vrtaj!).",
+        "Kontrola ravni in višine, slika izvedbo, pridobi podpis "
+        "stranke.",
+    ]
+    montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki)
+
+
+def narisi_montazni_pokoncna(ax, c):
+    """Stran 2 za predlogo "pokončna" (stebri + navpične deske)."""
+    m = c["mere"]
+    sir, vis = m["sirina"], m["visina"]
+    p = razpored_pokoncna(m)
+    n_d, n_s = p["n_desk"], p["n_stebrov"]
+    deska_h = p["deske_h"]
+    profil = c.get("profil") or "POLNA DESKA 100"
+    dl_deske = c.get("dolzina_deske", 5800)
+    dl_palice = c.get("dolzina_palice", 6000)
+    kerf = c.get("kerf", 3.0)
+    na_desko = (max(1, int((dl_deske + kerf) // (deska_h + kerf)))
+                if dl_deske >= deska_h else 0)
+    deske = (math.ceil(n_d / na_desko) if na_desko
+             else math.ceil(n_d * deska_h / dl_deske))
+    palice_s = math.ceil(n_s * (vis + kerf) / dl_palice)
+    vijaki = n_d * n_s * 2
+    pot = [
+        [f"WPC deska {profil}", f"{fmt(dl_deske)} mm", f"{deske} kos",
+         f"skupaj {fmt(n_d * deska_h / 1000)} m desek"],
+        ["Alu steber 60×40", f"{fmt(dl_palice)} mm", f"{palice_s} kos",
+         f"{n_s} stebrov (L = {fmt(vis)} mm)"],
+        ["Ročaj (WPC/alu)", f"{fmt(sir)} mm", "1 kos",
+         "pritrjen na steber"],
+        ["Osnova za steber (vrh)", "90×90×6", f"{n_s} kos",
+         "anker M10 × 2 na osnovo"],
+        ["Vijaki M8×70 (deska↔steber)", "—", f"{vijaki} kos",
+         f"2 na desko na steber • Ø+1 mm"],
+        ["Anker M10", "—", f"{n_s * 2} kos", "osnova na plošči"],
+    ]
+    rez_rows = None
+    viz_traki = []
+    if na_desko:
+        rez_rows = [["DESKA", "KOSOV NA DESKI", "DESKE ŠT.",
+                     "DOLŽINA (mm)", "OSTANEK (mm)"]]
+        prikaz = min(deske, 6)
+        for i in range(prikaz):
+            zac = min(na_desko, n_d - i * na_desko)
+            prva = i * na_desko + 1
+            ost = dl_deske - zac * deska_h - zac * kerf
+            rez_rows.append([str(i + 1), str(zac), f"{prva}–{prva + zac - 1}",
+                             fmt(deska_h), fmt(ost)])
+        if deske > prikaz:
+            rez_rows.append(["…", "", f"skupaj {deske} desk", "", ""])
+        for i in range(min(deske, 5)):
+            zac = min(na_desko, n_d - i * na_desko)
+            prva = i * na_desko + 1
+            viz_traki.append((dl_deske,
+                              [(f"D{prva + j}", deska_h)
+                               for j in range(zac)]))
+    koraki = [
+        "Preveri dejanske mere objekta in primerjaj z risbo.",
+        f"Označi lege stebrov (razmak največ {fmt(m['razmak_stebrov'])} mm); "
+        "preveri razvod inštalacij pred vrtanjem.",
+        "Pritrdi osnove z anker M10 (vrh v ploščo); kontroliraj ravnost.",
+        "Postavi stebre; kontroliraj navpičnost.",
+        "Vgradi deske (2 vijaka M8×70 na desko na steber; predrtje "
+        "Ø + 1 mm).",
+        "Vgradi ročaj, kontrola ravni in višine, slika izvedbo, podpis "
+        "stranke.",
+    ]
+    montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki)
+
+
 # ---------------------------------------------------------------- glavno
 def generiraj(cfg, dpi_png=200):
     """Iz konfiguracije nariše risbo in vrne (pot_pdf, pot_png)."""
@@ -928,10 +1327,12 @@ def generiraj(cfg, dpi_png=200):
     fig, ax = nov_list()
     predloga(ax, cfg)
     fig2 = None
-    if cfg.get("predloga") == "ograda":
+    ml_fn = {"ograda": narisi_montazni_list,
+             "pokončna": narisi_montazni_pokoncna}.get(cfg.get("predloga"))
+    if ml_fn:
         try:
             fig2, ax2 = nov_list()
-            narisi_montazni_list(ax2, cfg)
+            ml_fn(ax2, cfg)
         except Exception:
             if fig2 is not None:
                 plt.close(fig2)
