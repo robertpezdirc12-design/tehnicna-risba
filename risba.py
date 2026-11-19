@@ -502,6 +502,9 @@ def narisi_pokoncna(ax, c):
     ds, dd = m["deska_sirina"], m["deska_debelina"]
     p = razpored_pokoncna(m)
     cona_z = p["deske_z"][1] - p["deske_z"][0]
+    pritrditev = c.get("pritrditev") or "vrh"
+    vijak_lamela_naziv = c.get("vijak_lamela") or "Vijak M8×70 (deska↔steber)"
+    vijak_nosilec_naziv = c.get("vijak_nosilec") or         "Osnova za steber + anker M10 (vrh)"
 
     b_lam = barva_hex(c.get("barva"))
     b_pro = odsteni(b_lam, 0.72)

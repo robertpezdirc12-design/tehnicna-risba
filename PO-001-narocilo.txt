@@ -11,5 +11,5 @@ PROFILI (aluminij):
 OSTALA PRITRDITVA:
 - Ročaj — 1 kos × 3000 mm
 - Osnove za steber — 3 kos
-- Vijaki M8×70 Inox A2 — 120 kos
-- Anker M10 — 6 kos
+- Vijak M8×70 (deska↔steber) — 120 kos
+- Osnova za steber + anker M10 × 2 (vrh) — 6 kos
