@@ -38,6 +38,10 @@ NAPISI = {
     "stranka": "Naročnik / stranka", "objekt": "Objekt (lokacija)",
     "podlaga": "Podlaga", "pritrditev_nacin": "Način pritrditve",
     "vijak_lamela": "Vijak lamela↔profil", "vijak_nosilec": "Vijak nosilec↔podlaga",
+    "material_lamel": "Material lamel",
+    "vrzel": "Vrzel med deskami", "kerf": "Kerf (širina rezila)",
+    "dolzine_deske": "Dolžine desk v nabavi",
+    "dolzina_palice": "Tovarniška dolžina alu palice",
     "foto": "Pot do fotografije", "izhod": "Ime izhodne datoteke",
 }
 
@@ -197,6 +201,7 @@ class App(tk.Tk):
         self._polje(f1, 0, 2, "izdelal", 14)
         self._polje(f1, 1, 0, "material", 30)
         self._polje(f1, 1, 1, "profil", 14)
+        self._polje(f1, 1, 2, "material_lamel", 22)
         if "barva" not in self.v:
             self.v["barva"] = tk.StringVar()
         lbl_b = ttk.Label(f1, text="Barva lamel:")
@@ -225,10 +230,20 @@ class App(tk.Tk):
         self._polje(f2, 1, 1, "lamela_v", 10)
         self._polje(f2, 1, 2, "debelina", 10)
         self._polje(f2, 2, 0, "odcep", 10)
+        self._polje(f2, 2, 1, "vrzel", 10)
         self._polje(f2, 3, 0, "razmak_nosilcev", 10)
+        self._polje(f2, 3, 1, "kerf", 10)
+        self._polje(f2, 4, 0, "dolzine_deske", 22)
+        self._polje(f2, 4, 1, "dolzina_palice", 10)
+        self.st_ost = tk.BooleanVar(value=True)
+        cb_ost = ttk.Checkbutton(
+            f2, text="Uporabi skladišče ostankov (ostanki.yaml)",
+            variable=self.st_ost)
+        cb_ost.grid(row=4, column=2, columnspan=2, sticky="w")
+        self.polja.setdefault("uporabi_ostanke", []).append(cb_ost)
         tk.Label(f2, text="(višina zgornjega/spodnjega profila je 40 mm; "
                          "razmak nosilcev se samodejno izračuna)",
-                 fg="#888888").grid(row=2, column=2, columnspan=2, sticky="w")
+                 fg="#888888").grid(row=5, column=0, columnspan=6, sticky="w")
 
         # ---- PRITRDITEV ----
         f4 = ttk.LabelFrame(zg, text="PRITRDITEV", padding=8)
@@ -338,6 +353,12 @@ class App(tk.Tk):
             "lamela_v": f"{m['lamela_v']:g}", "debelina": f"{m['debelina']:g}",
             "odcep": f"{m['odcep']:g}",
             "razmak_nosilcev": f"{m['razmak_nosilcev']:g}",
+            "vrzel": f"{m.get('vrzel', 20.0):g}",
+            "kerf": f"{p.get('kerf', 3.0):g}",
+            "dolzine_deske": "; ".join(f"{d:g}" for d in
+                                       p.get("dolzine_deske", [5800])),
+            "dolzina_palice": f"{p.get('dolzina_palice', 6000):g}",
+            "material_lamel": p.get("material_lamel") or "",
         }
 
     # ------------------------------------------------------------- akcije
@@ -391,7 +412,7 @@ class App(tk.Tk):
             "odcep": stev("odcep"), "profil_v": 40.0,
             "razmak_nosilcev": stev("razmak_nosilcev"),
             "deska_sirina": stev("lamela_v"), "deska_debelina": stev("debelina"),
-            "vrzel": 20.0, "rocaj_v": 40.0,
+            "vrzel": stev("vrzel"), "rocaj_v": 40.0,
             "razmak_stebrov": stev("razmak_nosilcev"),
             "steber_sirina": 60.0, "steber_debelina": 40.0,
         }
@@ -407,6 +428,26 @@ class App(tk.Tk):
                 except ValueError:
                     raise ValueError(f"Polje »{CENE_NAPISI[ck]}« mora biti "
                                      f"število ali prazno (vpisano: {raw!r}).")
+        def dec(kljuc, priv):
+            raw = self.v[kljuc].get().strip().replace(",", ".")
+            if not raw:
+                return priv
+            try:
+                return float(raw)
+            except ValueError:
+                raise ValueError(f"Polje »{NAPISI.get(kljuc, kljuc)}« mora "
+                                 f"biti število ali prazno (vpisano: "
+                                 f"{raw!r}).")
+        dl_dolzine = []
+        for x in (self.v["dolzine_deske"].get().strip()
+                  .replace(";", ",").split(",")):
+            if x.strip():
+                try:
+                    dl_dolzine.append(float(x.strip().replace(",", ".")))
+                except ValueError:
+                    raise ValueError(f"Polje »{NAPISI['dolzine_deske']}« mora "
+                                     f"biti števila, ločena z ; (vpisano: "
+                                     f"{self.v['dolzine_deske'].get()!r}).")
         ime = self.v["ime"].get().strip() or "BALKONSKA OGRAJA"
         izhod = self.v["izhod"].get().strip() or "BO-001.pdf"
         foto = self.v["foto"].get().strip()
@@ -425,7 +466,11 @@ class App(tk.Tk):
             "izhod": izhod, "foto": foto,
             "barva": self.v["barva"].get() or None,
             "profil": self.v["profil"].get().strip() or None,
-            "material_lamel": None,
+            "material_lamel": self.v["material_lamel"].get().strip() or None,
+            "kerf": dec("kerf", 3.0),
+            "dolzina_palice": dec("dolzina_palice", 6000.0),
+            "dolzine_deske": (dl_dolzine or None),
+            "uporabi_ostanke": bool(self.st_ost.get()),
             "material": self.v["material"].get().strip() or "Aluminij",
             "podlaga": self.v["podlaga"].get().strip() or None,
             "pritrditev": self.v["pritrditev_nacin"].get().strip() or None,
@@ -487,6 +532,8 @@ class App(tk.Tk):
     ADVANS = ("podjetje", "pregledal", "odobril", "stranka", "objekt",
               "material", "profil", "razmak_nosilcev", "barva", "meri_slike",
               "podlaga", "pritrditev_nacin", "vijak_lamela", "vijak_nosilec",
+              "material_lamel", "vrzel", "kerf", "dolzine_deske",
+              "dolzina_palice", "uporabi_ostanke",
               "cene_wpc_deska_m", "cene_alu_m", "cene_rocaj_kos",
               "cene_nosilec_kos", "cene_vijak_kos", "cene_fasadni_kos",
               "cene_anker_kos", "cene_dela_ure", "cene_dela_ur_cena")
@@ -577,11 +624,17 @@ class App(tk.Tk):
         for k in ("ime", "risba_st", "izdelal", "podjetje", "pregledal",
                   "odobril", "stranka", "objekt", "material", "profil",
                   "barva", "izhod", "foto", "podlaga", "pritrditev_nacin",
-                  "vijak_lamela", "vijak_nosilec"):
+                  "vijak_lamela", "vijak_nosilec", "material_lamel",
+                  "kerf", "dolzina_palice"):
             nast(k, cfg.get(k))
         for k in ("sirina", "visina", "globina", "lamele", "lamela_v",
-                  "debelina", "odcep", "razmak_nosilcev"):
+                  "debelina", "odcep", "razmak_nosilcev", "vrzel"):
             nast(k, (cfg.get("mere") or {}).get(k))
+        if cfg.get("dolzine_deske"):
+            nast("dolzine_deske", "; ".join(f"{d:g}"
+                                            for d in cfg["dolzine_deske"]))
+        if "uporabi_ostanke" in cfg:
+            self.st_ost.set(bool(cfg["uporabi_ostanke"]))
         if "klik_cel_zaslon" in cfg:
             self.st_klik.set(bool(cfg["klik_cel_zaslon"]))
         if "preprost_nacin" in cfg:

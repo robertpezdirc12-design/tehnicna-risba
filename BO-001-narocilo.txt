@@ -3,7 +3,7 @@ Naloga: BO-001 • Datum: 20.11.2026
 Stranka: — • Objekt: —
 
 DESKE:
-- ROMB 67, barva Antracit — 13 kos × 5800 mm (razrez po 3000 mm)
+- ROMB 67, barva Antracit — 13 kos × 4000 mm
 
 PROFILI (aluminij):
 - 80×40×3 — 2 kos × 6000 mm (razrez: 2 × 3000 mm)

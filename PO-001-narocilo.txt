@@ -3,7 +3,7 @@ Naloga: PO-001 • Datum: 20.11.2026
 Stranka: — • Objekt: —
 
 DESKE:
-- POLNA DESKA 100, barva Antracit — 4 kos × 5800 mm (razrez po 1100 mm)
+- POLNA DESKA 100, barva Antracit — 20 kos × 5800 mm
 
 PROFILI (aluminij):
 - 60×40×5 — 1 kos × 6000 mm (razrez: 3 × 1200 mm — stebri)
