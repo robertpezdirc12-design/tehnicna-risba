@@ -20,3 +20,8 @@ dist/
 build/
 dist/
 *.spec
+_gui_nar*
+_jezik.py
+_patch*
+_popravki.py
+ostanki.yaml
