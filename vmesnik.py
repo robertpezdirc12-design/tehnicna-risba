@@ -32,6 +32,23 @@ NAPISI = {
     "foto": "Pot do fotografije", "izhod": "Ime izhodne datoteke",
 }
 
+# cene za predračun (stran 3 PDF) — ključi so enaki kot v yaml 'cene:'
+CENE_KLJUCI = ("wpc_deska_m", "alu_m", "rocaj_kos", "nosilec_kos",
+               "vijak_kos", "fasadni_kos", "anker_kos",
+               "dela_ure", "dela_ur_cena")
+
+CENE_NAPISI = {
+    "wpc_deska_m": "WPC deska (EUR/m):",
+    "alu_m": "Alu profil (EUR/m):",
+    "rocaj_kos": "Ročaj (EUR/kos):",
+    "nosilec_kos": "Nosilec (EUR/kos):",
+    "vijak_kos": "Vijak M8×70 (EUR/kos):",
+    "fasadni_kos": "Fasadni vijak (EUR/kos):",
+    "anker_kos": "Anker M10 (EUR/kos):",
+    "dela_ure": "Delo (ure):",
+    "dela_ur_cena": "Delo (EUR/h):",
+}
+
 # Samodejno shranjevanje zadnjih nastavitev (ob vsaki risbi, naloži ob zagonu)
 DAT_ZADNJE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                           "zadnje_nastavitve.yaml")
@@ -160,10 +177,11 @@ class App(tk.Tk):
 
         zg = ttk.Frame(self, padding=(14, 4))
         zg.pack(fill="x")
+        zg.columnconfigure(0, weight=1)
 
         # ---- PROJEKT ----
         f1 = ttk.LabelFrame(zg, text="PROJEKT", padding=8)
-        f1.pack(fill="x")
+        f1.grid(row=0, column=0, sticky="ew")
         self._polje(f1, 0, 0, "ime", 34)
         self._polje(f1, 0, 1, "risba_st", 12)
         self._polje(f1, 0, 2, "izdelal", 14)
@@ -189,7 +207,7 @@ class App(tk.Tk):
 
         # ---- MERE ----
         f2 = ttk.LabelFrame(zg, text="MERE (mm)", padding=8)
-        f2.pack(fill="x", pady=6)
+        f2.grid(row=1, column=0, sticky="ew", pady=6)
         self._polje(f2, 0, 0, "sirina", 10)
         self._polje(f2, 0, 1, "visina", 10)
         self._polje(f2, 0, 2, "globina", 10)
@@ -204,7 +222,7 @@ class App(tk.Tk):
 
         # ---- FOTO + IZHOD ----
         f3 = ttk.LabelFrame(zg, text="FOTOGRAFIJA IN IZHOD", padding=8)
-        f3.pack(fill="x")
+        f3.grid(row=2, column=0, sticky="ew")
         self._polje(f3, 0, 0, "foto", 52)
         ttk.Button(f3, text="Prebrskaj…", command=self._brskaj_foto)\
             .grid(row=0, column=2, sticky="w", padx=4)
@@ -214,9 +232,21 @@ class App(tk.Tk):
         btn_m.grid(row=1, column=2, sticky="w", padx=4)
         self.polja.setdefault("meri_slike", []).append(btn_m)
 
+        # ---- CENE (predračun) ----
+        f5 = ttk.LabelFrame(zg, text="CENE (EUR — neobvezno; doda stran 3 "
+                                     "PREDRAČUN k PDF)", padding=8)
+        f5.grid(row=3, column=0, sticky="ew", pady=6)
+        self.polja.setdefault("cene_okvir", []).append(f5)
+        for i, ck in enumerate(CENE_KLJUCI):
+            self._polje(f5, i // 3, i % 3, "cene_" + ck, 11,
+                        napis=CENE_NAPISI[ck])
+        tk.Label(f5, text="(prazno = postavka ni v predračunu; pokončna "
+                          "ograja uporablja iste cene)", fg="#888888"
+                 ).grid(row=3, column=0, columnspan=6, sticky="w")
+
         # ---- GUMBI ----
         fb = ttk.Frame(zg, padding=(0, 10))
-        fb.pack(fill="x")
+        fb.grid(row=4, column=0, sticky="ew")
         self.btn_narisi = tk.Button(
             fb, text="NARIŠI RISBO", command=self._narisi,
             bg="#2e7d32", fg="white", activebackground="#1b5e20",
@@ -337,12 +367,21 @@ class App(tk.Tk):
 
     def _zberi_cfg(self):
         m = self._preberi_mere()
+        cene = {}
+        for ck in CENE_KLJUCI:
+            raw = self.v["cene_" + ck].get().strip().replace(",", ".")
+            if raw:
+                try:
+                    cene[ck] = float(raw)
+                except ValueError:
+                    raise ValueError(f"Polje »{CENE_NAPISI[ck]}« mora biti "
+                                     f"število ali prazno (vpisano: {raw!r}).")
         ime = self.v["ime"].get().strip() or "BALKONSKA OGRAJA"
         izhod = self.v["izhod"].get().strip() or "BO-001.pdf"
         foto = self.v["foto"].get().strip()
         if foto and not os.path.isfile(foto):
             raise ValueError(f"Fotografija ne obstaja: {foto}")
-        return {
+        cfg = {
             "predloga": self.v["predloga"].get() or "ograda", "ime": ime,
             "risba_st": self.v["risba_st"].get().strip() or "BO-001",
             "izdelal": self.v["izdelal"].get().strip() or "",
@@ -361,6 +400,9 @@ class App(tk.Tk):
             "klik_cel_zaslon": bool(self.st_klik.get()),
             "preprost_nacin": bool(self.st_preprost.get()),
         }
+        if cene:
+            cfg["cene"] = cene
+        return cfg
 
     def _narisi(self):
         try:
@@ -403,7 +445,10 @@ class App(tk.Tk):
 
     # napredna polja — skrita v preprostem načinu
     ADVANS = ("podjetje", "pregledal", "odobril", "stranka", "objekt",
-              "material", "profil", "razmak_nosilcev", "barva", "meri_slike")
+              "material", "profil", "razmak_nosilcev", "barva", "meri_slike",
+              "cene_wpc_deska_m", "cene_alu_m", "cene_rocaj_kos",
+              "cene_nosilec_kos", "cene_vijak_kos", "cene_fasadni_kos",
+              "cene_anker_kos", "cene_dela_ure", "cene_dela_ur_cena")
 
     def _preklopi_predlogo(self):
         """Prilagodi napise polj predlogi (ograda / pokončna)."""
@@ -430,6 +475,11 @@ class App(tk.Tk):
                     w.grid_remove()
                 else:
                     w.grid()
+        for f in self.polja.get("cene_okvir", []):
+            if preprost:
+                f.grid_remove()
+            else:
+                f.grid()
         if preprost:
             self.status.config(text="Preprosti način — kljukica zgoraj "
                                     "prikaže napredne možnosti.")
@@ -492,6 +542,8 @@ class App(tk.Tk):
         if "predloga" in cfg:
             self.v["predloga"].set(str(cfg["predloga"]))
             self._preklopi_predlogo()
+        for ck in CENE_KLJUCI:
+            nast("cene_" + ck, (cfg.get("cene") or {}).get(ck))
 
     def _pokazi_predogled(self, png):
         if IMA_PIL:
