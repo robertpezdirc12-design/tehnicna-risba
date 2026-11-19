@@ -1013,8 +1013,8 @@ PRIVZETO = {
     "ime": "BALKONSKA OGRAJA",
     "risba_st": "BO-001",
     "izdelal": "R. Pezdirc",
-    "stranka": "",            # naročnik (glava + montażni list)
-    "objekt": "",             # lokacija objekta (glava + montażni list)
+    "stranka": "",            # naročnik (glava + montažni list)
+    "objekt": "",             # lokacija objekta (glava + montažni list)
     "dolzina_deske": 5800,    # tovarniška dolžina WPC deske (WoodCore 5,8 m)
     "dolzina_palice": 6000,   # tovarniška dolžina alu profila
     "kerf": 3.0,              # širina rezila (mm) — upoštevana v rezalnem načrtu

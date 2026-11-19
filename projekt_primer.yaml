@@ -33,7 +33,7 @@ barva: "Antracit"
 profil: ROMB 67           # WoodCore deska: ROMB 67, POLNA DESKA 100,
                           # POLNA DESKA 128, POLNA DESKA 57/32, KUBO 80×42 …
 
-# Dolžine materiala za rezalni načrt / potrebščine (montażni list, str. 2)
+# Dolžine materiala za rezalni načrt / potrebščine (montažni list, str. 2)
 dolzina_deske: 5800       # tovarniška dolžina WPC deske (mm)
 dolzina_palice: 6000      # tovarniška dolžina alu profila (mm)
 kerf: 3                   # širina rezila (mm) — upoštevana v ostankih in izkoristku

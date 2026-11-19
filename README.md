@@ -20,7 +20,7 @@ measurement assistant.
 - **ISO list** — conatna mreža (ISO 5457), glava (ISO 7200), tabela revizij,
   simbol projekcije (prvi kot)
 - **Montažni list (stran 2 PDF-a)** — potrebščine, rezalni načrt z ostanki
-  (kerf-pozavesten), vizualni rez z izkoristkom, izračun višine, montażni
+  (kerf-pozavesten), vizualni rez z izkoristkom, izračun višine, montažni
   koraki s sklici na detajle, kontrola terena, podpis stranke
 - **Predračun (stran 3 PDF-a, neobvezno)** — če v konfiguracijo vpišeš `cene:`
   (EUR/m, EUR/kos, delo), se samodejno ustvari orientacijski predračun
