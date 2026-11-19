@@ -24,6 +24,12 @@ measurement assistant.
   koraki s sklici na detajle, kontrola terena, podpis stranke
 - **Predračun (stran 3 PDF-a, neobvezno)** — če v konfiguracijo vpišeš `cene:`
   (EUR/m, EUR/kos, delo), se samodejno ustvari orientacijski predračun
+- **Naročilnik** — datoteka `<nalog>-narocilo.txt` s pripravljenim naročilom
+  materiala (deske po modelu/barvi/dolžini, profili, pritrdila) za
+  copy-paste v e-pošto dobavitelju
+- **Skladišče ostankov** (`ostanki.yaml`) — ostanki po rezanju se samodejno
+  shranijo; naslednji nalog jih najprej porabi (CLI: `--potrosi-ostanke`,
+  GUI: gumb „ODPIŠI OSTANKE“)
 - **Kontrola pravilnosti** — pred izvozom program preveri mere in geometrijo;
   pri napaki NE nastane nepopoln PDF
 - **Konstrukcijska varnost** — risba izrecno NI statični izračun; nosilnost,

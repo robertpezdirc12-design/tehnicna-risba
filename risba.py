@@ -1015,6 +1015,7 @@ PRIVZETO = {
     "izdelal": "R. Pezdirc",
     "stranka": "",            # naročnik (glava + montažni list)
     "objekt": "",             # lokacija objekta (glava + montažni list)
+    "uporabi_ostanke": True,  # iz skladišča ostankov.yaml najprej porabi ostanke
     "dolzina_deske": 5800,    # tovarniška dolžina WPC deske (WoodCore 5,8 m)
     "dolzina_palice": 6000,   # tovarniška dolžina alu profila
     "kerf": 3.0,              # širina rezila (mm) — upoštevana v rezalnem načrtu
@@ -1193,6 +1194,48 @@ def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki):
         crta(ax, x0 + 6, 18, x0 + w - 6, 18, lw=0.5)
 
 
+def pot_ostanki():
+    return os.path.join(os.getcwd(), "ostanki.yaml")
+
+
+def nalozi_ostanke():
+    try:
+        with open(pot_ostanki(), encoding="utf-8") as f:
+            return yaml.safe_load(f) or []
+    except Exception:
+        return []
+
+
+def shrani_ostanke(seznam):
+    with open(pot_ostanki(), "w", encoding="utf-8") as f:
+        yaml.safe_dump(seznam, f, allow_unicode=True, sort_keys=False)
+
+
+def porazdeli_z_ostanki(dol_kosa, n_kosov, ostanki, kerf, barva, profil):
+    """Prvi primer prileganja: kosi iz ostankov iste barve in profila.
+
+    Vrne (iz_ost [(indeks, št. kosov)], preostalo št. kosov, novi_ostanki).
+    Ostanek se uporabi, če je dolg vsaj kos + kerf; po rezanju ostane manjši
+    ostanek (izpuščen, če je krajši od 100 mm).
+    """
+    pari = [(i, o) for i, o in enumerate(ostanki)
+            if str(o.get("barva", "")).lower() == str(barva).lower()
+            and str(o.get("profil", "")).lower() == str(profil).lower()]
+    pari.sort(key=lambda p: -p[1].get("dolzina", 0))
+    iz_ost = []
+    preost = n_kosov
+    for (i, o) in pari:
+        if preost == 0:
+            break
+        if o.get("dolzina", 0) >= dol_kosa + kerf:
+            kol = min(int((o["dolzina"] + kerf) // (dol_kosa + kerf)), preost)
+            iz_ost.append((i, kol))
+            preost -= kol
+            o["dolzina"] = o["dolzina"] - kol * (dol_kosa + kerf)
+    novi = [o for o in ostanki if o.get("dolzina", 0) >= 100]
+    return iz_ost, preost, novi
+
+
 def narisi_montazni_list(ax, c):
     """Stran 2 za predlogo "ograda" (prečna)."""
     m = c["mere"]
@@ -1205,14 +1248,24 @@ def narisi_montazni_list(ax, c):
     dl_deske = c.get("dolzina_deske", 5800)
     dl_palice = c.get("dolzina_palice", 6000)
     kerf = c.get("kerf", 3.0)
+    barva = c.get("barva") or "Antracit"
+
+    # ostanki iz skladišča (ostanki.yaml) — najprej se porabijo
+    ostanki = nalozi_ostanke() if c.get("uporabi_ostanke", True) else []
+    iz_ost, preost_kosov, ostanki_novi = porazdeli_z_ostanki(
+        sir, n, ostanki, kerf, barva, profil)
+    kos_iz_ost = sum(k for _, k in iz_ost)
+
     na_desko = (max(1, int((dl_deske + kerf) // (sir + kerf)))
                 if dl_deske >= sir else 0)
-    deske = (math.ceil(n / na_desko) if na_desko
-             else math.ceil(n * sir / dl_deske))
+    deske = (math.ceil(preost_kosov / na_desko) if na_desko
+             else math.ceil(preost_kosov / dl_deske))
     palice = math.ceil((2 * sir + 2 * kerf) / dl_palice)
     pot = [
         [f"WPC deska {profil}", f"{fmt(dl_deske)} mm", f"{deske} kos",
-         f"skupaj {fmt(n * sir / 1000)} m lamel"],
+         (f"za {fmt(preost_kosov / 1000)} m lamel; {kos_iz_ost} kos iz "
+          f"ostankov" if kos_iz_ost else
+          f"skupaj {fmt(n * sir / 1000)} m lamel")],
         ["Alu profili 80×40 (zg.) + 60×40 (sp.)", f"{fmt(dl_palice)} mm",
          f"{palice} kos", f"obe sta dolgi {fmt(sir)} mm"],
         ["Nosilni nosilec 50×50×5", "—", f"{n_nos} kos",
@@ -1222,25 +1275,31 @@ def narisi_montazni_list(ax, c):
         ["Fasadni vijaki Ø8×80 + tipli", "—", f"{n_nos * 2} kos",
          "2 na nosilec"],
     ]
-    rez_rows = None
+    if kos_iz_ost:
+        pot.insert(1, ["Uporabljeni ostanki (iz skladišča)", "—",
+                       f"{kos_iz_ost} kos", "ni nabave"])
+
+    rez_rows = [["VIR", "KOSOV", "LAMELE ŠT.", "OSTANEK PO REZU (mm)"]]
     viz_traki = []
-    if na_desko:
-        rez_rows = [["DESKA", "KOSOV NA DESKI", "LAMELE ŠT.",
-                     "DOLŽINA (mm)", "OSTANEK (mm)"]]
-        prikaz = min(deske, 6)
-        for i in range(prikaz):
-            zac = min(na_desko, n - i * na_desko)
-            prva = i * na_desko + 1
-            ost = dl_deske - zac * sir - zac * kerf
-            rez_rows.append([str(i + 1), str(zac), f"{prva}–{prva + zac - 1}",
-                             fmt(sir), fmt(ost)])
-        if deske > prikaz:
-            rez_rows.append(["…", "", f"skupaj {deske} desk", "", ""])
-        for i in range(deske):
-            zac = min(na_desko, n - i * na_desko)
-            prva = i * na_desko + 1
-            viz_traki.append((dl_deske,
-                              [(f"L{prva + j}", sir) for j in range(zac)]))
+    pc = 1
+    for (oi, kol) in iz_ost:
+        o = ostanki[oi]
+        p1, p2 = pc, pc + kol - 1
+        pc += kol
+        ost_nov = max(0, o["dolzina"] - kol * (sir + kerf))
+        rez_rows.append([f"OSTANEK #{oi + 1} ({fmt(o['dolzina'])} mm)",
+                         str(kol), f"{p1}–{p2}", fmt(ost_nov)])
+        viz_traki.append((o["dolzina"],
+                          [(f"L{p1 + j}", sir) for j in range(kol)]))
+    for i in range(deske):
+        zac = min(na_desko, preost_kosov - i * na_desko)
+        p1, p2 = pc, pc + zac - 1
+        pc += zac
+        ost = dl_deske - zac * sir - zac * kerf
+        rez_rows.append([f"DESKA {i + 1} (nabava)", str(zac), f"{p1}–{p2}",
+                         fmt(max(0, ost))])
+        viz_traki.append((dl_deske,
+                          [(f"L{p1 + j}", sir) for j in range(zac)]))
     koraki = [
         "Preveri dejanske mere objekta in primerjaj z risbo.",
         f"Označi lego nosilcev (razmak največ {fmt(raz)} mm); "
@@ -1274,6 +1333,26 @@ def narisi_montazni_list(ax, c):
             fontsize=6.5, color="#555555", ha="left", va="center")
     por_m = deske * dl_deske / 1000
     por_alu = palice * dl_palice / 1000
+    datum = c.get("datum") or datetime.date.today().strftime("%d.%m.%Y")
+    nar = [
+        "NAROČILO — WPC material (WoodCore)",
+        f"Naloga: {c['risba_st']} • Datum: {datum}",
+        f"Stranka: {c.get('stranka') or '—'} • Objekt: "
+        f"{c.get('objekt') or '—'}",
+        "",
+        "DESKE:",
+        f"- {profil}, barva {barva} — {deske} kos × {fmt(dl_deske)} mm "
+        f"(razrez po {fmt(sir)} mm)"
+        + (f" + {kos_iz_ost} kos iz ostankov" if kos_iz_ost else ""),
+        "",
+        "PROFILI (aluminij):",
+        f"- 80×40×3 — {palice} kos × {fmt(dl_palice)} mm "
+        f"(razrez: 2 × {fmt(sir)} mm)",
+        "",
+        "PRITRDILNI MATERIAL:",
+        f"- RF vijaki M8×70 Inox A2 — {vijaki} kos",
+        f"- Fasadni vijaki Ø8×80 + tipli — {n_nos * 2} kos",
+    ]
     kolicine = {"postavke": [
         (f"WPC deske {profil} (nabava)", f"{deske} kos = {fmt(por_m)}",
          "m", "wpc_deska_m", por_m),
@@ -1283,8 +1362,12 @@ def narisi_montazni_list(ax, c):
         ("RF vijaki M8×70", f"{vijaki}", "kos", "vijak_kos", vijaki),
         ("Fasadni vijaki Ø8×80 + tipli", f"{n_nos * 2}", "kos",
          "fasadni_kos", n_nos * 2),
-    ]}
-    return {"postavke": kolicine["postavke"]}
+    ],
+    "narocilo": "\n".join(nar),
+    "ostanki_posodobitev": (ostanki_novi if kos_iz_ost else None),
+    }
+    return {"postavke": kolicine["postavke"], "narocilo": kolicine["narocilo"],
+            "ostanki_posodobitev": kolicine["ostanki_posodobitev"]}
 
 
 def narisi_montazni_pokoncna(ax, c):
@@ -1296,18 +1379,27 @@ def narisi_montazni_pokoncna(ax, c):
     n_d, n_s = p["n_desk"], p["n_stebrov"]
     deska_h = p["deske_h"]
     profil = c.get("profil") or "POLNA DESKA 100"
+    barva = c.get("barva") or "Antracit"
     dl_deske = c.get("dolzina_deske", 5800)
     dl_palice = c.get("dolzina_palice", 6000)
     kerf = c.get("kerf", 3.0)
+
+    ostanki = nalozi_ostanke() if c.get("uporabi_ostanke", True) else []
+    iz_ost, preost_desk, ostanki_novi = porazdeli_z_ostanki(
+        deska_h, n_d, ostanki, kerf, barva, profil)
+    kos_iz_ost = sum(k for _, k in iz_ost)
+
     na_desko = (max(1, int((dl_deske + kerf) // (deska_h + kerf)))
                 if dl_deske >= deska_h else 0)
-    deske = (math.ceil(n_d / na_desko) if na_desko
-             else math.ceil(n_d * deska_h / dl_deske))
+    deske = (math.ceil(preost_desk / na_desko) if na_desko
+             else math.ceil(preost_desk * deska_h / dl_deske))
     palice_s = math.ceil(n_s * (vis + kerf) / dl_palice)
     vijaki = n_d * n_s * 2
     pot = [
         [f"WPC deska {profil}", f"{fmt(dl_deske)} mm", f"{deske} kos",
-         f"skupaj {fmt(n_d * deska_h / 1000)} m desek"],
+         (f"za {fmt(preost_desk)} m desek; {kos_iz_ost} kos iz ostankov"
+          if kos_iz_ost else
+          f"skupaj {fmt(n_d * deska_h / 1000)} m desek")],
         ["Alu steber 60×40", f"{fmt(dl_palice)} mm", f"{palice_s} kos",
          f"{n_s} stebrov (L = {fmt(vis)} mm)"],
         ["Ročaj (WPC/alu)", f"{fmt(sir)} mm", "1 kos",
@@ -1319,26 +1411,31 @@ def narisi_montazni_pokoncna(ax, c):
         ["Anker M10", "—", f"{n_s * 2} kos",
          "2 na osnovo • sidranje ≥ 60 mm (beton C20/25)"],
     ]
-    rez_rows = None
+    if kos_iz_ost:
+        pot.insert(1, ["Uporabljeni ostanki (iz skladišča)", "—",
+                       f"{kos_iz_ost} kos", "ni nabave"])
+
+    rez_rows = [["VIR", "KOSOV", "DESKE ŠT.", "OSTANEK PO REZU (mm)"]]
     viz_traki = []
-    if na_desko:
-        rez_rows = [["DESKA", "KOSOV NA DESKI", "DESKE ŠT.",
-                     "DOLŽINA (mm)", "OSTANEK (mm)"]]
-        prikaz = min(deske, 6)
-        for i in range(prikaz):
-            zac = min(na_desko, n_d - i * na_desko)
-            prva = i * na_desko + 1
-            ost = dl_deske - zac * deska_h - zac * kerf
-            rez_rows.append([str(i + 1), str(zac), f"{prva}–{prva + zac - 1}",
-                             fmt(deska_h), fmt(ost)])
-        if deske > prikaz:
-            rez_rows.append(["…", "", f"skupaj {deske} desk", "", ""])
-        for i in range(deske):
-            zac = min(na_desko, n_d - i * na_desko)
-            prva = i * na_desko + 1
-            viz_traki.append((dl_deske,
-                              [(f"D{prva + j}", deska_h)
-                               for j in range(zac)]))
+    pc = 1
+    for (oi, kol) in iz_ost:
+        o = ostanki[oi]
+        p1, p2 = pc, pc + kol - 1
+        pc += kol
+        ost_nov = max(0, o["dolzina"] - kol * (deska_h + kerf))
+        rez_rows.append([f"OSTANEK #{oi + 1} ({fmt(o['dolzina'])} mm)",
+                         str(kol), f"{p1}–{p2}", fmt(ost_nov)])
+        viz_traki.append((o["dolzina"],
+                          [(f"D{p1 + j}", deska_h) for j in range(kol)]))
+    for i in range(deske):
+        zac = min(na_desko, preost_desk - i * na_desko)
+        p1, p2 = pc, pc + zac - 1
+        pc += zac
+        ost = dl_deske - zac * deska_h - zac * kerf
+        rez_rows.append([f"DESKA {i + 1} (nabava)", str(zac), f"{p1}–{p2}",
+                         fmt(max(0, ost))])
+        viz_traki.append((dl_deske,
+                          [(f"D{p1 + j}", deska_h) for j in range(zac)]))
     koraki = [
         "Preveri dejanske mere objekta in primerjaj z risbo.",
         f"Označi lege stebrov (razmak največ {fmt(m['razmak_stebrov'])} mm); "
@@ -1350,6 +1447,30 @@ def narisi_montazni_pokoncna(ax, c):
         "Ø + 1 mm).",
         "Vgradi ročaj, kontrola ravni in višine, slika izvedbo, podpis "
         "stranke.",
+    ]
+    montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki)
+
+    datum = c.get("datum") or datetime.date.today().strftime("%d.%m.%Y")
+    nar = [
+        "NAROČILO — WPC material (WoodCore)",
+        f"Naloga: {c['risba_st']} • Datum: {datum}",
+        f"Stranka: {c.get('stranka') or '—'} • Objekt: "
+        f"{c.get('objekt') or '—'}",
+        "",
+        "DESKE:",
+        f"- {profil}, barva {barva} — {deske} kos × {fmt(dl_deske)} mm "
+        f"(razrez po {fmt(deska_h)} mm)"
+        + (f" + {kos_iz_ost} kos iz ostankov" if kos_iz_ost else ""),
+        "",
+        "PROFILI (aluminij):",
+        f"- 60×40×5 — {palice_s} kos × {fmt(dl_palice)} mm "
+        f"(razrez: {n_s} × {fmt(vis)} mm — stebri)",
+        "",
+        "OSTALA PRITRDITVA:",
+        f"- Ročaj — 1 kos × {fmt(sir)} mm",
+        f"- Osnove za steber — {n_s} kos",
+        f"- Vijaki M8×70 Inox A2 — {vijaki} kos",
+        f"- Anker M10 — {n_s * 2} kos",
     ]
     montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki)
 
@@ -1378,7 +1499,9 @@ def narisi_montazni_pokoncna(ax, c):
         ("Osnove za steber", f"{n_s}", "kos", "osnova_kos", n_s),
         ("Vijaki M8×70", f"{vijaki}", "kos", "vijak_kos", vijaki),
         ("Anker M10", f"{n_s * 2}", "kos", "anker_kos", n_s * 2),
-    ]}
+    ],
+    "narocilo": "\n".join(nar),
+    "ostanki_posodobitev": (ostanki_novi if kos_iz_ost else None)}
 
 
 def preveri_cfg(cfg):
@@ -1509,6 +1632,11 @@ def generiraj(cfg, dpi_png=200):
     png = os.path.splitext(izhod)[0] + ".png"
     fig.savefig(png, dpi=dpi_png)
     dodatni = []
+    if kolicine and kolicine.get("narocilo"):
+        n_pot = os.path.splitext(izhod)[0] + "-narocilo.txt"
+        with open(n_pot, "w", encoding="utf-8") as f:
+            f.write(kolicine["narocilo"])
+        dodatni.append(n_pot)
     if fig2 is not None:
         p2 = os.path.splitext(izhod)[0] + "-montazni-list.png"
         fig2.savefig(p2, dpi=dpi_png)
@@ -1520,7 +1648,7 @@ def generiraj(cfg, dpi_png=200):
         dodatni.append(p3)
         plt.close(fig3)
     plt.close(fig)
-    return izhod, png, dodatni
+    return izhod, png, dodatni, kolicine
 
 
 def main():
@@ -1528,6 +1656,8 @@ def main():
     ap.add_argument("konf", nargs="?",
                     help="pot do projekt.yaml (brez: vprašanja v terminalu)")
     ap.add_argument("-o", "--izhod", help="ime izhodne PDF datoteke")
+    ap.add_argument("--potrosi-ostanke", action="store_true",
+                    help="odpiše porabljene ostanke iz ostanki.yaml")
     a = ap.parse_args()
 
     cfg = nalozi_konf(a.konf) if a.konf else interaktivno()
@@ -1535,7 +1665,7 @@ def main():
         cfg["izhod"] = a.izhod
 
     try:
-        izhod, png, dodatni = generiraj(cfg)
+        izhod, png, dodatni, kolicine = generiraj(cfg)
     except ValueError as e:
         sys.exit(str(e))
 
@@ -1543,6 +1673,9 @@ def main():
     print(f"[OK] Predogled: {png}")
     for p in dodatni:
         print(f"[OK] Dodatno: {p}")
+    if a.potrosi_ostanke and kolicine and             kolicine.get("ostanki_posodobitev") is not None:
+        shrani_ostanke(kolicine["ostanki_posodobitev"])
+        print("[OK] Ostanki odpisani iz skladišča (ostanki.yaml)")
 
 
 if __name__ == "__main__":

@@ -151,6 +151,7 @@ class App(tk.Tk):
             pass
         self.pdf_pot = None
         self.png_pot = None
+        self.kolicine = None
         self._slika = None            # referenca (sicer GC uniči sliko)
         self.v = {}
         self.polja = {}               # referenca polj za skrivanje/prikaz
@@ -264,6 +265,13 @@ class App(tk.Tk):
             fb, text="ODPRI PDF", command=self._odpri_pdf, state="disabled",
             font=("Segoe UI", 10, "bold"), padx=14, pady=6, cursor="hand2")
         self.btn_pdf.pack(side="left", padx=10)
+        self.btn_nar = ttk.Button(fb, text="NAROČILO (kopiraj)",
+                                  state="disabled",
+                                  command=self._narocilo_kopiraj)
+        self.btn_nar.pack(side="right", padx=8)
+        self.btn_ost = ttk.Button(fb, text="ODPIŠI OSTANKE", state="disabled",
+                                  command=self._odpisi_ostanke)
+        self.btn_ost.pack(side="right")
         ttk.Button(fb, text="SHRANI PROJEKT (.yaml)",
                    command=self._shrani_projekt).pack(side="right")
         self.btn_cel = ttk.Button(fb, text="CEL ZASLON", state="disabled",
@@ -424,27 +432,32 @@ class App(tk.Tk):
 
     def _narisi_nit(self, cfg):
         try:
-            izhod, png, _png2 = risba.generiraj(cfg, dpi_png=120)
+            izhod, png, dodatni, kolicine = risba.generiraj(cfg, dpi_png=120)
         except ValueError as e:
             self.after(0, self._napaka, str(e))
             return
         except Exception as e:                     # nepričakovana napaka
             self.after(0, self._napaka, f"Nepričakovana napaka: {e}")
             return
-        self.after(0, self._koncano, izhod, png)
+        self.after(0, self._koncano, izhod, png, dodatni, kolicine)
 
     def _napaka(self, sporocilo):
         self.btn_narisi.config(state="normal", text="NARIŠI RISBO")
         self.status.config(text="Napaka.", fg="#b00020")
         messagebox.showerror("Napaka", sporocilo)
 
-    def _koncano(self, izhod, png):
+    def _koncano(self, izhod, png, dodatni, kolicine):
         self.pdf_pot = izhod
         self.png_pot = png
+        self.kolicine = kolicine
         self.btn_pdf.config(state="normal")
         self.btn_cel.config(state="normal")
+        if kolicine and kolicine.get("narocilo"):
+            self.btn_nar.config(state="normal")
+            self.btn_ost.config(state="normal")
         self.btn_narisi.config(state="normal", text="NARIŠI RISBO")
-        self.status.config(text=f"Napisano: {os.path.basename(izhod)} "
+        dok = " + ".join(os.path.basename(p) for p in dodatni)
+        self.status.config(text=f"Napisano: {os.path.basename(izhod)} • {dok} "
                                 f"• nastavitve samodejno shranjene",
                            fg="#1b5e20")
         self._shrani_zadnje()
@@ -572,6 +585,31 @@ class App(tk.Tk):
         else:
             self._slika = tk.PhotoImage(file=png, subsample=4)
         self.predogled.config(image=self._slika, text="", fg="#999999")
+
+    def _narocilo_kopiraj(self):
+        if not (self.kolicine and self.kolicine.get("narocilo")):
+            return
+        self.clipboard_clear()
+        self.clipboard_append(self.kolicine["narocilo"])
+        messagebox.showinfo(
+            "Naročilo kopirano",
+            "Naročilo je kopirano v odložišče — prilepi v e-pošto "
+            "dobavitelju (npr. Roksal).")
+
+    def _odpisi_ostanke(self):
+        if not (self.kolicine and
+                self.kolicine.get("ostanki_posodobitev") is not None):
+            return
+        try:
+            risba.shrani_ostanke(self.kolicine["ostanki_posodobitev"])
+        except Exception as e:
+            messagebox.showerror("Ostanki", f"Napaka pri shranjevanju: {e}")
+            return
+        self.kolicine["ostanki_posodobitev"] = None
+        self.btn_ost.config(state="disabled")
+        messagebox.showinfo(
+            "Ostanki", "Porabljeni ostanki so odpisani iz ostanki.yaml "
+            "(v mapi programa).")
 
     def _odpri_pdf(self):
         if self.pdf_pot:
