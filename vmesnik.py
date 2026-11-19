@@ -36,6 +36,8 @@ NAPISI = {
     "odcep": "Odcep od tal", "material": "Material",
     "razmak_nosilcev": "Razmak nosilcev", "profil": "Profil / model deske",
     "stranka": "Naročnik / stranka", "objekt": "Objekt (lokacija)",
+    "podlaga": "Podlaga", "pritrditev_nacin": "Način pritrditve",
+    "vijak_lamela": "Vijak lamela↔profil", "vijak_nosilec": "Vijak nosilec↔podlaga",
     "foto": "Pot do fotografije", "izhod": "Ime izhodne datoteke",
 }
 
@@ -49,7 +51,7 @@ CENE_NAPISI = {
     "alu_m": "Alu profil (EUR/m):",
     "rocaj_kos": "Ročaj (EUR/kos):",
     "nosilec_kos": "Nosilec (EUR/kos):",
-    "vijak_kos": "Vijak M8×70 (EUR/kos):",
+    "vijak_kos": "Vijak (EUR/kos):",
     "fasadni_kos": "Fasadni vijak (EUR/kos):",
     "anker_kos": "Anker M10 (EUR/kos):",
     "dela_ure": "Delo (ure):",
@@ -228,9 +230,20 @@ class App(tk.Tk):
                          "razmak nosilcev se samodejno izračuna)",
                  fg="#888888").grid(row=2, column=2, columnspan=2, sticky="w")
 
+        # ---- PRITRDITEV ----
+        f4 = ttk.LabelFrame(zg, text="PRITRDITEV", padding=8)
+        f4.grid(row=2, column=0, sticky="ew")
+        self._polje(f4, 0, 0, "podlaga", 14)
+        self._polje(f4, 0, 1, "pritrditev_nacin", 14)
+        self._polje(f4, 0, 2, "vijak_lamela", 30)
+        self._polje(f4, 1, 0, "vijak_nosilec", 30)
+        tk.Label(f4, text="(vijak: prosto — npr. „RF M8×70 Inox“, "
+                         "„anker M12“, „fasadni Ø8×80 + tipli“ …)",
+                 fg="#888888").grid(row=1, column=1, columnspan=2, sticky="w")
+
         # ---- FOTO + IZHOD ----
         f3 = ttk.LabelFrame(zg, text="FOTOGRAFIJA IN IZHOD", padding=8)
-        f3.grid(row=2, column=0, sticky="ew")
+        f3.grid(row=3, column=0, sticky="ew")
         self._polje(f3, 0, 0, "foto", 52)
         ttk.Button(f3, text="Prebrskaj…", command=self._brskaj_foto)\
             .grid(row=0, column=2, sticky="w", padx=4)
@@ -315,7 +328,9 @@ class App(tk.Tk):
             "ime": p["ime"], "risba_st": p["risba_st"], "izdelal": p["izdelal"],
             "podjetje": p["podjetje"], "pregledal": p["pregledal"],
             "odobril": p["odobril"], "stranka": p["stranka"],
-            "objekt": p["objekt"],
+            "objekt": p["objekt"], "podlaga": p["podlaga"],
+            "pritrditev_nacin": p["pritrditev"],
+            "vijak_lamela": p["vijak_lamela"], "vijak_nosilec": p["vijak_nosilec"],
             "material": p["material"], "profil": p["profil"],
             "barva": p["barva"], "foto": "", "izhod": p["izhod"],
             "sirina": f"{m['sirina']:g}", "visina": f"{m['visina']:g}",
@@ -361,11 +376,12 @@ class App(tk.Tk):
             try:
                 vred = tip(raw)
             except ValueError:
-                raise ValueError(f"Polje »{NAPISI[kljuc]}« mora biti število "
-                                 f"(vpisano: {self.v[kljuc].get().strip()!r}).")
+                raise ValueError(f"Polje »{NAPISI.get(kljuc, kljuc)}« mora "
+                                 f"biti število (vpisano: "
+                                 f"{self.v[kljuc].get().strip()!r}).")
             if vred <= 0:
-                raise ValueError(f"Polje »{NAPISI[kljuc]}« mora biti pozitivno "
-                                 "število.")
+                raise ValueError(f"Polje »{NAPISI.get(kljuc, kljuc)}« mora "
+                                 "biti pozitivno število.")
             return vred
 
         return {
@@ -411,6 +427,10 @@ class App(tk.Tk):
             "profil": self.v["profil"].get().strip() or None,
             "material_lamel": None,
             "material": self.v["material"].get().strip() or "Aluminij",
+            "podlaga": self.v["podlaga"].get().strip() or None,
+            "pritrditev": self.v["pritrditev_nacin"].get().strip() or None,
+            "vijak_lamela": self.v["vijak_lamela"].get().strip() or None,
+            "vijak_nosilec": self.v["vijak_nosilec"].get().strip() or None,
             "deli": None, "opombe": None, "mere": m,
             "klik_cel_zaslon": bool(self.st_klik.get()),
             "preprost_nacin": bool(self.st_preprost.get()),
@@ -466,6 +486,7 @@ class App(tk.Tk):
     # napredna polja — skrita v preprostem načinu
     ADVANS = ("podjetje", "pregledal", "odobril", "stranka", "objekt",
               "material", "profil", "razmak_nosilcev", "barva", "meri_slike",
+              "podlaga", "pritrditev_nacin", "vijak_lamela", "vijak_nosilec",
               "cene_wpc_deska_m", "cene_alu_m", "cene_rocaj_kos",
               "cene_nosilec_kos", "cene_vijak_kos", "cene_fasadni_kos",
               "cene_anker_kos", "cene_dela_ure", "cene_dela_ur_cena")
@@ -555,7 +576,8 @@ class App(tk.Tk):
 
         for k in ("ime", "risba_st", "izdelal", "podjetje", "pregledal",
                   "odobril", "stranka", "objekt", "material", "profil",
-                  "barva", "izhod", "foto"):
+                  "barva", "izhod", "foto", "podlaga", "pritrditev_nacin",
+                  "vijak_lamela", "vijak_nosilec"):
             nast(k, cfg.get(k))
         for k in ("sirina", "visina", "globina", "lamele", "lamela_v",
                   "debelina", "odcep", "razmak_nosilcev"):
