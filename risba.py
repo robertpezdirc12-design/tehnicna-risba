@@ -84,11 +84,11 @@ def fmt(v):
     return f"{v:g}"
 
 
-def zdruzi_traki(traki):
-    """Traki po dolžinah združeni: [(dolžina, št. kosov)] urejeno po dolžini."""
+def traki_nabava(traki):
+    """Število NABAVNIH trakov (desk) po dolžinah: [(dolžina, št. trakov)]."""
     agg = {}
-    for B, t in traki:
-        agg[B] = agg.get(B, 0) + t
+    for B, _ in traki:
+        agg[B] = agg.get(B, 0) + 1
     return sorted(agg.items())
 
 
@@ -1380,13 +1380,13 @@ def narisi_montazni_list(ax, c):
         sir, n, ostanki, kerf, barva, profil)
     kos_iz_ost = sum(k for _, k in iz_ost)
 
-    na_desko = (max(1, int((dl_deske + kerf) // (sir + kerf)))
-                if dl_deske >= sir else 0)
-    deske = (math.ceil(preost_kosov / na_desko) if na_desko
-             else math.ceil(preost_kosov / dl_deske))
+    traki = optimiziraj_zalogo(sir, preost_kosov,
+                               c.get("dolzine_deske") or [dl_deske], kerf)
     palice = math.ceil((2 * sir + 2 * kerf) / dl_palice)
     pot = [
-        [f"WPC deska {profil}", f"{fmt(dl_deske)} mm", f"{deske} kos",
+        [f"WPC deska {profil}",
+         " + ".join(f"{t} × {fmt(B)} mm" for B, t in traki_nabava(traki))
+         or f"{fmt(dl_deske)} mm", f"{len(traki)} kos",
          (f"za {fmt(preost_kosov / 1000)} m lamel; {kos_iz_ost} kos iz "
           f"ostankov" if kos_iz_ost else
           f"skupaj {fmt(n * sir / 1000)} m lamel")],
@@ -1414,8 +1414,6 @@ def narisi_montazni_list(ax, c):
                          str(kol), f"{p1}–{p2}", fmt(ost_nov)])
         viz_traki.append((o["dolzina"],
                           [(f"L{p1 + j}", sir) for j in range(kol)]))
-    traki = optimiziraj_zalogo(sir, preost_kosov,
-                               c.get("dolzine_deske") or [dl_deske], kerf)
     for ti, (B, zac_k) in enumerate(traki):
         zac = min(zac_k, preost_kosov)
         p1, p2 = pc, pc + zac - 1
@@ -1451,7 +1449,7 @@ def narisi_montazni_list(ax, c):
             ha="left", va="center")
     por_m = sum(B for B, _ in traki) / 1000
     odp_m = por_m - n * sir / 1000
-    ax.text(20, y_iz - 5, f"PORABA: deske {sum(t for _, t in traki)} kos = "
+    ax.text(20, y_iz - 5, f"PORABA: nabavne deske {len(traki)} kos = "
             f"{por_m:.2f} m • odpad {odp_m:.2f} m "
             f"({odp_m / por_m * 100:.0f} %) • alu palice {palice} kos = "
             f"{palice * dl_palice / 1000:.1f} m", fontsize=6.5,
@@ -1468,7 +1466,7 @@ def narisi_montazni_list(ax, c):
         "",
         "DESKE:",
         f"- {profil}, barva {barva}"
-        + "".join(f" — {t} kos × {fmt(B)} mm" for B, t in zdruzi_traki(traki))
+        + "".join(f" — {t} kos × {fmt(B)} mm" for B, t in traki_nabava(traki))
         + (f" + {kos_iz_ost} kos iz ostankov" if kos_iz_ost else ""),
         "",
         "PROFILI (aluminij):",
@@ -1490,7 +1488,7 @@ def narisi_montazni_list(ax, c):
             kosovnica.append((str(pc_k), sir, f"deska #{B // 1000} m", barva))
             pc_k += 1
     wpc_postavke = [f"{B / 1000:.1f} m ({t} kos)"
-                    for B, t in zdruzi_traki(traki)]
+                    for B, t in traki_nabava(traki)]
     kolicine = {"postavke": [
         (f"WPC deske {profil} (nabava: " + " + ".join(wpc_postavke) + ")",
          f"{fmt(por_m)} m", "m", "wpc_deska_m", por_m),
@@ -1533,14 +1531,14 @@ def narisi_montazni_pokoncna(ax, c):
         deska_h, n_d, ostanki, kerf, barva, profil)
     kos_iz_ost = sum(k for _, k in iz_ost)
 
-    na_desko = (max(1, int((dl_deske + kerf) // (deska_h + kerf)))
-                if dl_deske >= deska_h else 0)
-    deske = (math.ceil(preost_desk / na_desko) if na_desko
-             else math.ceil(preost_desk * deska_h / dl_deske))
+    traki = optimiziraj_zalogo(deska_h, preost_desk,
+                               c.get("dolzine_deske") or [dl_deske], kerf)
     palice_s = math.ceil(n_s * (vis + kerf) / dl_palice)
     vijaki = n_d * n_s * 2
     pot = [
-        [f"WPC deska {profil}", f"{fmt(dl_deske)} mm", f"{deske} kos",
+        [f"WPC deska {profil}",
+         " + ".join(f"{t} × {fmt(B)} mm" for B, t in traki_nabava(traki))
+         or f"{fmt(dl_deske)} mm", f"{len(traki)} kos",
          (f"za {fmt(preost_desk)} m desek; {kos_iz_ost} kos iz ostankov"
           if kos_iz_ost else
           f"skupaj {fmt(n_d * deska_h / 1000)} m desek")],
@@ -1571,8 +1569,6 @@ def narisi_montazni_pokoncna(ax, c):
                          str(kol), f"{p1}–{p2}", fmt(ost_nov)])
         viz_traki.append((o["dolzina"],
                           [(f"D{p1 + j}", deska_h) for j in range(kol)]))
-    traki = optimiziraj_zalogo(deska_h, preost_desk,
-                               c.get("dolzine_deske") or [dl_deske], kerf)
     for ti, (B, zac_k) in enumerate(traki):
         zac = min(zac_k, preost_desk)
         p1, p2 = pc, pc + zac - 1
@@ -1604,7 +1600,7 @@ def narisi_montazni_pokoncna(ax, c):
         "",
         "DESKE:",
         f"- {profil}, barva {barva}"
-        + "".join(f" — {t} kos × {fmt(B)} mm" for B, t in zdruzi_traki(traki))
+        + "".join(f" — {t} kos × {fmt(B)} mm" for B, t in traki_nabava(traki))
         + (f" + {kos_iz_ost} kos iz ostankov" if kos_iz_ost else ""),
         "",
         "PROFILI (aluminij):",
@@ -1629,7 +1625,7 @@ def narisi_montazni_pokoncna(ax, c):
             fontsize=6.5, color="#555555", ha="left", va="center")
     por_s = sum(B for B, _ in traki) / 1000
     odp_s = por_s - n_d * deska_h / 1000
-    ax.text(20, y_iz - 5, f"PORABA: deske {sum(t for _, t in traki)} kos = "
+    ax.text(20, y_iz - 5, f"PORABA: nabavne deske {len(traki)} kos = "
             f"{por_s:.2f} m • odpad {odp_s:.2f} m "
             f"({odp_s / por_s * 100:.0f} %) • alu palice {palice_s} kos = "
             f"{palice_s * dl_palice / 1000:.1f} m", fontsize=6.5,
@@ -1648,7 +1644,7 @@ def narisi_montazni_pokoncna(ax, c):
                               barva))
             pc_k += 1
     wpc_postavke = [f"{B / 1000:.1f} m ({t} kos)"
-                    for B, t in zdruzi_traki(traki)]
+                    for B, t in traki_nabava(traki)]
     return {"postavke": [
         (f"WPC deske {profil} (nabava: " + " + ".join(wpc_postavke) + ")",
          f"{fmt(por_s)} m", "m", "wpc_deska_m", por_s),
@@ -1698,9 +1694,27 @@ def preveri_cfg(cfg):
     kerf = cfg.get("kerf", 3.0)
     if not isinstance(kerf, (int, float)) or kerf < 0:
         nap.append("Kerf (širina rezila) ne sme biti negativen.")
-    dl = cfg.get("dolzina_deske", 5800)
-    if not isinstance(dl, (int, float)) or dl <= 0:
-        nap.append("Dolžina deske mora biti pozitivna.")
+    dl = cfg.get("dolzine_deske")
+    if dl is None:
+        dl = [cfg.get("dolzina_deske", 5800)]
+    if not isinstance(dl, (list, tuple)) or not dl:
+        nap.append("Dolžine desk morajo biti seznam števil "
+                   "(npr. '5800; 4000; 2200').")
+    else:
+        for x in dl:
+            if not isinstance(x, (int, float)) or x <= 0:
+                nap.append(f"Dolžina deske {x!r} mora biti pozitivno število.")
+        # dolžina kosa po predlogi — vsaj ena nabavna dolžina mora zadoščati
+        if cfg.get("predloga") == "pokončna":
+            kos_dol = (m.get("visina", 0) - m.get("odcep", 0)
+                       - m.get("rocaj_v", 40))
+        else:
+            kos_dol = m.get("lamela_v", 0)
+        dl_ok = [x for x in dl
+                 if isinstance(x, (int, float)) and x >= kos_dol + kerf]
+        if kos_dol > 0 and not dl_ok:
+            nap.append(f"Nobena nabavna dolžina desk ni dovolj velika za kos "
+                       f"{kos_dol:.0f} mm (+ kerf {kerf} mm).")
     if cfg.get("foto") and not os.path.isfile(cfg["foto"]):
         nap.append(f"Fotografija ne obstaja: {cfg['foto']}")
     return nap
