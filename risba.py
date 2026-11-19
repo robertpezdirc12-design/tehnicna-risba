@@ -25,6 +25,10 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 import yaml
+
+from razrez import (razrez_podatki,
+                     nalozi_ostanke,
+                     shrani_ostanke)
 from matplotlib.patches import Circle, Polygon, Rectangle
 
 # ---------------------------------------------------------------- konstante
@@ -1016,7 +1020,8 @@ PRIVZETO = {
     "stranka": "",            # naročnik (glava + montažni list)
     "objekt": "",             # lokacija objekta (glava + montažni list)
     "uporabi_ostanke": True,  # iz skladišča ostankov.yaml najprej porabi ostanke
-    "dolzina_deske": 5800,    # tovarniška dolžina WPC deske (WoodCore 5,8 m)
+    "dolzine_deske": [5800],  # tovarniške dolžine (npr. 5800, 4000, 2200)
+    "dolzina_deske": 5800,    # (združljivost — posamezna dolžina)
     "dolzina_palice": 6000,   # tovarniška dolžina alu profila
     "kerf": 3.0,              # širina rezila (mm) — upoštevana v rezalnem načrtu
     "podjetje": "",           # ime podjetja v naslovnem bloku (neobvezno)
@@ -1111,7 +1116,55 @@ def nalozi_konf(pot):
     return zdruzi(podatki)
 
 
-def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki):
+def montazni_sidranje(ax, x0, y_top, sirina=120):
+    """Priporočene globine sidranja po podlagi — potrdi strokovnjak."""
+    nas_h, h = 7.5, 7
+    pravokotnik(ax, x0, y_top - nas_h, sirina, nas_h, fill=BARVA_OZN, lw=0)
+    ax.text(x0 + sirina / 2, y_top - nas_h / 2, "SIDRANJE (priporočeno)",
+            ha="center", va="center", fontsize=7.5, fontweight="bold",
+            color="white")
+    y = y_top - nas_h
+    for podlaga, sidro, glob in (("Beton C20/25", "anker M10", "60 mm"),
+                                 ("Zid (opeka/silikat)", "fasadni Ø8", "70 mm"),
+                                 ("Les / jeklo", "vijak Ø8", "40 mm")):
+        pravokotnik(ax, x0, y - h, sirina, h, fill="#eef1f6", lw=0.5)
+        ax.text(x0 + 2, y - h / 2, podlaga, fontsize=6.5, ha="left", va="center")
+        ax.text(x0 + 62, y - h / 2, sidro, fontsize=6.5, ha="left", va="center")
+        ax.text(x0 + sirina - 2, y - h / 2, glob, fontsize=6.5, ha="right",
+                va="center")
+        y -= h
+    ax.text(x0, y - 3, "(preveri usposobljen strokovnjak)", fontsize=6,
+            color="#888888", ha="left", va="center")
+
+
+def montazni_sestava(ax, x0, y_top, sirina, sestava):
+    """Shematska razstavljena sestava (od zgoraj navzdol = vrstni red)."""
+    nas_h = 7.5
+    pravokotnik(ax, x0, y_top - nas_h, sirina, nas_h, fill=BARVA_OZN, lw=0)
+    ax.text(x0 + sirina / 2, y_top - nas_h / 2, "SESTAVA (razstavljeno)",
+            ha="center", va="center", fontsize=7.5, fontweight="bold",
+            color="white")
+    sred = x0 + sirina / 2
+    y = y_top - nas_h
+    for i, (naziv, dim) in enumerate(sestava):
+        hh = 11
+        y -= 9
+        w = sirina - 34
+        pravokotnik(ax, sred - w / 2, y - hh, w, hh, fill="#c9d2e0",
+                    edgecolor=CRNA, lw=0.6)
+        ax.text(sred, y - hh / 2, naziv, ha="center", va="center",
+                fontsize=6.5, fontweight="bold")
+        ax.text(sred + w / 2 + 4, y - hh / 2, dim, fontsize=6.5, ha="left",
+                va="center", color="#333333")
+        if i < len(sestava) - 1:
+            crta(ax, sred, y - hh, sred, y - 9, lw=0.5, stil=(0, (3, 2)))
+        y -= hh
+    ax.text(x0, y - 4, "od zgoraj navzdol = vrstni red vgradnje",
+            fontsize=6, color="#888888", ha="left", va="center")
+
+
+def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki,
+                    sestava=None):
     """Skupni izgled montažnega lista (stran 2) za vse predloge."""
     iso_okvir(ax)
     oznaka(ax, 20, 286, "MONTAŽNI LIST — POTREBŠČINE")
@@ -1184,6 +1237,10 @@ def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki):
         "□ slika končno izvedbo",
     ]
     opombe_blok(ax, 288, 256, 120, kontrola, naslov_t="KONTROLA NA TERENU")
+
+    montazni_sidranje(ax, 288, 214)
+    if sestava:
+        montazni_sestava(ax, 288, 180, 120, sestava)
 
     for x0, w, ime in ((20, 126, "IZDELAL (podpis)"),
                        (148, 126, "STRANKA (prejem dela)"),
@@ -1546,6 +1603,38 @@ def preveri_cfg(cfg):
     return nap
 
 
+def narisi_nalepke(ax, c, kosovnica):
+    """Stran 4: nalepke za kose (izreži, označi, prilepi na kos)."""
+    iso_okvir(ax)
+    oznaka(ax, 20, 286, "NALEPKE ZA KOSE")
+    datum = c.get("datum") or datetime.date.today().strftime("%d.%m.%Y")
+    ax.text(20, 278, f"Naloga: {c['risba_st']} • Datum: {datum} • "
+            f"izreži vsak kos in prilepi oznako", fontsize=8.5,
+            ha="left", va="center")
+    n = len(kosovnica)
+    prikaz = min(n, 12)
+    cols, cw, chh, x0, y0 = 3, 118, 52, 25, 245
+    for i, (oz, dol, vir, mat) in enumerate(kosovnica[:prikaz]):
+        col, row = i % cols, i // cols
+        x = x0 + col * (cw + 8)
+        y = y0 - row * (chh + 8)
+        pravokotnik(ax, x, y - chh, cw, chh, fill="white", lw=1.0)
+        ax.text(x + 5, y - 9, oz, fontsize=13, fontweight="bold",
+                ha="left", va="center")
+        ax.text(x + 5, y - 21, f"{fmt(dol)} mm", fontsize=10,
+                fontweight="bold", ha="left", va="center")
+        ax.text(x + 5, y - 31, c.get("profil") or "", fontsize=6.5,
+                color="#555555", ha="left", va="center")
+        ax.text(x + 5, y - 40, f"barva: {c.get('barva') or ''}", fontsize=6.5,
+                color="#555555", ha="left", va="center")
+        ax.text(x + cw - 5, y - 44, vir, fontsize=6, color="#888888",
+                ha="right", va="center")
+    if n > prikaz:
+        ax.text(x0, y0 - 4 * (chh + 8) - 4, f"… ostalih {n - prikaz} nalepk "
+                "je v kosovnici (CSV)", fontsize=7, color="#888888",
+                ha="left", va="center")
+
+
 def narisi_predracun(ax, c, postavke):
     """Stran 3: orientacijski predračun (samo če so cene v konfiguraciji)."""
     cene = c.get("cene") or {}
@@ -1632,6 +1721,20 @@ def generiraj(cfg, dpi_png=200):
     png = os.path.splitext(izhod)[0] + ".png"
     fig.savefig(png, dpi=dpi_png)
     dodatni = []
+    if kolicine and kolicine.get("kosovnica"):
+        cs_pot = os.path.splitext(izhod)[0] + "-kosovnica.csv"
+        with open(cs_pot, "w", encoding="utf-8-sig", newline="") as f:
+            f.write("Oznaka;Dolzina (mm);Vir;Material\n")
+            for (oz, dol, vir, mat) in kolicine["kosovnica"]:
+                f.write(f"{oz};{fmt(dol)};{vir};{mat}\n")
+        dodatni.append(cs_pot)
+        fig4, ax4 = nov_list()
+        narisi_nalepke(ax4, cfg, kolicine["kosovnica"])
+        pdf.savefig(fig4)
+        p4 = os.path.splitext(izhod)[0] + "-nalepke.png"
+        fig4.savefig(p4, dpi=dpi_png)
+        dodatni.append(p4)
+        plt.close(fig4)
     if kolicine and kolicine.get("narocilo"):
         n_pot = os.path.splitext(izhod)[0] + "-narocilo.txt"
         with open(n_pot, "w", encoding="utf-8") as f:
