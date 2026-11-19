@@ -6,11 +6,18 @@ Zagon:  python vmesnik.py   (ali dvoklik nanj)
 """
 
 import os
+import sys
 import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 import yaml
+
+# v exe načinu se nastavitve shranjujejo poleg programa (ne v začasni mapi)
+if getattr(sys, "frozen", False):
+    _AP_DIR = os.path.dirname(sys.executable)
+else:
+    _AP_DIR = os.path.dirname(os.path.abspath(__file__))
 
 import risba
 
@@ -50,8 +57,7 @@ CENE_NAPISI = {
 }
 
 # Samodejno shranjevanje zadnjih nastavitev (ob vsaki risbi, naloži ob zagonu)
-DAT_ZADNJE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                          "zadnje_nastavitve.yaml")
+DAT_ZADNJE = os.path.join(_AP_DIR, "zadnje_nastavitve.yaml")
 
 
 class CelZaslon(tk.Toplevel):
