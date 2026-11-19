@@ -722,13 +722,15 @@ def narisi_pokoncna(ax, c):
 
     # ==================== OPOMBE ====================
     opombe = c.get("opombe") or [
-        "Vse mere v mm; pred izdelavo preveri dejanske mere na objektu.",
-        "Splošne tolerance: ISO 2768-m (razen drugače navedeno).",
+        "Vse mere v mm (tolerance ISO 2768-m); pred izdelavo preveri "
+        "dejanske mere na objektu.",
         f"Deske: {profil} — WPC (bambus + HDPE), pritrditev z 2 vijaki na "
         "desko na vsak steber; predrtje Ø + 1 mm.",
         "Stebri: aluminij, na osnove z anker M10 (vrh v ploščo).",
         f"Razmak stebrov največ {fmt(m['razmak_stebrov'])} mm.",
         "Količine pritrdilnih elementov so orientacijske.",
+        "Risba NI statični izračun — nosilnost, sidranje in veterno breme "
+        "preveri usposobljen strokovnjak.",
     ]
     opombe_blok(ax, 246, 74, 162, opombe)
 
@@ -968,13 +970,15 @@ def narisi_ogrado(ax, c):
 
     # ==================== OPOMBE ====================
     opombe = c.get("opombe") or [
-        "Vse mere v mm; pred izdelavo preveri dejanske mere na objektu.",
-        "Splošne tolerance: ISO 2768-m (razen drugače navedeno).",
+        "Vse mere v mm (tolerance ISO 2768-m); pred izdelavo preveri "
+        "dejanske mere na objektu.",
         f"Lamele: {profil} — WPC (bambus + HDPE), 15 let garancije, brez barvanja.",
         "Profili/nosilci: aluminij, prašno barvano (RAL po dogovoru, privzeto RAL 7016).",
         "Pritrditev: bočno v fasado ali z vrha v ploščo; predrtje Ø + 1 mm (ekspanzija).",
         f"Razmak nosilcev največ {fmt(m.get('razmak_nosilcev', 1000))} mm; "
         "količine pritrdilnih elementov orientacijske.",
+        "Risba NI statični izračun — nosilnost, sidranje in veterno breme "
+        "preveri usposobljen strokovnjak.",
     ]
     opombe_blok(ax, 246, 74, 162, opombe)
 
@@ -1173,6 +1177,7 @@ def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki):
         "□ označi lege pritrditve (razmak)",
         "□ preveri razvod inštalacij",
         "□ sidranje po nosilnosti stene/plošče",
+        "□ statiko potrdil usposobljen strokovnjak",
         "□ kontrola višine in ravni",
         "□ slika končno izvedbo",
     ]
@@ -1241,8 +1246,8 @@ def narisi_montazni_list(ax, c):
         "Preveri dejanske mere objekta in primerjaj z risbo.",
         f"Označi lego nosilcev (razmak največ {fmt(raz)} mm); "
         "preveri razvod inštalacij pred vrtanjem.",
-        "Pritrdi nosilce (bočno/vrh po dogovoru); za WPC vedno "
-        "predrtje Ø + 1 mm.",
+        "Pritrdi nosilce (bočno/vrh po dogovoru — glej DETAJL "
+        "PRITRJEVANJA); za WPC vedno predrtje Ø + 1 mm.",
         "Vgradi zgornji in spodnji alu profil; kontroliraj višino "
         "in ravnost.",
         "Vgradi lamele (RF vijaki skozi notranjo alu cev; brez "
@@ -1251,6 +1256,33 @@ def narisi_montazni_list(ax, c):
         "stranke.",
     ]
     montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki)
+
+    # izračun višine + poraba/odpad (viden na montažnem listu)
+    cona_z = zg[0] - sp[1]
+    y_iz = 197 - (8.5 + 7 + (len(rez_rows) - 1) * 7) - 22
+    ax.text(20, y_iz, f"IZRAČUN VIŠINE: {fmt(m['visina'])} = "
+            f"{fmt(m['profil_v'])} (zgornji profil) + {fmt(cona_z)} "
+            f"(lamele: {n} × {fmt(m['lamela_v'])} + {n - 1} × vrzel "
+            f"{vrzel:.1f} mm) + {fmt(m['profil_v'])} (spodnji profil) + "
+            f"{fmt(m['odcep'])} (odcep)", fontsize=6.5, color="#555555",
+            ha="left", va="center")
+    por_m = deske * dl_deske / 1000
+    odp_m = por_m - n * sir / 1000
+    ax.text(20, y_iz - 5, f"PORABA: deske {deske} kos = {por_m:.2f} m • "
+            f"odpad {odp_m:.2f} m ({odp_m / por_m * 100:.0f} %) • alu "
+            f"palice {palice} kos = {palice * dl_palice / 1000:.1f} m",
+            fontsize=6.5, color="#555555", ha="left", va="center")
+    kolicine = {"postavke": [
+        (f"WPC deske {profil}", f"{fmt(n * sir / 1000)}", "m",
+         "wpc_deska_m", n * sir / 1000),
+        ("Alu profili 80×40 + 60×40", f"{fmt(2 * sir / 1000)}", "m",
+         "alu_m", 2 * sir / 1000),
+        ("Nosilni nosilci 50×50×5", f"{n_nos}", "kos", "nosilec_kos", n_nos),
+        ("RF vijaki M8×70", f"{vijaki}", "kos", "vijak_kos", vijaki),
+        ("Fasadni vijaki Ø8×80 + tipli", f"{n_nos * 2}", "kos",
+         "fasadni_kos", n_nos * 2),
+    ]}
+    return {"postavke": kolicine["postavke"]}
 
 
 def narisi_montazni_pokoncna(ax, c):
@@ -1281,7 +1313,8 @@ def narisi_montazni_pokoncna(ax, c):
          "anker M10 × 2 na osnovo"],
         ["Vijaki M8×70 (deska↔steber)", "—", f"{vijaki} kos",
          f"2 na desko na steber • Ø+1 mm"],
-        ["Anker M10", "—", f"{n_s * 2} kos", "osnova na plošči"],
+        ["Anker M10", "—", f"{n_s * 2} kos",
+         "2 na osnovo • sidranje ≥ 60 mm (beton C20/25)"],
     ]
     rez_rows = None
     viz_traki = []
@@ -1307,7 +1340,8 @@ def narisi_montazni_pokoncna(ax, c):
         "Preveri dejanske mere objekta in primerjaj z risbo.",
         f"Označi lege stebrov (razmak največ {fmt(m['razmak_stebrov'])} mm); "
         "preveri razvod inštalacij pred vrtanjem.",
-        "Pritrdi osnove z anker M10 (vrh v ploščo); kontroliraj ravnost.",
+        "Pritrdi osnove z anker M10 (vrh v ploščo — glej DETAJL "
+        "PRITRJEVANJA); kontroliraj ravnost.",
         "Postavi stebre; kontroliraj navpičnost.",
         "Vgradi deske (2 vijaka M8×70 na desko na steber; predrtje "
         "Ø + 1 mm).",
@@ -1315,6 +1349,108 @@ def narisi_montazni_pokoncna(ax, c):
         "stranke.",
     ]
     montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki)
+
+    cona_z = p["deske_z"][1] - p["deske_z"][0]
+    y_iz = 197 - (8.5 + 7 + (len(rez_rows) - 1) * 7) - 22
+    ax.text(20, y_iz, f"IZRAČUN VIŠINE: {fmt(vis)} = {fmt(m['rocaj_v'])} "
+            f"(ročaj) + {fmt(deska_h)} (deske: {n_d} × "
+            f"{fmt(m['deska_sirina'])} + {n_d - 1} × vrzel "
+            f"{p['vrzel']:.1f} mm) + {fmt(odcep)} (odcep)",
+            fontsize=6.5, color="#555555", ha="left", va="center")
+    por_s = deske * dl_deske / 1000
+    odp_s = por_s - n_d * deska_h / 1000
+    ax.text(20, y_iz - 5, f"PORABA: deske {deske} kos = {por_s:.2f} m • "
+            f"odpad {odp_s:.2f} m ({odp_s / por_s * 100:.0f} %) • alu "
+            f"palice {palice_s} kos = {palice_s * dl_palice / 1000:.1f} m",
+            fontsize=6.5, color="#555555", ha="left", va="center")
+    return {"postavke": [
+        (f"WPC deske {profil}", f"{fmt(n_d * deska_h / 1000)}", "m",
+         "wpc_deska_m", n_d * deska_h / 1000),
+        ("Alu stebri 60×40", f"{fmt(n_s * vis / 1000)}", "m",
+         "alu_m", n_s * vis / 1000),
+        ("Ročaj", "1", "kos", "rocaj_kos", 1),
+        ("Osnove za steber", f"{n_s}", "kos", "osnova_kos", n_s),
+        ("Vijaki M8×70", f"{vijaki}", "kos", "vijak_kos", vijaki),
+        ("Anker M10", f"{n_s * 2}", "kos", "anker_kos", n_s * 2),
+    ]}
+
+
+def preveri_cfg(cfg):
+    """Kontrola pravilnosti PRED izvozom. Vrne seznam napak (prazno = OK)."""
+    nap = []
+    m = cfg.get("mere", {})
+    for k in ("sirina", "visina"):
+        v = m.get(k)
+        if not isinstance(v, (int, float)) or v <= 0:
+            nap.append(f"Mera '{k}' mora biti pozitivno število.")
+    odcep = m.get("odcep", 0)
+    if not isinstance(odcep, (int, float)) or odcep < 0:
+        nap.append("Mera 'odcep' ne sme biti negativna.")
+    if cfg.get("predloga") == "pokončna":
+        rv = m.get("rocaj_v", 40)
+        cona = m.get("visina", 0) - odcep - rv
+        if cona <= 0:
+            nap.append("Višina ročaja in odcepa presega skupno višino.")
+        elif m.get("lamele", 0) * m.get("deska_sirina", 0) > cona:
+            nap.append(f"Deske se ne prilegajo: {m.get('lamele')} × "
+                       f"{m.get('deska_sirina')} mm > cona {cona:.0f} mm.")
+        if m.get("razmak_stebrov", 0) <= m.get("steber_sirina", 60):
+            nap.append("Razmak stebrov mora biti večji od širine stebra.")
+    else:
+        cona = m.get("visina", 0) - odcep - 2 * m.get("profil_v", 40)
+        if cona <= 0:
+            nap.append("Višina profilov in odcepa presega skupno višino.")
+        elif m.get("lamele", 0) * m.get("lamela_v", 0) > cona:
+            nap.append(f"Lamele se ne prilegajo: {m.get('lamele')} × "
+                       f"{m.get('lamela_v')} mm > cona {cona:.0f} mm.")
+    kerf = cfg.get("kerf", 3.0)
+    if not isinstance(kerf, (int, float)) or kerf < 0:
+        nap.append("Kerf (širina rezila) ne sme biti negativen.")
+    dl = cfg.get("dolzina_deske", 5800)
+    if not isinstance(dl, (int, float)) or dl <= 0:
+        nap.append("Dolžina deske mora biti pozitivna.")
+    if cfg.get("foto") and not os.path.isfile(cfg["foto"]):
+        nap.append(f"Fotografija ne obstaja: {cfg['foto']}")
+    return nap
+
+
+def narisi_predracun(ax, c, postavke):
+    """Stran 3: orientacijski predračun (samo če so cene v konfiguraciji)."""
+    cene = c.get("cene") or {}
+    iso_okvir(ax)
+    oznaka(ax, 20, 286, "PREDRAČUN (ORIENTACIJSKI)")
+    datum = c.get("datum") or datetime.date.today().strftime("%d.%m.%Y")
+    ax.text(20, 278, f"Nalog: {c['risba_st']}   •   Datum: {datum}   •   "
+            f"Veljavnost: 30 dni", fontsize=9, ha="left", va="center")
+    ax.text(20, 272, f"Stranka: {c.get('stranka') or '—'}   •   Objekt: "
+            f"{c.get('objekt') or '—'}", fontsize=9, ha="left", va="center")
+
+    skup = 0.0
+    vrste = [["POSTAVKA", "KOLIČINA", "CENA ENOTE", "SKUPAJ"]]
+    for (naziv, kol_str, enota, kljuc, num) in postavke:
+        cena = cene.get(kljuc)
+        if cena is None or not num:
+            continue
+        sk = num * cena
+        vrste.append([naziv, f"{kol_str} {enota}",
+                      f"{cena:.2f} EUR/{enota}", f"{sk:.2f} EUR"])
+        skup += sk
+    ur, ur_c = cene.get("dela_ure"), cene.get("dela_ur_cena")
+    if ur and ur_c:
+        vrste.append(["Delo (izdelava + montaža)", f"{fmt(ur)} h",
+                      f"{ur_c:.2f} EUR/h", f"{ur * ur_c:.2f} EUR"])
+        skup += ur * ur_c
+    vrste.append(["SKUPAJ (brez DDV)", "", "", f"{skup:.2f} EUR"])
+    tabela(ax, 20, 256, [110, 55, 60, 45], 7.5, vrste, naslov="PREDRAČUN")
+
+    opombe_blok(ax, 20, 185, 260, [
+        "Predračun je ORIENTACIJSKI in brez DDV; veljavnost 30 dni.",
+        "Cene materialov so nastavljene v konfiguraciji ('cene'); "
+        "količine po dejanski porabi, odpad je prikazan posebej.",
+        "Konstrukcijsko ustreznost (nosilnost, sidranje, veterno breme) "
+        "preveri usposobljen strokovnjak — risba ni statični izračun.",
+        "Montaža po dogovoru; končno poravnanje po prevzemu dela.",
+    ], naslov_t="OPOMBE K PREDRAČUNU")
 
 
 # ---------------------------------------------------------------- glavno
@@ -1324,15 +1460,21 @@ def generiraj(cfg, dpi_png=200):
     if predloga is None:
         raise ValueError(f"Neznana predloga: {cfg.get('predloga')} "
                          f"(na voljo: {', '.join(PREDLOGE)})")
+    napake = preveri_cfg(cfg)
+    if napake:
+        raise ValueError("Kontrola pravilnosti ni uspela — PDF ni bil "
+                         "izdelan:\n- " + "\n- ".join(napake))
+
     fig, ax = nov_list()
     predloga(ax, cfg)
     fig2 = None
+    kolicine = None
     ml_fn = {"ograda": narisi_montazni_list,
              "pokončna": narisi_montazni_pokoncna}.get(cfg.get("predloga"))
     if ml_fn:
         try:
             fig2, ax2 = nov_list()
-            ml_fn(ax2, cfg)
+            kolicine = ml_fn(ax2, cfg)
         except Exception:
             if fig2 is not None:
                 plt.close(fig2)
@@ -1342,15 +1484,31 @@ def generiraj(cfg, dpi_png=200):
         pdf.savefig(fig)
         if fig2 is not None:
             pdf.savefig(fig2)
+        fig3 = None
+        if kolicine and (cfg.get("cene") or {}):
+            try:
+                fig3, ax3 = nov_list()
+                narisi_predracun(ax3, cfg, kolicine["postavke"])
+                pdf.savefig(fig3)
+            except Exception:
+                if fig3 is not None:
+                    plt.close(fig3)
+                fig3 = None
     png = os.path.splitext(izhod)[0] + ".png"
     fig.savefig(png, dpi=dpi_png)
-    png2 = None
+    dodatni = []
     if fig2 is not None:
-        png2 = os.path.splitext(izhod)[0] + "-montazni-list.png"
-        fig2.savefig(png2, dpi=dpi_png)
+        p2 = os.path.splitext(izhod)[0] + "-montazni-list.png"
+        fig2.savefig(p2, dpi=dpi_png)
+        dodatni.append(p2)
         plt.close(fig2)
+    if fig3 is not None:
+        p3 = os.path.splitext(izhod)[0] + "-predracun.png"
+        fig3.savefig(p3, dpi=dpi_png)
+        dodatni.append(p3)
+        plt.close(fig3)
     plt.close(fig)
-    return izhod, png, png2
+    return izhod, png, dodatni
 
 
 def main():
@@ -1365,14 +1523,14 @@ def main():
         cfg["izhod"] = a.izhod
 
     try:
-        izhod, png, png2 = generiraj(cfg)
+        izhod, png, dodatni = generiraj(cfg)
     except ValueError as e:
         sys.exit(str(e))
 
     print(f"[OK] Risba:    {izhod}")
     print(f"[OK] Predogled: {png}")
-    if png2:
-        print(f"[OK] Montažni list: {png2}")
+    for p in dodatni:
+        print(f"[OK] Dodatno: {p}")
 
 
 if __name__ == "__main__":
