@@ -4,10 +4,14 @@ import sys
 os.environ["MPLCONFIGDIR"] = "/tmp/mplconfig"   # Vercel: pisanje samo v /tmp
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import io
 import datetime
+import os
+import sys
+import tempfile
 
 from flask import Flask, request, send_file, Response
+
+import yaml
 
 import risba
 
@@ -151,6 +155,9 @@ def _stev(f, kljuc, privzeto):
 @app.route("/generiraj", methods=["POST"])
 def generiraj_web():
     f = request.form
+    # vsak uporabnik dobi svojo začasno datoteko (sočasni uporabniki)
+    fd_pdf, pdf_pot = tempfile.mkstemp(suffix=".pdf", prefix="risba_")
+    os.close(fd_pdf)
     pok = (f.get("predloga") or "ograja").strip().lower() == "pokončna"
     try:
         m = {
@@ -182,7 +189,7 @@ def generiraj_web():
             "stranka": (f.get("stranka") or "").strip() or None,
             "objekt": (f.get("objekt") or "").strip() or None,
             "datum": "", "merilo": "auto", "format": "A3",
-            "izhod": "/tmp/risba_web.pdf", "foto": "",
+            "izhod": pdf_pot, "foto": "",
             "barva": f.get("barva") or "Antracit",
             "profil": (f.get("profil") or ("POLNA DESKA 100" if pok
                         else "ROMB 67")).strip(),
@@ -203,9 +210,8 @@ def generiraj_web():
         risba.generiraj(cfg, dpi_png=80)
         varno = "".join(ch for ch in cfg["risba_st"]
                         if ch.isalnum() or ch in "-_") or "risba"
-        return send_file("/tmp/risba_web.pdf",
-                         mimetype="application/pdf", as_attachment=True,
-                         download_name=f"{varno}.pdf")
+        return send_file(pdf_pot, mimetype="application/pdf",
+                         as_attachment=True, download_name=f"{varno}.pdf")
     except ValueError as e:
         return html_napake([str(e)])
     except Exception as e:

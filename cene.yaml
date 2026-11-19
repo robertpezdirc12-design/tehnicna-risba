@@ -13,6 +13,7 @@ nosilec_kos: 12.00      # nosilni nosilec/konzola, EUR na kos
 vijak_kos: 0.90         # vijak M8×70, EUR na kos
 fasadni_kos: 1.20       # fasadni vijak Ø8×80 + tipel, EUR na kos
 anker_kos: 1.50         # anker M10, EUR na kos
+osnova_kos: 15.00       # osnova za steber, EUR na kos
 
 # delo (neobvezno — če je prazno, predračun ne vsebuje postavke "delo")
 dela_ur_cena: 35.00     # EUR / ura

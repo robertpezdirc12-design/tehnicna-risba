@@ -1213,10 +1213,8 @@ def narisi_montazni_list(ax, c):
     pot = [
         [f"WPC deska {profil}", f"{fmt(dl_deske)} mm", f"{deske} kos",
          f"skupaj {fmt(n * sir / 1000)} m lamel"],
-        ["Alu profil 80×40×3", f"{fmt(dl_palice)} mm", f"{palice} kos",
-         "zgornji profil"],
-        ["Alu profil 60×40×3", f"{fmt(dl_palice)} mm", "1 kos",
-         "spodnji profil"],
+        ["Alu profili 80×40 (zg.) + 60×40 (sp.)", f"{fmt(dl_palice)} mm",
+         f"{palice} kos", f"obe sta dolgi {fmt(sir)} mm"],
         ["Nosilni nosilec 50×50×5", "—", f"{n_nos} kos",
          f"razmak ≤ {fmt(raz)} mm"],
         ["RF vijaki M8×70 (lamela↔profil)", "—", f"{vijaki} kos",
@@ -1238,11 +1236,11 @@ def narisi_montazni_list(ax, c):
                              fmt(sir), fmt(ost)])
         if deske > prikaz:
             rez_rows.append(["…", "", f"skupaj {deske} desk", "", ""])
-        for i in range(min(deske, 5)):
+        for i in range(deske):
             zac = min(na_desko, n - i * na_desko)
             prva = i * na_desko + 1
             viz_traki.append((dl_deske,
-                              [(f"L{prva + j + 1}", sir) for j in range(zac)]))
+                              [(f"L{prva + j}", sir) for j in range(zac)]))
     koraki = [
         "Preveri dejanske mere objekta in primerjaj z risbo.",
         f"Označi lego nosilcev (razmak največ {fmt(raz)} mm); "
@@ -1260,7 +1258,8 @@ def narisi_montazni_list(ax, c):
 
     # izračun višine + poraba/odpad (viden na montažnem listu)
     cona_z = zg[0] - sp[1]
-    y_iz = 197 - (8.5 + 7 + (len(rez_rows) - 1) * 7) - 22
+    n_vrst_r = (len(rez_rows) - 1) if rez_rows else 0
+    y_iz = 197 - (8.5 + 7 + n_vrst_r * 7) - 22
     ax.text(20, y_iz, f"IZRAČUN VIŠINE: {fmt(m['visina'])} = "
             f"{fmt(m['profil_v'])} (zgornji profil) + {fmt(cona_z)} "
             f"(lamele: {n} × {fmt(m['lamela_v'])} + {n - 1} × vrzel "
@@ -1273,11 +1272,13 @@ def narisi_montazni_list(ax, c):
             f"odpad {odp_m:.2f} m ({odp_m / por_m * 100:.0f} %) • alu "
             f"palice {palice} kos = {palice * dl_palice / 1000:.1f} m",
             fontsize=6.5, color="#555555", ha="left", va="center")
+    por_m = deske * dl_deske / 1000
+    por_alu = palice * dl_palice / 1000
     kolicine = {"postavke": [
-        (f"WPC deske {profil}", f"{fmt(n * sir / 1000)}", "m",
-         "wpc_deska_m", n * sir / 1000),
-        ("Alu profili 80×40 + 60×40", f"{fmt(2 * sir / 1000)}", "m",
-         "alu_m", 2 * sir / 1000),
+        (f"WPC deske {profil} (nabava)", f"{deske} kos = {fmt(por_m)}",
+         "m", "wpc_deska_m", por_m),
+        ("Alu profili (nabava)", f"{palice} kos = {fmt(por_alu)}", "m",
+         "alu_m", por_alu),
         ("Nosilni nosilci 50×50×5", f"{n_nos}", "kos", "nosilec_kos", n_nos),
         ("RF vijaki M8×70", f"{vijaki}", "kos", "vijak_kos", vijaki),
         ("Fasadni vijaki Ø8×80 + tipli", f"{n_nos * 2}", "kos",
@@ -1290,6 +1291,7 @@ def narisi_montazni_pokoncna(ax, c):
     """Stran 2 za predlogo "pokončna" (stebri + navpične deske)."""
     m = c["mere"]
     sir, vis = m["sirina"], m["visina"]
+    odcep = m["odcep"]
     p = razpored_pokoncna(m)
     n_d, n_s = p["n_desk"], p["n_stebrov"]
     deska_h = p["deske_h"]
@@ -1331,7 +1333,7 @@ def narisi_montazni_pokoncna(ax, c):
                              fmt(deska_h), fmt(ost)])
         if deske > prikaz:
             rez_rows.append(["…", "", f"skupaj {deske} desk", "", ""])
-        for i in range(min(deske, 5)):
+        for i in range(deske):
             zac = min(na_desko, n_d - i * na_desko)
             prva = i * na_desko + 1
             viz_traki.append((dl_deske,
@@ -1352,11 +1354,12 @@ def narisi_montazni_pokoncna(ax, c):
     montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki)
 
     cona_z = p["deske_z"][1] - p["deske_z"][0]
-    y_iz = 197 - (8.5 + 7 + (len(rez_rows) - 1) * 7) - 22
+    n_vrst_r = (len(rez_rows) - 1) if rez_rows else 0
+    y_iz = 197 - (8.5 + 7 + n_vrst_r * 7) - 22
     ax.text(20, y_iz, f"IZRAČUN VIŠINE: {fmt(vis)} = {fmt(m['rocaj_v'])} "
-            f"(ročaj) + {fmt(deska_h)} (deske: {n_d} × "
-            f"{fmt(m['deska_sirina'])} + {n_d - 1} × vrzel "
-            f"{p['vrzel']:.1f} mm) + {fmt(odcep)} (odcep)",
+            f"(ročaj) + {fmt(deska_h)} (deske) + {fmt(odcep)} (odcep) • "
+            f"ŠIRINA: {fmt(sir)} = {n_d} × {fmt(m['deska_sirina'])} + "
+            f"{n_d - 1} × vrzel {p['vrzel']:.1f} mm",
             fontsize=6.5, color="#555555", ha="left", va="center")
     por_s = deske * dl_deske / 1000
     odp_s = por_s - n_d * deska_h / 1000
@@ -1364,11 +1367,13 @@ def narisi_montazni_pokoncna(ax, c):
             f"odpad {odp_s:.2f} m ({odp_s / por_s * 100:.0f} %) • alu "
             f"palice {palice_s} kos = {palice_s * dl_palice / 1000:.1f} m",
             fontsize=6.5, color="#555555", ha="left", va="center")
+    por_s = deske * dl_deske / 1000
+    por_st = palice_s * dl_palice / 1000
     return {"postavke": [
-        (f"WPC deske {profil}", f"{fmt(n_d * deska_h / 1000)}", "m",
-         "wpc_deska_m", n_d * deska_h / 1000),
-        ("Alu stebri 60×40", f"{fmt(n_s * vis / 1000)}", "m",
-         "alu_m", n_s * vis / 1000),
+        (f"WPC deske {profil} (nabava)", f"{deske} kos = {fmt(por_s)}",
+         "m", "wpc_deska_m", por_s),
+        ("Alu stebri (nabava)", f"{palice_s} kos = {fmt(por_st)}", "m",
+         "alu_m", por_st),
         ("Ročaj", "1", "kos", "rocaj_kos", 1),
         ("Osnove za steber", f"{n_s}", "kos", "osnova_kos", n_s),
         ("Vijaki M8×70", f"{vijaki}", "kos", "vijak_kos", vijaki),

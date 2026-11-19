@@ -530,6 +530,12 @@ class App(tk.Tk):
         self._narisi()
 
     def _zaznaj_lam(self):
+        if not IMA_CV:
+            messagebox.showwarning(
+                "OpenCV ni nameščen",
+                "Zaznavanje zahteva OpenCV:\n"
+                "python -m pip install opencv-python")
+            return
         if not self.png_pot:
             return
         try:
@@ -554,6 +560,12 @@ class App(tk.Tk):
         self._narisi()
 
     def _zaznaj_vij(self):
+        if not IMA_CV:
+            messagebox.showwarning(
+                "OpenCV ni nameščen",
+                "Zaznavanje zahteva OpenCV:\n"
+                "python -m pip install opencv-python")
+            return
         if not self.png_pot:
             return
         if not self.det_pasovi:          # najprej območje ograje (pasovi)

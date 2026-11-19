@@ -158,6 +158,7 @@ class App(tk.Tk):
         self._zgradi()
         self._preklopi_nacin()
         self._nalozi_zadnje()
+        self._izpolni_privzete()
 
     # ------------------------------------------------------------- gradnja
     def _zgradi(self):
@@ -518,6 +519,12 @@ class App(tk.Tk):
                 yaml.safe_dump(cfg, f, allow_unicode=True, sort_keys=False)
         except Exception:
             pass
+
+    def _izpolni_privzete(self):
+        """Prazna polja izpolni s privzetimi vrednostmi (prvi zagon)."""
+        for kljuc, vred in self._privzeti().items():
+            if kljuc in self.v and not self.v[kljuc].get().strip():
+                self.v[kljuc].set(str(vred))
 
     def _nalozi_zadnje(self):
         """Naloži zadnje nastavitve, če obstajajo (ob zagonu okna)."""
