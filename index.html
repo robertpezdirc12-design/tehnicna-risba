@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tehnična risba — generator risb in montažnih listov (WPC ograje)</title>
+<meta name="description" content="Generator profesionalnih tehničnih risb A3 (ISO 5457/7200) in montažnih listov z rezalnim načrtom za balkonske in dvoriščne ograje iz WPC lamel.">
+<style>
+  :root { --temno:#1f2a3a; --siva:#3e4a5e; --ozadje:#f4f5f7; --bela:#fff; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI', system-ui, sans-serif; background:var(--ozadje); color:#1a1a1a; line-height:1.6; }
+  header { background:var(--temno); color:#fff; padding:48px 20px; text-align:center; }
+  header h1 { font-size:2rem; margin-bottom:8px; }
+  header p { color:#c9d2e0; max-width:720px; margin:0 auto; }
+  .badge { display:inline-block; background:#31435c; color:#bcd0ff; padding:4px 12px;
+           border-radius:20px; font-size:.8rem; margin-top:12px; }
+  main { max-width:1080px; margin:0 auto; padding:40px 20px; }
+  h2 { color:var(--temno); margin:36px 0 14px; border-left:5px solid var(--siva); padding-left:12px; }
+  .slike { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .slike figure { background:var(--bela); border:1px solid #e2e5ea; border-radius:10px;
+                  overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,.08); }
+  .slike img { width:100%; display:block; }
+  .slike figcaption { padding:10px 14px; font-size:.9rem; color:#444; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; }
+  .kartica { background:var(--bela); border:1px solid #e2e5ea; border-radius:10px;
+             padding:16px 18px; }
+  .kartica h3 { font-size:1rem; color:var(--temno); margin-bottom:6px; }
+  .kartica p { font-size:.9rem; color:#555; }
+  pre { background:#0f1420; color:#d7e2f5; padding:16px 18px; border-radius:10px;
+        overflow-x:auto; font-size:.85rem; }
+  code { background:#e8ebf0; padding:2px 6px; border-radius:4px; font-size:.85rem; }
+  pre code { background:none; padding:0; }
+  table { border-collapse:collapse; width:100%; background:var(--bela);
+          border:1px solid #e2e5ea; border-radius:10px; overflow:hidden; }
+  th, td { padding:10px 14px; text-align:left; border-bottom:1px solid #eef0f3; font-size:.92rem; }
+  th { background:var(--temno); color:#fff; }
+  .opomba { background:#fff8e6; border:1px solid #f0dfae; border-radius:10px;
+            padding:14px 18px; font-size:.9rem; margin-top:24px; }
+  .opomba b { color:#8a6d00; }
+  footer { background:var(--temno); color:#9fb0c8; text-align:center;
+           padding:20px; font-size:.85rem; margin-top:48px; }
+  footer a { color:#c9d8ff; }
+  .gumb { display:inline-block; background:#2e7d32; color:#fff; padding:10px 22px;
+          border-radius:8px; text-decoration:none; font-weight:600; margin-top:8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Generator tehničnih risb — WPC ograje</h1>
+  <p>Profesionalne tehnične risbe A3 (ISO 5457 / ISO 7200) in montažni listi z
+     rezalnim načrtom za balkonske in dvoriščne ograje iz WPC lamel — iz mer,
+     v enem kliku.</p>
+  <span class="badge">Python · Tkinter · OpenCV · PDF</span>
+</header>
+
+<main>
+  <h2>Predogled izhoda</h2>
+  <div class="slike">
+    <figure>
+      <img src="slike/BO-001-risba.png" alt="Tehnična risba balkonske ograje">
+      <figcaption><b>Stran 1 — tehnična risba A3:</b> pogledi, tloris z rezom,
+        detajli, seznam sestavnih delov, ISO glava in conatna mreža.</figcaption>
+    </figure>
+    <figure>
+      <img src="slike/TEREN-01-montazni-list.png" alt="Montažni list">
+      <figcaption><b>Stran 2 — montažni list:</b> potrebščine, rezalni načrt
+        z ostanki (kerf), vizualni rez z izkoristkom, montażni koraki,
+        kontrola terena, podpis stranke.</figcaption>
+    </figure>
+  </div>
+
+  <h2>Kaj program naredi</h2>
+  <div class="grid">
+    <div class="kartica"><h3>Tehnična risba A3</h3><p>Sprednji/stranski pogled,
+      tloris z rezom A–A, prerez, detajl pritrjevanja, detajl deske/lamele,
+      izometrični pogled ali fotografija izvedbe — vse z kotirnimi črtami.</p></div>
+    <div class="kartica"><h3>ISO obrazec</h3><p>Conatna mreža po ISO 5457, glava
+      po ISO 7200 (izdelal/pregledal/odobril, naročnik, objekt), tabela revizij,
+      simbol projekcije, tolerance ISO 2768-m.</p></div>
+    <div class="kartica"><h3>Montażni list</h3><p>Potrebščine, rezalni načrt z
+      ostanki (kerf 3 mm), vizualni rez z izkoristkom, montażni koraki s sklici
+      na detajle, kontrola terena, podpis stranke.</p></div>
+    <div class="kartica"><h3>Samodejni izračuni</h3><p>Lega in količina nosilcev
+      oz. stebrov, št. vijakov (2 na priključek), št. tovarniških desk/palic,
+      odpad in izkoristek — vse iz istega geometrijskega izračuna.</p></div>
+    <div class="kartica"><h3>Predračun (neobvezno)</h3><p>Vpišeš cene (EUR/m,
+      EUR/kos, delo) — program doda orientacijski predračun brez DDV.</p></div>
+    <div class="kartica"><h3>Dve predlogi</h3><p><b>Prečna ograja</b> (lamele
+      vodoravno na profile) in <b>pokončna ograja</b> (stebri + navpične deske
+      z ročajem in osnovami).</p></div>
+  </div>
+
+  <h2>Kako deluje</h2>
+  <div class="grid">
+    <div class="kartica"><h3>1. Namestitev</h3><p>Python 3.9+ in:</p>
+      <pre><code>python -m pip install matplotlib pyyaml pillow opencv-python</code></pre>
+    </div>
+    <div class="kartica"><h3>2. Zagon</h3>
+      <pre><code>python vmesnik.py</code></pre>
+      <p style="font-size:.85rem;color:#555">ali iz konfiguracije:
+      <code>python risba.py projekt.yaml</code></p></div>
+    <div class="kartica"><h3>3. Izhod</h3><p>PDF A3 (2–3 strani: risba +
+      montažni list + predračun) + PNG predogled. Nastavitve se samodejno
+      shranijo.</p></div>
+  </div>
+
+  <h2>Predloga konfiguracije</h2>
+<pre><code>ime: BALKONSKA OGRAJA
+risba_st: BO-001
+izdelal: R. Pezdirc
+stranka: Ana Novak
+objekt: Radovljica, Tržaška 15
+mere:
+  sirina: 2450        # dolžina ograje (mm)
+  visina: 950         # višina od tal do vrha (mm)
+  odcep: 50           # spodnji profil nad tlemi (mm)
+  lamele: 10          # število lamel
+  lamela_v: 60        # višina lamel (mm)
+  razmak_nosilcev: 900  # največji razmak nosilcev (mm)
+barva: "Antracit"     # barva lamel
+profil: ROMB 67       # model deske (WoodCore)
+foto: poslikava.jpg   # neobvezno — slika izvedbe</code></pre>
+
+  <h2>Kje dobiti program</h2>
+  <p>Koda je odprtokodna objava na GitHubu — kloniraj ali prenesi ZIP:</p>
+  <a class="gumb" href="https://github.com/robertpezdirc12-design/tehnicna-risba">
+    GitHub — tehnicna-risba</a>
+
+  <div class="opomba">
+    <b>Varnostna opomba:</b> risba <b>ni statični izračun</b>. Nosilnost,
+    sidranje in veterno breme mora preveriti usposobljen strokovnjak.
+    Odtenek WPC vedno potrdi s vzorcem proizvajalca (ni RAL).
+  </div>
+</main>
+
+<footer>
+  Tehnična risba — generator za montažerje ograj · 2026 ·
+  vir specifikacij: <a href="https://roksal.com">roksal.com</a> (WoodCore WPC)
+</footer>
+</body>
+</html>
