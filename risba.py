@@ -1002,13 +1002,14 @@ def narisi_ogrado(ax, c):
     })
 
 
-PREDLOGE["ograda"] = narisi_ogrado
+PREDLOGE["ograda"] = narisi_ogrado      # star ključ (združljivost)
+PREDLOGE["ograja"] = narisi_ogrado      # pravilno slovensko ime
 PREDLOGE["pokončna"] = narisi_pokoncna
 
 
 # ---------------------------------------------------------------- konfiguracija
 PRIVZETO = {
-    "predloga": "ograda",
+    "predloga": "ograja",
     "ime": "BALKONSKA OGRAJA",
     "risba_st": "BO-001",
     "izdelal": "R. Pezdirc",
@@ -1066,8 +1067,8 @@ def interaktivno():
     print("=" * 52)
     print("(Pritisni Enter za privzeto vrednost v oglatih oklepajih.)\n")
     c = {}
-    c["predloga"] = vprasanje("Predloga (ograda / pokončna)", "ograda")
-    pok = c["predloga"] == "pokončna"
+    c["predloga"] = vprasanje("Predloga (ograja / pokončna)", "ograja")
+    pok = c["predloga"].strip().lower() == "pokončna"
     c["ime"] = vprasanje("Ime projekta", "BALKONSKA OGRAJA" if not pok
                          else "POKONČNA OGRAJA")
     c["risba_st"] = vprasanje("Številka risbe", PRIVZETO["risba_st"])
@@ -1114,7 +1115,7 @@ def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki):
     iso_okvir(ax)
     oznaka(ax, 20, 286, "MONTAŽNI LIST — POTREBŠČINE")
     datum = c.get("datum") or datetime.date.today().strftime("%d.%m.%Y")
-    ax.text(20, 278, f"Nalog: {c['risba_st']}   •   Datum: {datum}",
+    ax.text(20, 278, f"Naloga: {c['risba_st']}   •   Datum: {datum}",
             fontsize=9, ha="left", va="center")
     ax.text(20, 272, f"Stranka: {c.get('stranka') or '—'}   •   Objekt: "
             f"{c.get('objekt') or '—'}", fontsize=9, ha="left", va="center")
@@ -1391,11 +1392,14 @@ def preveri_cfg(cfg):
         cona = m.get("visina", 0) - odcep - rv
         if cona <= 0:
             nap.append("Višina ročaja in odcepa presega skupno višino.")
-        elif m.get("lamele", 0) * m.get("deska_sirina", 0) > cona:
-            nap.append(f"Deske se ne prilegajo: {m.get('lamele')} × "
-                       f"{m.get('deska_sirina')} mm > cona {cona:.0f} mm.")
+        ds = m.get("deska_sirina", 0)
+        if ds > m.get("sirina", 0) - m.get("steber_sirina", 60):
+            nap.append(f"Deska ({ds:.0f} mm) je širša kot razpon ograje "
+                       "med stebroma.")
         if m.get("razmak_stebrov", 0) <= m.get("steber_sirina", 60):
             nap.append("Razmak stebrov mora biti večji od širine stebra.")
+        if m.get("lamele", 0) < 1:
+            nap.append("Število desk mora biti vsaj 1.")
     else:
         cona = m.get("visina", 0) - odcep - 2 * m.get("profil_v", 40)
         if cona <= 0:
@@ -1420,7 +1424,7 @@ def narisi_predracun(ax, c, postavke):
     iso_okvir(ax)
     oznaka(ax, 20, 286, "PREDRAČUN (ORIENTACIJSKI)")
     datum = c.get("datum") or datetime.date.today().strftime("%d.%m.%Y")
-    ax.text(20, 278, f"Nalog: {c['risba_st']}   •   Datum: {datum}   •   "
+    ax.text(20, 278, f"Naloga: {c['risba_st']}   •   Datum: {datum}   •   "
             f"Veljavnost: 30 dni", fontsize=9, ha="left", va="center")
     ax.text(20, 272, f"Stranka: {c.get('stranka') or '—'}   •   Objekt: "
             f"{c.get('objekt') or '—'}", fontsize=9, ha="left", va="center")
@@ -1456,7 +1460,9 @@ def narisi_predracun(ax, c, postavke):
 # ---------------------------------------------------------------- glavno
 def generiraj(cfg, dpi_png=200):
     """Iz konfiguracije nariše risbo in vrne (pot_pdf, pot_png)."""
-    predloga = PREDLOGE.get(cfg.get("predloga"))
+    pred_norm = ("pokončna" if str(cfg.get("predloga", "")).strip().lower()
+                 == "pokončna" else "ograja")
+    predloga = PREDLOGE.get(pred_norm) or PREDLOGE.get("ograja")
     if predloga is None:
         raise ValueError(f"Neznana predloga: {cfg.get('predloga')} "
                          f"(na voljo: {', '.join(PREDLOGE)})")
@@ -1469,8 +1475,9 @@ def generiraj(cfg, dpi_png=200):
     predloga(ax, cfg)
     fig2 = None
     kolicine = None
-    ml_fn = {"ograda": narisi_montazni_list,
-             "pokončna": narisi_montazni_pokoncna}.get(cfg.get("predloga"))
+    ml_fn = {"ograja": narisi_montazni_list,
+             "ograda": narisi_montazni_list,
+             "pokončna": narisi_montazni_pokoncna}.get(pred_norm)
     if ml_fn:
         try:
             fig2, ax2 = nov_list()

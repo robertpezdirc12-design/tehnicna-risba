@@ -320,7 +320,8 @@ class App(tk.Tk):
         ttk.Button(f4, text="SHRANI KOT PROJEKT (.yaml)",
                    command=self._shrani).pack(fill="x", pady=2)
 
-        self.status = tk.Label(levi, text="Odpriti moraš sliko.", fg="#555555",
+        self.status = tk.Label(levi, text="Najprej odpri sliko (gumb "
+                               "»ODPRI SLIKO…«).", fg="#555555",
                                wraplength=220, font=("Segoe UI", 8),
                                justify="left")
         self.status.pack(anchor="w", pady=8)

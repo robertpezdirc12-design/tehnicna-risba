@@ -162,11 +162,11 @@ class App(tk.Tk):
         fr_p = ttk.Frame(self)
         fr_p.pack(fill="x", padx=14, pady=(0, 4))
         if "predloga" not in self.v:
-            self.v["predloga"] = tk.StringVar(value="ograda")
+            self.v["predloga"] = tk.StringVar(value="ograja")
         ttk.Label(fr_p, text="Predloga:").pack(side="left", padx=(0, 4))
         self.cb_pred = ttk.Combobox(fr_p, width=12, state="readonly",
                                     textvariable=self.v["predloga"],
-                                    values=["ograda", "pokončna"])
+                                    values=["ograja", "pokončna"])
         self.cb_pred.pack(side="left")
         self.cb_pred.bind("<<ComboboxSelected>>",
                           lambda e: self._preklopi_predlogo())
@@ -382,7 +382,7 @@ class App(tk.Tk):
         if foto and not os.path.isfile(foto):
             raise ValueError(f"Fotografija ne obstaja: {foto}")
         cfg = {
-            "predloga": self.v["predloga"].get() or "ograda", "ime": ime,
+            "predloga": self.v["predloga"].get() or "ograja", "ime": ime,
             "risba_st": self.v["risba_st"].get().strip() or "BO-001",
             "izdelal": self.v["izdelal"].get().strip() or "",
             "stranka": self.v["stranka"].get().strip() or None,
@@ -540,7 +540,8 @@ class App(tk.Tk):
             self.st_preprost.set(bool(cfg["preprost_nacin"]))
             self._preklopi_nacin()
         if "predloga" in cfg:
-            self.v["predloga"].set(str(cfg["predloga"]))
+            pl = str(cfg["predloga"]).strip().lower()
+            self.v["predloga"].set("pokončna" if pl == "pokončna" else "ograja")
             self._preklopi_predlogo()
         for ck in CENE_KLJUCI:
             nast("cene_" + ck, (cfg.get("cene") or {}).get(ck))
