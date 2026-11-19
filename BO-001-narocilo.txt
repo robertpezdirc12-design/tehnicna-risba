@@ -9,5 +9,5 @@ PROFILI (aluminij):
 - 80×40×3 — 2 kos × 6000 mm (razrez: 2 × 3000 mm)
 
 PRITRDILNI MATERIAL:
-- RF vijaki M8×70 Inox A2 — 104 kos
-- Fasadni vijaki Ø8×80 + tipli — 8 kos
+- RF vijak M8×70 (lamela↔profil) — 104 kos
+- Pritrdilni vijaki za podlago — 8 kos

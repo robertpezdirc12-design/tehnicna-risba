@@ -730,7 +730,8 @@ def narisi_pokoncna(ax, c):
         "dejanske mere na objektu.",
         f"Deske: {profil} — WPC (bambus + HDPE), pritrditev z 2 vijaki na "
         "desko na vsak steber; predrtje Ø + 1 mm.",
-        "Stebri: aluminij, na osnove z anker M10 (vrh v ploščo).",
+        f"Stebri: aluminij, na osnove z anker M10 (vrh v ploščo). "
+        f"Pritrditev: {pritrditev} — pritrdilni material prilagodi podlagi.",
         f"Razmak stebrov največ {fmt(m['razmak_stebrov'])} mm.",
         "Količine pritrdilnih elementov so orientacijske.",
         "Risba NI statični izračun — nosilnost, sidranje in veterno breme "
@@ -762,6 +763,9 @@ def narisi_pokoncna(ax, c):
 def narisi_ogrado(ax, c):
     m = c["mere"]
     sir, vis, glob = m["sirina"], m["visina"], m["globina"]
+    vijak_lamela_naziv = c.get("vijak_lamela") or "RF vijak M8×70 (lamela↔profil)"
+    vijak_nosilec_naziv = c.get("vijak_nosilec") or         f"Pritrdilni vijaki za {c.get('podlaga') or 'podlago'}"
+    pritrditev = c.get("pritrditev") or "bočno"
     zg, sp, lamele, vrzel, n_lamel = razpored(m)
     cona = zg[0] - sp[1]
     b_lam = barva_hex(c.get("barva"))         # barva lamel (izdelek)
@@ -962,9 +966,9 @@ def narisi_ogrado(ax, c):
              f"{fmt(m['lamela_v'])}×{fmt(m['debelina'])}", f"{n_lamel} kos"],
             ["Spodnji profil", mat, "60×40×3", "1 kos"],
             ["Nosilni nosilec 50×50×5", "Jeklo", "50×50×5", f"{n_nos} kos"],
-            ["RF vijaki M8×70 (lamela↔profil)", "Inox A2", "M8×70",
+            [vijak_lamela_naziv, "Inox A2", "M8×70",
              f"{n_lamel * n_nos * 2} kos"],
-            ["Fasadni vijaki Ø8×80 + tipli", "Inox", "Ø8×80",
+            [vijak_nosilec_naziv, "Inox", "Ø8×80",
              f"{n_nos * 2} kos"],
         ]
     vrste = [["Št.", "Naziv dela", "Material", "Dimenzije (mm)", "Količina"]]
@@ -978,7 +982,8 @@ def narisi_ogrado(ax, c):
         "dejanske mere na objektu.",
         f"Lamele: {profil} — WPC (bambus + HDPE), 15 let garancije, brez barvanja.",
         "Profili/nosilci: aluminij, prašno barvano (RAL po dogovoru, privzeto RAL 7016).",
-        "Pritrditev: bočno v fasado ali z vrha v ploščo; predrtje Ø + 1 mm (ekspanzija).",
+        f"Pritrditev: {pritrditev} — pritrdilni material prilagodi "
+        "podlagi na objektu (beton/zid/les/jeklo); predrtje Ø + 1 mm.",
         f"Razmak nosilcev največ {fmt(m.get('razmak_nosilcev', 1000))} mm; "
         "količine pritrdilnih elementov orientacijske.",
         "Risba NI statični izračun — nosilnost, sidranje in veterno breme "
@@ -1037,6 +1042,10 @@ PRIVZETO = {
     "profil": "ROMB 67",      # ime/dimenzija WPC deske (WoodCore)
     "material": "Aluminij (prašno barvano)",
     "material_lamel": "WPC lesni kompozit",
+    "podlaga": "",            # beton / zid / les / jeklo — prilagodi vijake
+    "pritrditev": "bočno",    # bočno (v fasado) ali vrh (v ploščo)
+    "vijak_lamela": "",       # pritrditev lamela↔profil (prazno = privzeti)
+    "vijak_nosilec": "",      # pritrditev nosilec↔podlaga (prazno = privzeti)
     "deli": None,
     "opombe": None,
     "mere": {"sirina": 3000, "visina": 1200, "globina": 1200,
@@ -1306,6 +1315,11 @@ def narisi_montazni_list(ax, c):
     dl_palice = c.get("dolzina_palice", 6000)
     kerf = c.get("kerf", 3.0)
     barva = c.get("barva") or "Antracit"
+    podlaga = c.get("podlaga") or ""
+    pritrditev = c.get("pritrditev") or "bočno"
+    vijak_lamela_naziv = c.get("vijak_lamela") or "RF vijak M8×70 (lamela↔profil)"
+    vijak_lamela_dim = "M8×70"
+    vijak_nosilec_naziv = c.get("vijak_nosilec") or         f"Pritrdilni vijaki za {podlaga or 'podlago'}"
 
     # ostanki iz skladišča (ostanki.yaml) — najprej se porabijo
     ostanki = nalozi_ostanke() if c.get("uporabi_ostanke", True) else []
@@ -1327,10 +1341,9 @@ def narisi_montazni_list(ax, c):
          f"{palice} kos", f"obe sta dolgi {fmt(sir)} mm"],
         ["Nosilni nosilec 50×50×5", "—", f"{n_nos} kos",
          f"razmak ≤ {fmt(raz)} mm"],
-        ["RF vijaki M8×70 (lamela↔profil)", "—", f"{vijaki} kos",
+        [vijak_lamela_naziv, "—", f"{vijaki} kos",
          f"2 na priključek ({n * n_nos}) • Ø+1 mm"],
-        ["Fasadni vijaki Ø8×80 + tipli", "—", f"{n_nos * 2} kos",
-         "2 na nosilec"],
+        [vijak_nosilec_naziv, "—", f"{n_nos * 2} kos", "2 na nosilec"],
     ]
     if kos_iz_ost:
         pot.insert(1, ["Uporabljeni ostanki (iz skladišča)", "—",
@@ -1407,8 +1420,8 @@ def narisi_montazni_list(ax, c):
         f"(razrez: 2 × {fmt(sir)} mm)",
         "",
         "PRITRDILNI MATERIAL:",
-        f"- RF vijaki M8×70 Inox A2 — {vijaki} kos",
-        f"- Fasadni vijaki Ø8×80 + tipli — {n_nos * 2} kos",
+        f"- {vijak_lamela_naziv} — {vijaki} kos",
+        f"- {vijak_nosilec_naziv} — {n_nos * 2} kos",
     ]
     kolicine = {"postavke": [
         (f"WPC deske {profil} (nabava)", f"{deske} kos = {fmt(por_m)}",
@@ -1437,6 +1450,11 @@ def narisi_montazni_pokoncna(ax, c):
     deska_h = p["deske_h"]
     profil = c.get("profil") or "POLNA DESKA 100"
     barva = c.get("barva") or "Antracit"
+    podlaga = c.get("podlaga") or ""
+    pritrditev = c.get("pritrditev") or "vrh"
+    vijak_lamela_naziv = c.get("vijak_lamela") or "Vijak M8×70 (deska↔steber)"
+    vijak_lamela_dim = "M8×70"
+    vijak_nosilec_naziv = c.get("vijak_nosilec") or         f"Osnova za steber + anker M10 × 2 (vrh)"
     dl_deske = c.get("dolzina_deske", 5800)
     dl_palice = c.get("dolzina_palice", 6000)
     kerf = c.get("kerf", 3.0)
@@ -1463,10 +1481,10 @@ def narisi_montazni_pokoncna(ax, c):
          "pritrjen na steber"],
         ["Osnova za steber (vrh)", "90×90×6", f"{n_s} kos",
          "anker M10 × 2 na osnovo"],
-        ["Vijaki M8×70 (deska↔steber)", "—", f"{vijaki} kos",
+        [vijak_lamela_naziv, "—", f"{vijaki} kos",
          f"2 na desko na steber • Ø+1 mm"],
-        ["Anker M10", "—", f"{n_s * 2} kos",
-         "2 na osnovo • sidranje ≥ 60 mm (beton C20/25)"],
+        [vijak_nosilec_naziv, "—", f"{n_s * 2} kos",
+         f"2 na osnovo • sidranje ≥ 60 mm (beton C20/25)"],
     ]
     if kos_iz_ost:
         pot.insert(1, ["Uporabljeni ostanki (iz skladišča)", "—",
@@ -1526,8 +1544,8 @@ def narisi_montazni_pokoncna(ax, c):
         "OSTALA PRITRDITVA:",
         f"- Ročaj — 1 kos × {fmt(sir)} mm",
         f"- Osnove za steber — {n_s} kos",
-        f"- Vijaki M8×70 Inox A2 — {vijaki} kos",
-        f"- Anker M10 — {n_s * 2} kos",
+        f"- {vijak_lamela_naziv} — {vijaki} kos",
+        f"- {vijak_nosilec_naziv} — {n_s * 2} kos",
     ]
     montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki)
 
