@@ -2,3 +2,4 @@ flask
 matplotlib>=3.5
 PyYAML
 numpy
+ezdxf==1.4.5

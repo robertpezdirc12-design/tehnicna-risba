@@ -199,3 +199,62 @@ def test_pokoncna_z_vrati_kolicine(tmp_path):
     assert os.path.getsize(izhod) > 1000
     nazivi = [p[0] for p in kol["postavke"]]
     assert any("VRATA" in n for n in nazivi)
+
+# ---------------------------------------------------------------------------
+# GUI (Tk) — vrata v vmesniku (preskoči brez Tk)
+# ---------------------------------------------------------------------------
+
+def test_gui_vrata_v_cfg_in_zadnjih(tmp_path, monkeypatch):
+    pytest.importorskip("tkinter")
+    import vmesnik
+    monkeypatch.setattr(vmesnik, "DAT_ZADNJE", str(tmp_path / "zadnje.yaml"))
+    try:
+        app = vmesnik.App()
+    except Exception:
+        pytest.skip("Tk okolje ni na voljo")
+    app.withdraw()
+    try:
+        vrata_sez = [{"tip": "enokrilna", "x": 100, "sirina": 900,
+                      "visina": 1500}]
+        app.vrata_sez = [dict(v) for v in vrata_sez]
+        app._vrata_osvezi()
+        cfg = app._zberi_cfg()
+        assert cfg["vrata"] == vrata_sez                # vrata v cfg
+        app._shrani_zadnje()
+        # nalaganje nazaj v ISTEM oknu (regresija 4: ne prepiše vrat)
+        app.vrata_sez = []
+        app._nalozi_zadnje()
+        assert app.vrata_sez == vrata_sez
+    finally:
+        app.destroy()
+
+
+def test_gui_vrata_validacija_prekrivanja(tmp_path, monkeypatch):
+    pytest.importorskip("tkinter")
+    import vmesnik
+    monkeypatch.setattr(vmesnik, "DAT_ZADNJE", str(tmp_path / "zadnje.yaml"))
+    try:
+        app = vmesnik.App()
+    except Exception:
+        pytest.skip("Tk okolje ni na voljo")
+    app.withdraw()
+    try:
+        app.v["sirina"].set("3000")
+        app.v["visina"].set("2300")
+        app.v["odcep"].set("60")
+        app.vrata_sez = [
+            {"tip": "enokrilna", "x": 100, "sirina": 900, "visina": 1500},
+            {"tip": "enokrilna", "x": 500, "sirina": 900, "visina": 1500},
+        ]
+        app._vrata_osvezi()
+        napake = app._vrata_preveri()
+        assert any("prekrivata" in n for n in napake)
+        # brez napak, če se ne prekrivata
+        app.vrata_sez = [
+            {"tip": "enokrilna", "x": 100, "sirina": 900, "visina": 1500},
+            {"tip": "prehodna", "x": 1500, "sirina": 1000, "visina": 1500},
+        ]
+        app._vrata_osvezi()
+        assert app._vrata_preveri() == []
+    finally:
+        app.destroy()
