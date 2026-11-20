@@ -58,8 +58,32 @@ measurement assistant.
 - **Merjenje s fotografije** (pomožno) — kalibracija na znano dimenzijo
   (npr. 67 mm = širina deske), klik-merjenje, zaznavanje pasov in pik (OpenCV)
 - **CLI + konfiguracija YAML** — za ponavljajoče naloge
+- **Vrata in prehodi (issue #3)** — enokrilna/dvokrilna/pasja/prehodna vrata
+  ter prehodi v obeh predlogah ograje; odprtine vplivajo na polnilo, razrez,
+  količine in kosovnico (ne le na risbo); tečaji/vijaki/prečke/diagonale po
+  dokumentiranih konstrukcijskih pravilih (docs/issue-3-vrata-dxf.md)
+- **Večsegmentni projekti (YAML shema v2)** — segmenti z lastnimi merami,
+  vrati/prehodi in koti (vogali); migracija starih projektov v1→v2 brez
+  izgube (`migracija.py`)
+- **DXF izvoz za CAD/CNC** — `python risba.py projekt.yaml --dxf` ali gumb
+  v GUI: DXF R2010, mm 1:1, 9 plasti (rez/vrtanje iz OUTLINE/POSTS/HOLES),
+  zaprte konture brez dvojnih rezov, kote, naslovni blok; omejitve (brez
+  G-code/kompenzacije orodja) v `docs/dxf-specifikacija.md`
 
 ![montažni list](slike/TEREN-01-montazni-list.png)
+
+## Stanje projekta
+
+| Issue | Vsebina | Stanje |
+|---|---|---|
+| #1 | AI pregled aplikacije in predlog izboljšav | ✅ zaprt |
+| #2 | P0/P1 popravki izračunov, PDF, ostanki + regresijski testi (74) | ✅ zaprt (PR #4) |
+| #3 | Vrata, prehodi, segmenti, DXF/CNC (61 novih testov) | ✅ zaprt (PR #7) |
+| #5 | Strokovna analiza in razvojni načrt (primerjava z DrawAFence) | 🔓 odprt |
+| #6 | P0: revizija izračunov, kerfa, razreza + preverjena Windows izdaja | 🔓 odprt |
+| #8 | ADD-ON: ograja iz fotografije (ločen modul, brez AI modelov) | 🔓 odprt |
+
+Testi: `python -m pytest tests/` — 135 testov (74 iz #2 + 61 iz #3).
 
 ## Namestitev
 
