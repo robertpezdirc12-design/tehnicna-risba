@@ -34,3 +34,5 @@ ostanki.yaml
 
 # lokalni testni izhodi
 .test/
+
+_pyi_build.log
