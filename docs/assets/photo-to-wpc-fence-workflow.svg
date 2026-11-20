@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="960" viewBox="0 0 1600 960" role="img" aria-labelledby="t d">
+<title id="t">TehnicnaRisba photo-to-WPC-fence workflow</title>
+<desc id="d">Five stages: field photos, classical computer vision and calibration, separate editable survey and replacement models, synchronized technical drawings and cut lists, and a preview of the proposed WPC fence on the original photo. Local CPU-only, no AI models.</desc>
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f4f7fb"/><stop offset="1" stop-color="#e8eef5"/></linearGradient>
+ <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#dcebf5"/><stop offset="1" stop-color="#f4f0e7"/></linearGradient>
+ <filter id="sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="7" stdDeviation="10" flood-color="#1e293b" flood-opacity=".12"/></filter>
+ <style>
+ .head{font:700 36px Arial,sans-serif;fill:#15263c}.sub{font:18px Arial,sans-serif;fill:#596b80}
+ .ct{font:700 21px Arial,sans-serif;fill:#20334a}.tx{font:16px Arial,sans-serif;fill:#42556b}
+ .sm{font:14px Arial,sans-serif;fill:#61748a}.tag{font:700 14px Arial,sans-serif;fill:#fff}
+ .num{font:700 18px Arial,sans-serif;fill:white}.arr{stroke:#71869d;stroke-width:4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+ </style>
+</defs>
+<rect width="1600" height="960" fill="url(#bg)"/>
+<text x="72" y="76" class="head">TEHNIČNARISBA · PHOTO-TO-WPC REPLACEMENT</text>
+<text x="72" y="113" class="sub">Standalone optional add-on · local CPU processing · classical computer vision · no AI models or cloud services</text>
+<g filter="url(#sh)">
+ <rect x="55" y="165" width="278" height="635" rx="20" fill="#fff"/>
+ <rect x="365" y="165" width="278" height="635" rx="20" fill="#fff"/>
+ <rect x="675" y="165" width="278" height="635" rx="20" fill="#fff"/>
+ <rect x="985" y="165" width="278" height="635" rx="20" fill="#fff"/>
+ <rect x="1295" y="165" width="250" height="635" rx="20" fill="#fff"/>
+</g>
+<!-- headers -->
+<g><circle cx="91" cy="208" r="21" fill="#2563eb"/><text x="91" y="215" text-anchor="middle" class="num">1</text><text x="125" y="216" class="ct">Field photos</text></g>
+<g><circle cx="401" cy="208" r="21" fill="#0f766e"/><text x="401" y="215" text-anchor="middle" class="num">2</text><text x="435" y="216" class="ct">CV + calibration</text></g>
+<g><circle cx="711" cy="208" r="21" fill="#7c3aed"/><text x="711" y="215" text-anchor="middle" class="num">3</text><text x="745" y="216" class="ct">Two models</text></g>
+<g><circle cx="1021" cy="208" r="21" fill="#0369a1"/><text x="1021" y="215" text-anchor="middle" class="num">4</text><text x="1055" y="216" class="ct">Engineering</text></g>
+<g><circle cx="1331" cy="208" r="21" fill="#c2410c"/><text x="1331" y="215" text-anchor="middle" class="num">5</text><text x="1365" y="216" class="ct">Photo preview</text></g>
+<!-- photo card image -->
+<g transform="translate(77 260)">
+ <rect width="234" height="235" rx="12" fill="url(#sky)" stroke="#d4deea"/>
+ <circle cx="198" cy="34" r="17" fill="#f3d58a"/>
+ <path d="M0 159 L234 145 L234 235 L0 235Z" fill="#a3b98f"/>
+ <path d="M0 187 Q60 164 120 185 T234 172 L234 235 L0 235Z" fill="#79966f"/>
+ <g stroke="#4a5966" stroke-width="10" fill="none"><path d="M24 72 L24 205 M210 58 L210 191"/><path d="M24 96 L210 83 M24 122 L210 109 M24 148 L210 135 M24 174 L210 161"/></g>
+ <text x="117" y="221" text-anchor="middle" class="sm">Existing fence · source image</text>
+</g>
+<text x="77" y="540" class="tx">• One or more photos</text>
+<text x="77" y="570" class="tx">• Frontal + optional side views</text>
+<text x="77" y="600" class="tx">• Original image preserved</text>
+<text x="77" y="660" class="sm">Installer does not draw a sketch</text>
+<text x="77" y="685" class="sm">or re-enter every dimension.</text>
+<!-- CV image -->
+<g transform="translate(387 260)">
+ <rect width="234" height="235" rx="12" fill="#f5faf9" stroke="#d4deea"/>
+ <g stroke="#0f766e" stroke-width="3" fill="none">
+ <path d="M30 63 L30 205 M205 50 L205 192"/><path d="M30 88 L205 75 M30 115 L205 102 M30 142 L205 129 M30 169 L205 156"/>
+ </g>
+ <g stroke="#2563eb" stroke-width="2" stroke-dasharray="5 4" fill="none"><path d="M16 49 L218 35 L218 202 L16 218Z"/></g>
+ <path d="M30 224 L205 210" stroke="#2563eb" stroke-width="2"/>
+ <text x="117" y="231" text-anchor="middle" class="sm">Edges · posts · slats · anchors</text>
+</g>
+<text x="387" y="540" class="tx">• OpenCV / deterministic rules</text>
+<text x="387" y="570" class="tx">• Perspective-aware calibration</text>
+<text x="387" y="600" class="tx">• Manual review only if needed</text>
+<text x="387" y="660" class="sm">Measured / estimated / unknown</text>
+<text x="387" y="685" class="sm">values stay explicitly distinct.</text>
+<!-- models -->
+<g transform="translate(697 260)">
+ <rect width="234" height="235" rx="12" fill="#faf8ff" stroke="#d4deea"/>
+ <rect x="15" y="18" width="204" height="83" rx="9" fill="#e9f5f2" stroke="#a7d4c9"/>
+ <text x="28" y="44" style="font:700 16px Arial;fill:#0f766e">A · EXISTING SURVEY</text>
+ <g stroke="#0f766e" stroke-width="3" fill="none"><path d="M39 56 V87 M194 51 V82 M39 66 L194 61 M39 78 L194 73"/></g>
+ <text x="28" y="122" style="font:700 16px Arial;fill:#6d28d9">B · NEW WPC DESIGN</text>
+ <g fill="#4b5563" stroke="#334155" stroke-width="1.2"><rect x="37" y="139" width="10" height="65"/><rect x="188" y="128" width="10" height="65"/><path d="M47 146 L188 135 L188 145 L47 156Z"/><path d="M47 160 L188 149 L188 159 L47 170Z"/><path d="M47 174 L188 163 L188 173 L47 184Z"/><path d="M47 188 L188 177 L188 187 L47 198Z"/></g>
+ <text x="117" y="224" text-anchor="middle" class="sm">Separate, editable, revisioned</text>
+</g>
+<text x="697" y="540" class="tx">• Existing fence ≠ new fence</text>
+<text x="697" y="570" class="tx">• Parametric WPC profiles/slats</text>
+<text x="697" y="600" class="tx">• Posts, rails, gates as supported</text>
+<text x="697" y="660" class="sm">One approved replacement model</text>
+<text x="697" y="685" class="sm">drives every downstream output.</text>
+<!-- technical output -->
+<g transform="translate(1007 260)">
+ <rect width="234" height="235" rx="12" fill="#f7fbff" stroke="#d4deea"/>
+ <rect x="18" y="16" width="198" height="201" rx="4" fill="#fff" stroke="#94a3b8"/>
+ <text x="29" y="39" style="font:700 13px Arial;fill:#334155">A3 · TECHNICAL SHEET</text>
+ <g stroke="#1e293b" stroke-width="2" fill="none"><path d="M40 70 V152 M190 70 V152 M40 83 L190 83 M40 101 L190 101 M40 119 L190 119 M40 137 L190 137"/></g>
+ <g stroke="#2563eb" stroke-width="1.3" fill="none"><path d="M40 166 H190 M40 161 V171 M190 161 V171 M202 70 V152 M197 70 H207 M197 152 H207"/></g>
+ <g stroke="#94a3b8" stroke-width="1"><path d="M29 181 H205 M29 191 H205 M29 201 H205"/></g>
+ <text x="115" y="177" text-anchor="middle" style="font:12px Arial;fill:#2563eb">dimensions</text>
+</g>
+<text x="1007" y="540" class="tx">• A3 technical drawings</text>
+<text x="1007" y="570" class="tx">• BOM and component quantities</text>
+<text x="1007" y="600" class="tx">• Kerf-aware cut plan / offcuts</text>
+<text x="1007" y="660" class="sm">Only validated dimensions feed</text>
+<text x="1007" y="685" class="sm">manufacturing-ready documents.</text>
+<!-- photo preview -->
+<g transform="translate(1315 260)">
+ <rect width="210" height="235" rx="12" fill="url(#sky)" stroke="#d4deea"/>
+ <circle cx="177" cy="35" r="16" fill="#f3d58a"/>
+ <path d="M0 160 L210 148 L210 235 L0 235Z" fill="#a3b98f"/>
+ <path d="M0 190 Q80 165 120 187 T210 178 L210 235 L0 235Z" fill="#79966f"/>
+ <g stroke="#263b50" stroke-width="10" fill="none"><path d="M24 72 L24 202 M188 60 L188 190"/></g>
+ <g fill="#34495e"><path d="M24 91 L188 79 L188 91 L24 103Z"/><path d="M24 117 L188 105 L188 117 L24 129Z"/><path d="M24 143 L188 131 L188 143 L24 155Z"/><path d="M24 169 L188 157 L188 169 L24 181Z"/></g>
+ <text x="105" y="222" text-anchor="middle" class="sm">New fence on same photo</text>
+</g>
+<text x="1315" y="540" class="tx">• Same camera perspective</text>
+<text x="1315" y="570" class="tx">• Real CAD geometry</text>
+<text x="1315" y="600" class="tx">• Before / after comparison</text>
+<text x="1315" y="660" class="sm">Presentation image is not</text>
+<text x="1315" y="685" class="sm">a measurement or safety proof.</text>
+<!-- arrows -->
+<path d="M337 465 H357 M348 456 L358 465 L348 474" class="arr"/>
+<path d="M647 465 H667 M658 456 L668 465 L658 474" class="arr"/>
+<path d="M957 465 H977 M968 456 L978 465 L968 474" class="arr"/>
+<path d="M1267 465 H1287 M1278 456 L1288 465 L1278 474" class="arr"/>
+<rect x="55" y="835" width="1490" height="75" rx="14" fill="#fff4df" stroke="#f0d39a"/>
+<text x="82" y="866" style="font:700 17px Arial;fill:#8a4b08">ENGINEERING SAFETY RULE</text>
+<text x="82" y="892" style="font:16px Arial;fill:#704d1c">A photo can support geometry, but not reveal every true dimension. No invented mm values. No unverified estimate may silently enter the cut list.</text>
+</svg>
