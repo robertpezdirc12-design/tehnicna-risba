@@ -505,12 +505,18 @@ def vrata_podatki(c):
     if not (c.get("vrata") or c.get("prehodi")):
         return izhod
     for i, v in enumerate(c.get("vrata") or [], start=1):
+        ozn = f"V{i}"
+        H_o_v = float(v.get("visina") or 0)
+        if H_o_v + odcep > vis + 1e-9:
+            izhod["napake"].append(
+                f"{ozn}: višina vrat ({fmt(H_o_v)}) z odcepom ({fmt(odcep)}) "
+                f"presega višino ograje ({fmt(vis)}).")
+            continue
         try:
-            g = vrat.geometrija_vrat(v, v.get("sirina", 900), H_o)
+            g = vrat.geometrija_vrat(v, v.get("sirina", 900), H_o_v)
         except ValueError as e:
             izhod["napake"].append(f"Vrata {i}: {e}")
             continue
-        ozn = f"V{i}"
         izhod["vrata"].append({"oznaka": ozn, "g": g, "vnos": v,
                                "kosovnica": vrat.kosovnica_vrat(g, ozn)})
         x = g["x"]
@@ -529,12 +535,18 @@ def vrata_podatki(c):
                 izhod["elementi"].append(
                     ("krog", (cx + x, cy + odcep, dd), plast, ozn))
     for i, p in enumerate(c.get("prehodi") or [], start=1):
+        ozn = f"P{i}"
+        H_o_p = float(p.get("visina") or 0)
+        if H_o_p + odcep > vis + 1e-9:
+            izhod["napake"].append(
+                f"{ozn}: višina prehoda ({fmt(H_o_p)}) z odcepom ({fmt(odcep)}) "
+                f"presega višino ograje ({fmt(vis)}).")
+            continue
         try:
-            g = vrat.geometrija_prehoda(p, p.get("sirina", 1000), H_o)
+            g = vrat.geometrija_prehoda(p, p.get("sirina", 1000), H_o_p)
         except ValueError as e:
             izhod["napake"].append(f"Prehod {i}: {e}")
             continue
-        ozn = f"P{i}"
         izhod["prehodi"].append({"oznaka": ozn, "g": g, "vnos": p,
                                  "kosovnica": vrat.kosovnica_prehoda(g)})
         x = g["x"]
@@ -565,7 +577,7 @@ def vrata_podatki(c):
                     f"({fmt(pa)}–{fmt(pb)} mm) — preveri izvedbo.")
                 break
     izhod["napake"] += vrat.preveri_odprtine(
-        [(a, b - a, H_o, oz) for a, b, oz in izhod["odprtine"]], sir, vis)
+        [(a, b - a, vis, oz) for a, b, oz in izhod["odprtine"]], sir, vis)
     return izhod
 
 

@@ -149,8 +149,12 @@ def _elementi_segmenta(mere, tip, vrata_sez=None, prehodi_sez=None):
 
     # Vrata in prehodi v segmentu (odprtine v polnilu).
     for i, v in enumerate(vrata_sez or [], start=1):
-        g = vrata.geometrija_vrat(v, v.get("sirina", 900.0),
-                                  visina - odcep)
+        H_o_v = float(v.get("visina") or 0)
+        if H_o_v + odcep > visina + 1e-9:
+            raise ValueError(
+                f"Vrata {i}: višina {H_o_v:g} z odcepom {odcep:g} presega "
+                f"višino ograje {visina:g}.")
+        g = vrata.geometrija_vrat(v, v.get("sirina", 900.0), H_o_v)
         for vrsta, podatki, plast in vrata.elementi_vrat(g):
             if vrsta == "kvadrat":
                 px, py, pw, ph = podatki
@@ -164,7 +168,12 @@ def _elementi_segmenta(mere, tip, vrata_sez=None, prehodi_sez=None):
                 cx, cy, d = podatki
                 el.append(("krog", (cx + v.get("x", 0.0), cy + odcep, d), plast))
     for p in prehodi_sez or []:
-        g = vrata.geometrija_prehoda(p, p.get("sirina", 1000.0), visina - odcep)
+        H_o_p = float(p.get("visina") or 0)
+        if H_o_p + odcep > visina + 1e-9:
+            raise ValueError(
+                f"Prehod: višina {H_o_p:g} z odcepom {odcep:g} presega "
+                f"višino ograje {visina:g}.")
+        g = vrata.geometrija_prehoda(p, p.get("sirina", 1000.0), H_o_p)
         for vrsta, podatki, plast in vrata.elementi_prehoda(g):
             if vrsta == "kvadrat":
                 px, py, pw, ph = podatki
