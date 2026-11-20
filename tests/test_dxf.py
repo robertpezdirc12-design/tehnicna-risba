@@ -133,9 +133,10 @@ def test_vrata_v_dxf_so_pravih_mer(cfg_z_vrati):
     pot, _ = dxf_izvoz.izvozi_dxf(cfg_z_vrati)
     doc = ezdxf.readfile(pot)
     # Odprtina vrat: sirina 1000, H_o = 2000 (višina vrat iz konfiguracije).
+    # Issue #6: veriga vključuje profile okvirja (60 + 5 + w_k + 5 + 60 = 1000).
     g = vrata.geometrija_vrat(cfg_z_vrati["vrata"][0], 1000, 2000)
-    w_k = g["sirine_kril"][0]                        # 990 mm
-    assert w_k == 990.0
+    w_k = g["sirine_kril"][0]                        # 870 mm
+    assert w_k == 870.0
     # Kontura krila (OUTLINE): w_k x (h_k - 40) — glej vrata.elementi_vrat.
     h_konture = g["h_k"] - 40.0
     najdeno = False

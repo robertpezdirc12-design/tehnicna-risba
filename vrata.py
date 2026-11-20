@@ -66,6 +66,16 @@ SMERI = ("levo-navzven", "desno-navzven", "levo-navznoter", "desno-navznoter")
 # Privzete reže (mm) — odločitev O-4/O-7 iz poročila pod-agenta.
 PRIVZETE_REZE = {"tla": 50.0, "bok": 5.0, "med": 10.0, "zgoraj": 5.0}
 
+# Profilne dimenzije (mm) — okvir vrat in krilo (issue #6, uskladitev
+# kosovnice z geometrijo). Model: okvirna stojala stojijo ZNOTRAJ odprtine
+# S_o, zato vodoravna veriga vključuje tudi profila okvirja:
+#   2·SIRINA_OKVIRJA + r_bok + Σw_k + (n_kril−1)·r_med + r_bok = S_o
+# (prej je geometrija štela le 5 mm reže, kosovnica pa je rezala 60 mm
+# široka stojala — deli se fizično niso mogli zložiti: 60+990+60 > 1000).
+SIRINA_OKVIRJA = 60.0    # širina stojala okvirja (profil 60×40)
+SIRINA_STOJALA = 40.0    # širina navpičnega stojala krila
+VISINA_LETE = 40.0       # višina vodoravne letve krila
+
 PRIVZETA_VRATA = {
     "tip": "enokrilna",
     "x": 0.0,
@@ -215,7 +225,7 @@ def geometrija_vrat(vnos, sirina_odprtine, visina_odprtine):
     elif tip == "pasja":
         # Pasja vrata: ničelna reža med kriloma, obe polovici enaki.
         r_med = 0.0
-        w = (S_o - 2 * r["bok"] - r_med) / 2.0
+        w = (S_o - 2 * SIRINA_OKVIRJA - 2 * r["bok"] - r_med) / 2.0
         sirine_kril = [w, w]
         n_kril = 2
         h_k = H_o - r["tla"] - r["zgoraj"]
@@ -223,16 +233,21 @@ def geometrija_vrat(vnos, sirina_odprtine, visina_odprtine):
     else:
         n_kril = 2 if tip == "dvokrilna" else 1
         r_med = r["med"] if n_kril == 2 else 0.0
-        # Veriga: r_bok + w_1 + r_med + w_2 + ... + r_bok = S_o
-        w = (S_o - 2 * r["bok"] - (n_kril - 1) * r_med) / n_kril
+        # Veriga: 2·okvir + r_bok + w_1 + r_med + w_2 + ... + r_bok = S_o
+        w = (S_o - 2 * SIRINA_OKVIRJA - 2 * r["bok"]
+             - (n_kril - 1) * r_med) / n_kril
         sirine_kril = [w] * n_kril
         h_k = H_o - r["tla"] - r["zgoraj"]
         h = h_k
 
     if w <= 0:
-        raise ValueError(f"Širina odprtine {S_o} je premajhna za reže.")
+        raise ValueError(f"Širina odprtine {S_o} je premajhna za reže in profile okvirja.")
     if tip != "prehodna" and h_k <= 0:
         raise ValueError(f"Višina odprtine {H_o} je premajhna za reže.")
+    if tip != "prehodna" and (w <= 2 * SIRINA_STOJALA or h_k <= 2 * VISINA_LETE):
+        raise ValueError(
+            f"Krilo {w:g}×{h_k:g} mm je premajhno za stojala/letve "
+            f"({SIRINA_STOJALA:g}/{VISINA_LETE:g} mm).")
 
     if tip == "prehodna":
         st_tec = 0
@@ -245,7 +260,11 @@ def geometrija_vrat(vnos, sirina_odprtine, visina_odprtine):
 
     precke = _st_preck(h_k if tip != "prehodna" else H_o, tip)
     vijaki_na_tecaj = {2: 4, 3: 6, 4: 8}.get(st_tec, 8)
-    diagonala = math.ceil(math.hypot(w, h_k) / 5.0) * 5.0 if v["diagonala"] else 0.0
+    # P6 (issue #6, uskladitev s specifikacijo): diagonala je hipotenuza
+    # NOTRANJIH mer krila (med stojali in letvami), zaokrožena na 5 mm.
+    diagonala = (math.ceil(math.hypot(w - 2 * SIRINA_STOJALA,
+                                      h_k - 2 * VISINA_LETE) / 5.0) * 5.0
+                 if v["diagonala"] else 0.0)
     visina_rocaj = 1050.0 if h_k >= 1000.0 else h_k / 2.0
     visina_zaklep = 1050.0 if h_k >= 1000.0 else h_k / 2.0
     if tip == "pasja":
@@ -272,6 +291,8 @@ def geometrija_vrat(vnos, sirina_odprtine, visina_odprtine):
         "visina_zaklep": visina_zaklep,
         "zaklep": v["zaklep"],
         "roc": v["roc"],
+        "tecaji_skriti": v["tecaji"] == "skriti",
+        "sirina_okvirja": SIRINA_OKVIRJA,
     }
 
 
@@ -385,18 +406,18 @@ def kosovnica_vrat(g, oznaka="V1"):
     h_k = g["h_k"]
     r = g["reze"]
 
-    # Okvir vrat: 2 stojali + prečke (P5).
+    # Okvir vrat: 2 stojali + prečke (P5) — mere iz konstant profila.
     stojalo = h_k + r["tla"]
-    izdelani.append((f"{oznaka}-1", stojalo, 60.0, 2, "stojalo okvirja", None))
-    dolzina_precke_okvir = sirina - 2 * 60.0
-    izdelani.append((f"{oznaka}-2", dolzina_precke_okvir, 60.0, 2,
+    izdelani.append((f"{oznaka}-1", stojalo, SIRINA_OKVIRJA, 2, "stojalo okvirja", None))
+    dolzina_precke_okvir = sirina - 2 * SIRINA_OKVIRJA
+    izdelani.append((f"{oznaka}-2", dolzina_precke_okvir, SIRINA_OKVIRJA, 2,
                      "prečka okvirja", None))
 
     for i, w_k in enumerate(g["sirine_kril"], start=1):
         # Krilo: 2 stojali + 2 vodoravni letvi.
-        izdelani.append((f"{oznaka}-{2 + i}", h_k, 40.0, 2, f"stojalo krila {i}", None))
-        letev = w_k - 2 * 40.0
-        izdelani.append((f"{oznaka}-{2 + len(g['sirine_kril']) + i}", letev, 40.0, 2,
+        izdelani.append((f"{oznaka}-{2 + i}", h_k, SIRINA_STOJALA, 2, f"stojalo krila {i}", None))
+        letev = w_k - 2 * SIRINA_STOJALA
+        izdelani.append((f"{oznaka}-{2 + len(g['sirine_kril']) + i}", letev, VISINA_LETE, 2,
                          f"vodoravna letev krila {i}", None))
         # Prečke krila (P5) in diagonala (P6).
         if g["precke"]:
@@ -483,15 +504,15 @@ def razrezne_skupine(kosovnica):
     return list(skupine.items())
 
 
-def razrezne_skupine_prehoda(kosovnica):
-    """Razrezne skupine prehoda (P7: zaključni profili se režejo)."""
+def razrezne_skupine_prehoda(kosovnica, visina=2100.0):
+    """Razrezne skupine prehoda (P7: zaključni profili se režejo na višino odprtine)."""
     skupine = {}
     for oznaka, kol, enota, _kljuc, opis in kosovnica["kupljeni"]:
         if oznaka == "ZAK-PRO":
             kljuc = "zakljucni profil"
             for _ in range(int(kol)):
                 skupine.setdefault(kljuc, []).append(
-                    (f"{oznaka} {opis}", 2100.0, 60.0, "#7bb369"))
+                    (f"{oznaka} {opis}", float(visina), 60.0, "#7bb369"))
     return list(skupine.items())
 
 
@@ -514,38 +535,40 @@ def elementi_vrat(g):
         return el
 
     w = g["sirine_kril"][0]
-    # Okvir: levo in desno stojalo, spodnja in zgornja prečka.
-    el.append(("kvadrat", (0.0, r["tla"], r["bok"], H_o - r["zgoraj"]), "POSTS"))
-    el.append(("kvadrat", (sirina - r["bok"], r["tla"], r["bok"],
+    ok = g.get("sirina_okvirja", 60.0)
+    # Okvir: levo in desno stojalo (znotraj odprtine), spodnja in zgornja prečka.
+    el.append(("kvadrat", (0.0, r["tla"], ok, H_o - r["zgoraj"]), "POSTS"))
+    el.append(("kvadrat", (sirina - ok, r["tla"], ok,
                            H_o - r["zgoraj"]), "POSTS"))
-    el.append(("kvadrat", (0.0, r["tla"], sirina, 40.0), "FRAME"))
-    el.append(("kvadrat", (0.0, H_o - r["zgoraj"] - 40.0, sirina, 40.0), "FRAME"))
-    # Krila.
-    x0 = r["bok"]
+    el.append(("kvadrat", (ok, r["tla"], sirina - 2 * ok, 40.0), "FRAME"))
+    el.append(("kvadrat", (ok, H_o - r["zgoraj"] - 40.0, sirina - 2 * ok,
+                           40.0), "FRAME"))
+    # Krila: med okvirnimi stojali z režo r_bok.
+    x0 = ok + r["bok"]
     for i, w_k in enumerate(g["sirine_kril"]):
         el.append(("kvadrat", (x0, r["tla"] + 20.0, w_k, g["h_k"] - 40.0), "OUTLINE"))
         x0 += w_k + (r["med"] if g["n_kril"] == 2 and i == 0 else 0.0)
-    # Prečke in diagonala.
+    # Prečke in diagonala (P6: diagonala čez NOTRANJE mere krila).
     for i, w_k in enumerate(g["sirine_kril"]):
-        xr = r["bok"] + (w_k + r["med"]) * i
+        xr = ok + r["bok"] + (w_k + r["med"]) * i
         for j in range(g["precke"]):
             y = r["tla"] + g["h_k"] * (j + 1) / (g["precke"] + 1)
             el.append(("kvadrat", (xr + 10.0, y - 20.0, w_k - 20.0, 40.0), "FILL"))
         if g["diagonala_dolzina"]:
-            el.append(("crta", (xr + 10.0, r["tla"] + 20.0,
-                                xr + w_k - 10.0, r["tla"] + g["h_k"] - 20.0), "FILL"))
+            el.append(("crta", (xr + 40.0, r["tla"] + 40.0,
+                                xr + w_k - 40.0, r["tla"] + g["h_k"] - 40.0), "FILL"))
     # Tečaji (P1) na levi strani krila.
     n = g["st_tecajev"]
     if n:
         w_k = g["sirine_kril"][0]
         for j in range(n):
             y = r["tla"] + g["h_k"] * (j + 0.5) / n
-            el.append(("krog", (r["bok"] + 20.0, y, 12.0), "HARDWARE"))
+            el.append(("krog", (ok + r["bok"] + 20.0, y, 12.0), "HARDWARE"))
     # Ročaj in ključavnica (odločitev: višina 1050 mm ali sredina krila).
-    el.append(("kvadrat", (sirina - r["bok"] - 80.0, g["visina_rocaj"] - 25.0,
+    el.append(("kvadrat", (sirina - ok - 80.0, g["visina_rocaj"] - 25.0,
                            60.0, 50.0), "HARDWARE"))
     if g["zaklep"] != "brez":
-        el.append(("kvadrat", (sirina - r["bok"] - 60.0, g["visina_zaklep"] - 150.0,
+        el.append(("kvadrat", (sirina - ok - 60.0, g["visina_zaklep"] - 150.0,
                                30.0, 100.0), "HARDWARE"))
     return el
 

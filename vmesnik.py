@@ -5,6 +5,7 @@
 Zagon:  python vmesnik.py   (ali dvoklik nanj)
 """
 
+import json
 import os
 import sys
 import threading
@@ -945,6 +946,30 @@ class App(tk.Tk):
 
 
 if __name__ == "__main__":
+    # Neinteraktivni način (issue #6, §9 — smoke test zgrajenega programa):
+    #   TehnicnaRisba.exe --brez-zaslona <config.json|config.yaml>
+    #   TEHNICNA_RISBA_HEADLESS=1 TehnicnaRisba.exe <config.yaml>
+    # izvede generiranje PDF brez odpiranja GUI in konča z izhodno kodo.
+    _args = [a for a in sys.argv[1:]]
+    _headless = (os.environ.get("TEHNICNA_RISBA_HEADLESS") == "1"
+                 or "--brez-zaslona" in _args)
+    if _headless:
+        try:
+            _args = [a for a in _args if a != "--brez-zaslona"]
+            if not _args:
+                print("Uporaba: TehnicnaRisba --brez-zaslona <config.json|config.yaml>",
+                      file=sys.stderr)
+                sys.exit(2)
+            with open(_args[0], "r", encoding="utf-8") as _f:
+                _cfg = (json.load(_f) if _args[0].lower().endswith(".json")
+                        else yaml.safe_load(_f))
+            _izhod, _png, _dod, _kol = risba.generiraj(_cfg)
+            print(f"Izdelano: {_izhod}")
+            sys.exit(0)
+        except Exception as _e:   # v windowed EXE bi sicer PyInstaller odprl modalni dialog
+            print(f"NAPAKA: {_e}", file=sys.stderr)
+            sys.exit(1)
+
     app = App()
     # OPOMBA: privzetih vrednosti tukaj NE pišemo čez app.v — nalaganje
     # zadnjih nastavitev (App.__init__ -> _nalozi_zadnje) mora ostati

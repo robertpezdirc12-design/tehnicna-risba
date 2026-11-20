@@ -1,10 +1,12 @@
-"""Testi geometrije in količin za vrata/prehode (issue #3).
+"""Testi geometrije in količin za vrata/prehode (issue #3, popravljeno v #6).
 
-Ročno izračunane pričakovane vrednosti (invariant verige:
-r_bok + w_1 + r_med + ... + r_bok = S_o):
-- enokrilna 1000x2100: w_k = (1000-2*5)/1 = 990; h_k = 2100-50-5 = 2045
-- dvokrilna 3000x2155: w_k = (3000-2*5-10)/2 = 1490; h_k = 2155-50-5 = 2100
-- pasja 700x655: w_k = (700-2*5)/2 = 345 (brez reže med kriloma)
+Ročno izračunane pričakovane vrednosti (invariant verige — issue #6:
+veriga vključuje profile okvirja, ki stojijo znotraj odprtine:
+2·60 + r_bok + w_1 + r_med + ... + r_bok = S_o):
+- enokrilna 1000x2100: w_k = (1000-2*60-2*5)/1 = 870; h_k = 2100-50-5 = 2045
+- dvokrilna 3000x2155: w_k = (3000-2*60-2*5-10)/2 = 1430; h_k = 2155-50-5 = 2100
+- pasja 700x655: w_k = (700-2*60-2*5)/2 = 285 (brez reže med kriloma)
+- diagonala (P6): hipotenuza NOTRANJIH mer krila, ceil5 (npr. 790x1965 -> 2120)
 """
 from __future__ import annotations
 
@@ -18,35 +20,40 @@ import vrata
 # ---------------------------------------------------------------------------
 
 def test_enokrilna_geometrija():
+    # Issue #6: veriga vključuje tudi profile okvirja (stojala 60 mm so
+    # znotraj odprtine): 60 + 5 + 870 + 5 + 60 = 1000.
     g = vrata.geometrija_vrat({"tip": "enokrilna", "sirina": 1000, "visina": 2000},
                               1000, 2100)
     assert g["n_kril"] == 1
-    assert g["sirine_kril"] == [990.0]           # (1000 - 2*5) / 1
+    assert g["sirine_kril"] == [870.0]            # (1000 - 2*60 - 2*5) / 1
     assert g["h_k"] == 2045.0                     # 2100 - 50 - 5
-    # Invariant verige: 5 + 990 + 5 = 1000
     r = g["reze"]
-    assert r["bok"] + g["sirine_kril"][0] + r["bok"] == 1000.0
+    assert (2 * vrata.SIRINA_OKVIRJA + r["bok"] + g["sirine_kril"][0]
+            + r["bok"]) == 1000.0
 
 
 def test_dvokrilna_geometrija():
+    # 60 + 5 + 1430 + 10 + 1430 + 5 + 60 = 3000
     g = vrata.geometrija_vrat({"tip": "dvokrilna", "sirina": 3000, "visina": 2100},
                               3000, 2155)
     assert g["n_kril"] == 2
-    assert g["sirine_kril"] == [1490.0, 1490.0]  # (3000 - 10 - 10) / 2
+    assert g["sirine_kril"] == [1430.0, 1430.0]  # (3000 - 120 - 10 - 10) / 2
     assert g["h_k"] == 2100.0
     r = g["reze"]
-    assert (r["bok"] + g["sirine_kril"][0] + r["med"]
+    assert (2 * vrata.SIRINA_OKVIRJA + r["bok"] + g["sirine_kril"][0] + r["med"]
             + g["sirine_kril"][1] + r["bok"]) == 3000.0
 
 
 def test_pasja_geometrija():
+    # 60 + 5 + 285 + 285 + 5 + 60 = 700 (ni reže med kriloma)
     g = vrata.geometrija_vrat({"tip": "pasja", "sirina": 700, "visina": 600},
                               700, 655)
     assert g["n_kril"] == 2
-    assert g["sirine_kril"] == [345.0, 345.0]     # ni reže med kriloma
+    assert g["sirine_kril"] == [285.0, 285.0]
     assert g["h_k"] == 600.0
     r = g["reze"]
-    assert (r["bok"] + g["sirine_kril"][0] + g["sirine_kril"][1] + r["bok"]) == 700.0
+    assert (2 * vrata.SIRINA_OKVIRJA + r["bok"] + g["sirine_kril"][0]
+            + g["sirine_kril"][1] + r["bok"]) == 700.0
 
 
 def test_prehodna_geometrija():
@@ -94,10 +101,16 @@ def test_precke_p5():
 
 
 def test_diagonala_je_hipotenuza_zaokrozjena():
-    # w_k=990, h_k=2045 -> sqrt(990^2+2045^2)=2272.8 -> ceil na 5 mm = 2275
+    # Issue #6 (P6): diagonala je hipotenuza NOTRANJIH mer krila
+    # (specifikacija docs/issue-3-vrata-dxf.md): w_k=870, h_k=2045,
+    # notranje 790×1965 -> sqrt(790^2+1965^2)=2118.85 -> ceil na 5 mm = 2120
     g = vrata.geometrija_vrat({"tip": "enokrilna", "sirina": 1000,
                                "diagonala": True}, 1000, 2100)
-    assert g["diagonala_dolzina"] == 2275.0
+    assert g["diagonala_dolzina"] == 2120.0
+    # skladnost: kosovnica uporablja isto vrednost
+    kos = vrata.kosovnica_vrat(g)
+    diag = [k for k in kos["izdelani"] if "diagonala" in k[4]]
+    assert diag and diag[0][1] == 2120.0
 
 
 def test_vijaki_na_tecaj_p2():
