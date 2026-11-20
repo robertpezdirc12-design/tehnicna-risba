@@ -366,3 +366,95 @@ def razrez_podatki(kos_dol, n_kosov, c, oznaka="KOS", glava="KOSI ŠT."):
             "kosovnica": kosovnica, "iz_ost_kos": sum(k for _, k, _ in iz_ost),
             "ostanki_posodobitev": posodobitev,
             "preost_kosov": 0, "st_kosov": n_kosov}
+
+# ---------------------------------------------------------------- razrez več kosov
+def razrez_kosov(kosi, dolzine_zaloge, kerf, barva="", profil=""):
+    """Razrez kosov RAZLIČNIH dolžin (npr. vratni kosi) — first-fit-descending.
+
+    ``kosi``: [(oznaka, dolzina_mm), ...]; ``dolzine_zaloge``: dovoljene
+    nabavne dolžine (mm). Vsak kos mora iti v natanko en trak — če kos ne
+    gre iz nobene dolžine zaloge, vrže ValueError (nepopolnega načrta ne
+    vračamo kot uspešnega, enako kot A3 pri razrez_podatki).
+
+    Vrne dict: traki [(B, [(oznaka, dolzina), ...]), ...], rez_rows,
+    kosovnica [(oznaka, dolzina, vir, barva)], st_kosov.
+    """
+    kerf = max(float(kerf or 0.0), 0.0)
+    dolzine = sorted({float(d) for d in (dolzine_zaloge or [])
+                      if isinstance(d, (int, float)) and d > 0}, reverse=True)
+    if not dolzine:
+        raise ValueError("Ni dovoljenih dolžin zaloge za razrez.")
+    vnosi = []
+    for oznaka, dol in kosi:
+        dol = float(dol)
+        if dol <= 0:
+            raise ValueError(f"Kos {oznaka} ima neveljavno dolžino {dol}.")
+        if kos_iz_vira(max(dolzine), dol, kerf) < 1:
+            raise ValueError(
+                f"Kos {oznaka} ({fmt(dol)} mm) je daljši od najdaljše "
+                f"nabavne dolžine {fmt(max(dolzine))} mm (kerf {fmt(kerf)}).")
+        vnosi.append((oznaka, dol))
+    # FFD: najdaljši kosi najprej, v prvi trak, ki ga sprejme.
+    vnosi.sort(key=lambda t: -t[1])
+    traki = []  # [(B, [kosi], preostanek_prostora)]
+    for oznaka, dol in vnosi:
+        postavljen = False
+        for t in traki:
+            if dol + kerf <= t[2] + 1e-9:
+                t[1].append((oznaka, dol))
+                t[2] -= dol + kerf
+                postavljen = True
+                break
+        if not postavljen:
+            B = next((d for d in dolzine if dol + kerf <= d + 1e-9), None)
+            if B is None:
+                raise ValueError(f"Kos {oznaka} ({fmt(dol)} mm) ne gre v noben trak.")
+            traki.append([B, [(oznaka, dol)], B - dol - kerf])
+
+    rez_rows = []
+    kosovnica = []
+    for ti, (B, kosi_t, ostanek) in enumerate(traki, 1):
+        ozn = ", ".join(f"{o} ({fmt(d)})" for o, d in kosi_t)
+        rez_rows.append([f"TRAK {ti} ({fmt(B)} mm)", str(len(kosi_t)), ozn,
+                         fmt(max(0.0, ostanek))])
+        for o, d in kosi_t:
+            kosovnica.append((o, d, f"trak #{ti}", barva))
+    assert len(kosovnica) == len(vnosi), "razrez ni popoln"
+    return {"traki": [(B, kosi_t) for B, kosi_t, _ in traki],
+            "rez_rows": rez_rows, "kosovnica": kosovnica,
+            "st_kosov": len(vnosi)}
+
+
+def razrez_kosov_podatki(kosi, c, oznaka="KOS", glava="KOSI ŠT."):
+    """Kot razrez_podatki, a za kose RAZLIČNIH dolžin (vrata, razrezane lamele).
+
+    Vrne isti nabor ključev kot razrez_podatki (traki, rez_rows, viz_traki,
+    kosovnica, iz_ost_kos, ostanki_posodobitev, preost_kosov, st_kosov), da
+    lahko montažni list porabi isti izpis. Novi ostanek traku >= MIN_OSTANKA
+    se evidentira v skladišču (B1) enako kot pri razrez_podatki.
+    """
+    kerf = float(c.get("kerf", 3.0) or 0.0)
+    barva = str(c.get("barva") or "Antracit")
+    dl_zaloge = c.get("dolzine_deske") or [c.get("dolzina_deske", 5800)]
+    if not isinstance(dl_zaloge, (list, tuple)):
+        dl_zaloge = [dl_zaloge]
+    r = razrez_kosov(kosi, dl_zaloge, kerf, barva)
+    trenutni = nalozi_ostanke()
+    novi_ostanki = []
+    rez_rows = [[glava, "ŠT.", "DOLŽINE", "OSTANE"]]
+    viz_traki = []
+    for ti, (B, kosi_t) in enumerate(r["traki"], 1):
+        ostanek = B - sum(d for _o, d in kosi_t) - kerf * len(kosi_t)
+        ostanek = max(0.0, ostanek)
+        ozn = ", ".join(f"{o} ({fmt(d)})" for o, d in kosi_t)
+        rez_rows.append([f"TRAK {ti} ({fmt(B)} mm)", str(len(kosi_t)), ozn,
+                         fmt(ostanek)])
+        viz_traki.append((B, [(o, d) for o, d in kosi_t]))
+        if ostanek >= MIN_OSTANKA:
+            novi_ostanki.append({"dolzina": round(ostanek, 3), "barva": barva,
+                                 "profil": str(c.get("profil") or "")})
+    posodobitev = [copy.deepcopy(o) for o in trenutni] + novi_ostanki
+    return {"traki": r["traki"], "rez_rows": rez_rows, "viz_traki": viz_traki,
+            "kosovnica": r["kosovnica"], "iz_ost_kos": 0,
+            "ostanki_posodobitev": posodobitev,
+            "preost_kosov": 0, "st_kosov": r["st_kosov"]}

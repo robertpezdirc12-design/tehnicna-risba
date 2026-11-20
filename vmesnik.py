@@ -20,6 +20,7 @@ else:
     _AP_DIR = os.path.dirname(os.path.abspath(__file__))
 
 import risba
+import vrata as vrat
 
 try:
     from PIL import Image, ImageTk
@@ -162,6 +163,7 @@ class App(tk.Tk):
         self._slika = None            # referenca (sicer GC uniči sliko)
         self.v = {}
         self.polja = {}               # referenca polj za skrivanje/prikaz
+        self.vrata_sez = []           # vrata/prehodi (issue #3)
         self.st_preprost = tk.BooleanVar(value=True)   # preprosti način
         self._zgradi()
         self._preklopi_nacin()
@@ -282,9 +284,35 @@ class App(tk.Tk):
                           "ograja uporablja iste cene)", fg="#888888"
                  ).grid(row=3, column=0, columnspan=6, sticky="w")
 
+        # ---- VRATA IN PREHODI (issue #3) ----
+        self.fv = ttk.LabelFrame(zg, text="VRATA IN PREHODI (neobvezno)",
+                                 padding=8)
+        self.fv.grid(row=4, column=0, sticky="ew", pady=6)
+        self.polja.setdefault("vrata_okvir", []).append(self.fv)
+        stolpci = ("st", "tip", "x", "sirina", "visina", "smer")
+        self.tv_vrata = ttk.Treeview(self.fv, columns=stolpci,
+                                     show="headings", height=4)
+        for sk, nas in zip(stolpci, ("Št.", "Tip", "x (mm)", "Širina (mm)",
+                                     "Višina (mm)", "Smer")):
+            self.tv_vrata.heading(sk, text=nas)
+            self.tv_vrata.column(sk, width=100 if sk != "tip" else 120,
+                                 anchor="w")
+        self.tv_vrata.grid(row=0, column=0, columnspan=4, sticky="ew")
+        fb_v = ttk.Frame(self.fv)
+        fb_v.grid(row=1, column=0, columnspan=4, sticky="w", pady=(4, 0))
+        ttk.Button(fb_v, text="Dodaj vrata/prehod",
+                   command=self._vrata_dodaj).pack(side="left")
+        ttk.Button(fb_v, text="Uredi",
+                   command=self._vrata_uredi).pack(side="left", padx=6)
+        ttk.Button(fb_v, text="Odstrani", command=self._vrata_odstrani)\
+            .pack(side="left")
+        self.lbl_vrata = tk.Label(self.fv, text="", fg="#b26a00",
+                                  wraplength=620, justify="left")
+        self.lbl_vrata.grid(row=2, column=0, columnspan=4, sticky="w")
+
         # ---- GUMBI ----
         fb = ttk.Frame(zg, padding=(0, 10))
-        fb.grid(row=4, column=0, sticky="ew")
+        fb.grid(row=5, column=0, sticky="ew")
         self.btn_narisi = tk.Button(
             fb, text="NARIŠI RISBO", command=self._narisi,
             bg="#2e7d32", fg="white", activebackground="#1b5e20",
@@ -304,6 +332,8 @@ class App(tk.Tk):
         self.btn_ost.pack(side="right")
         ttk.Button(fb, text="SHRANI PROJEKT (.yaml)",
                    command=self._shrani_projekt).pack(side="right")
+        ttk.Button(fb, text="IZVOZI DXF", command=self._izvozi_dxf)\
+            .pack(side="right", padx=(0, 6))
         self.btn_cel = ttk.Button(fb, text="CEL ZASLON", state="disabled",
                                   command=self._cel_zaslon)
         self.btn_cel.pack(side="right", padx=10)
@@ -484,6 +514,7 @@ class App(tk.Tk):
             "deli": None, "opombe": None, "mere": m,
             "klik_cel_zaslon": bool(self.st_klik.get()),
             "preprost_nacin": bool(self.st_preprost.get()),
+            "vrata": [dict(v) for v in self.vrata_sez],
         }
         if cene:
             cfg["cene"] = cene
@@ -550,7 +581,7 @@ class App(tk.Tk):
               "material", "profil", "razmak_nosilcev", "barva", "meri_slike",
               "podlaga", "pritrditev_nacin", "vijak_lamela", "vijak_nosilec",
               "material_lamel", "dobavitelj", "vrzel", "kerf", "dolzine_deske",
-              "dolzina_palice", "uporabi_ostanke",
+              "dolzina_palice", "uporabi_ostanke", "vrata_okvir",
               "cene_wpc_deska_m", "cene_alu_m", "cene_rocaj_kos",
               "cene_nosilec_kos", "cene_vijak_kos", "cene_fasadni_kos",
               "cene_anker_kos", "cene_dela_ure", "cene_dela_ur_cena")
@@ -588,6 +619,183 @@ class App(tk.Tk):
         if preprost:
             self.status.config(text="Preprosti način — kljukica zgoraj "
                                     "prikaže napredne možnosti.")
+
+    # ------------------------------------------------- vrata in prehodi (issue #3)
+    def _vrata_mere(self):
+        """Osnovne mere ograje za validacijo vrat (brez napak v drugih poljih)."""
+        def stev(kljuc, priv):
+            try:
+                return float(self.v[kljuc].get().strip().replace(",", ".")
+                             or priv)
+            except (ValueError, KeyError, AttributeError):
+                return priv
+        return stev("sirina", 0.0), stev("visina", 0.0), stev("odcep", 0.0)
+
+    def _vrata_preveri(self):
+        """Preveri vrate/prehode in prikaže napake (rdeče) / opozorila (oranžno)."""
+        napake = []
+        opozorila = []
+        sir, vis, odcep = self._vrata_mere()
+        odprtine = []
+        for i, v in enumerate(self.vrata_sez, start=1):
+            try:
+                g = vrat.geometrija_vrat(v, v.get("sirina", 900),
+                                         float(v.get("visina") or 0))
+            except (ValueError, TypeError) as e:
+                napake.append(f"Vrata {i}: {e}")
+                continue
+            if g["odprtina"]["visina"] + odcep > vis + 1e-9:
+                napake.append(f"Vrata {i}: višina z odcepom presega višino "
+                              f"ograje ({risba.fmt(vis)} mm).")
+            odprtine.append((g["x"], g["odprtina"]["sirina"], vis,
+                              f"Vrata {i}"))
+            if g["tip"] == "enokrilna" and g["odprtina"]["sirina"] > 1000:
+                opozorila.append(f"Vrata {i}: enokrilna nad 1000 mm se "
+                                 "lahko povesijo.")
+        if sir > 0:
+            napake += vrat.preveri_odprtine(odprtine, sir, vis)
+        besedilo = ""
+        if napake:
+            besedilo = "✖ " + "\n✖ ".join(napake)
+        elif opozorila:
+            besedilo = "⚠ " + "\n⚠ ".join(opozorila)
+        self.lbl_vrata.config(text=besedilo,
+                              fg="#b00020" if napake else "#b26a00")
+        return napake
+
+    def _vrata_osvezi(self):
+        self.tv_vrata.delete(*self.tv_vrata.get_children())
+        for i, v in enumerate(self.vrata_sez, start=1):
+            self.tv_vrata.insert("", "end", iid=str(i - 1), values=(
+                i, v.get("tip", ""), v.get("x", ""), v.get("sirina", ""),
+                v.get("visina", ""), v.get("smer", "—")))
+        self._vrata_preveri()
+
+    def _vrata_dialog(self, vnos=None):
+        """Modalni dialog za vnos/urejanje vrat ali prehoda."""
+        d = tk.Toplevel(self)
+        d.title("Vrata / prehod")
+        d.grab_set()
+        polja = {}
+        vrsta_tip = tk.StringVar(value=(vnos or {}).get("tip", "enokrilna"))
+        ttk.Label(d, text="Tip:").grid(row=0, column=0, sticky="e", padx=6, pady=4)
+        cb = ttk.Combobox(d, textvariable=vrsta_tip, state="readonly", width=16,
+                          values=list(vrat.VRSTE_VRAT))
+        cb.grid(row=0, column=1, sticky="w", pady=4)
+        for vr, (kljuc, privzeto) in enumerate((
+                ("x", "0"), ("sirina", "900"), ("visina", "1500")), start=1):
+            ttk.Label(d, text={"x": "Položaj x (mm):", "sirina": "Širina (mm):",
+                               "visina": "Višina (mm):"}[kljuc]).grid(
+                row=vr, column=0, sticky="e", padx=6, pady=4)
+            e = ttk.Entry(d, width=12)
+            e.insert(0, str((vnos or {}).get(kljuc, privzeto)))
+            e.grid(row=vr, column=1, sticky="w", pady=4)
+            polja[kljuc] = e
+        ttk.Label(d, text="Smer:").grid(row=4, column=0, sticky="e", padx=6)
+        v_smer = tk.StringVar(value=(vnos or {}).get("smer", "desno-navzven"))
+        ttk.Combobox(d, textvariable=v_smer, state="readonly", width=16,
+                     values=list(vrat.SMERI)).grid(row=4, column=1, sticky="w")
+        v_diag = tk.BooleanVar(value=bool((vnos or {}).get("diagonala")))
+        ttk.Checkbutton(d, text="Diagonala", variable=v_diag).grid(
+            row=5, column=1, sticky="w")
+        napaka_lbl = tk.Label(d, text="", fg="#b00020", wraplength=280,
+                              justify="left")
+        napaka_lbl.grid(row=6, column=0, columnspan=2, sticky="w", padx=6)
+        rezultat = {}
+
+        def potrdi():
+            try:
+                v = vrat.normaliziraj_vrata({
+                    "tip": vrsta_tip.get(),
+                    "x": polja["x"].get(),
+                    "sirina": polja["sirina"].get(),
+                    "visina": polja["visina"].get(),
+                    "smer": v_smer.get(),
+                    "diagonala": bool(v_diag.get()),
+                })
+                vrat.geometrija_vrat(v, v["sirina"], v["visina"])
+            except ValueError as e:
+                napaka_lbl.config(text=str(e))
+                return
+            rezultat.update(v)
+            d.destroy()
+
+        ttk.Button(d, text="V redu", command=potrdi).grid(row=7, column=1,
+                                                          sticky="e", padx=6,
+                                                          pady=8)
+        ttk.Button(d, text="Prekliči", command=d.destroy).grid(
+            row=7, column=0, sticky="w", padx=6, pady=8)
+        d.wait_window()
+        return rezultat or None
+
+    def _vrata_dodaj(self):
+        v = self._vrata_dialog()
+        if v:
+            self.vrata_sez.append(v)
+            self._vrata_osvezi()
+
+    def _vrata_uredi(self):
+        izbira = self.tv_vrata.selection()
+        if not izbira:
+            messagebox.showinfo("Uredi vrata", "Najprej izberi vrstico v seznamu.")
+            return
+        i = int(izbira[0])
+        v = self._vrata_dialog(self.vrata_sez[i])
+        if v:
+            self.vrata_sez[i] = v
+            self._vrata_osvezi()
+
+    def _vrata_odstrani(self):
+        izbira = self.tv_vrata.selection()
+        if not izbira:
+            messagebox.showinfo("Odstrani vrata",
+                                "Najprej izberi vrstico v seznamu.")
+            return
+        i = int(izbira[0])
+        v = self.vrata_sez[i]
+        if not messagebox.askyesno(
+                "Odstrani vrata",
+                f"Ali res želiš odstraniti vrata #{i + 1} "
+                f"({v.get('tip')}, x={v.get('x')} mm)?\n"
+                "Tega dejanja ni mogoče razveljaviti."):
+            return
+        del self.vrata_sez[i]
+        self._vrata_osvezi()
+
+    def _izvozi_dxf(self):
+        """Izvoz projekta v DXF za CAD/CNC (ezdxf)."""
+        try:
+            import dxf_izvoz
+        except ImportError:
+            messagebox.showerror(
+                "Manjka ezdxf",
+                "Za DXF izvoz namesti knjižnico:\npython -m pip install ezdxf")
+            return
+        try:
+            cfg = self._zberi_cfg()
+        except ValueError as e:
+            messagebox.showerror("Napaka pri vnosu", str(e))
+            return
+        zacetna = os.path.splitext(cfg.get("izhod") or "projekt.pdf")[0] + ".dxf"
+        pot = filedialog.asksaveasfilename(
+            defaultextension=".dxf", initialfile=os.path.basename(zacetna),
+            filetypes=[("DXF (CAD/CNC)", "*.dxf")])
+        if not pot:
+            return
+        if os.path.exists(pot):
+            if not messagebox.askyesno(
+                    "Datoteka obstaja",
+                    f"{pot} že obstaja.\nAli jo prepišem?"):
+                return
+        try:
+            dxf_izvoz.izvozi_dxf(cfg, pot)
+        except Exception as e:
+            messagebox.showerror("Napaka pri DXF izvozu", str(e))
+            return
+        messagebox.showinfo("DXF izvoz",
+                            f"DXF zapisan: {pot}\n"
+                            "Konture so nominalne (brez kompenzacije "
+                            "orodja/kerfa); DXF ne vsebuje G-code.")
 
     def _klik_predogled(self, e=None):
         """Klik na predogled odpre cel zaslon samo, če je kljukica označena."""
@@ -661,6 +869,10 @@ class App(tk.Tk):
         if "preprost_nacin" in cfg:
             self.st_preprost.set(bool(cfg["preprost_nacin"]))
             self._preklopi_nacin()
+        if isinstance(cfg.get("vrata"), list):
+            self.vrata_sez = [dict(v) for v in cfg["vrata"]
+                              if isinstance(v, dict)]
+            self._vrata_osvezi()
         if "predloga" in cfg:
             pl = str(cfg["predloga"]).strip().lower()
             self.v["predloga"].set("pokončna" if pl == "pokončna" else "ograja")

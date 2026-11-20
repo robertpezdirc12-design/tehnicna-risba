@@ -184,6 +184,31 @@ razvojnem okolju Windows 11 / Python 3.11.9 / matplotlib 3.11.2; sam
 izdelani EXE v tem popravku ni bil ponovno zgrajen ali preizkušen — pred
 objavo ga zgradi in preizkusi zgoraj opisanimi koraki.
 
+## Vrata, prehodi, segmenti in DXF (issue #3)
+
+Razširitev podpira vgradnjo vrat in prehodov v **obe** predlogi ograje, z
+pravilnimi merami, količinami in izvozom za CAD/CNC.
+
+- **Vrata** (`vrata:` v YAML ali sekcija »VRATA IN PREHODI« v GUI): tipi
+  `enokrilna`, `dvokrilna`, `pasja`, `prehodna`; mere, smer odpiranja,
+  tečaji, zaklep, ročaj, prečke, diagonala. Geometrija živi v `vrata.py`
+  (edini vir resnice) — risba, količine, kosovnica in DXF porabljajo isti
+  izračun. Odprtine vplivajo na polnilo (lamele/deske se razrežejo okoli
+  njih), razrez, količine in kosovnico — ne le na risbo.
+- **Prehodi** (`prehodi:`): odprtina brez kril (prehodna vrata), s svojimi
+  količinami (zaključni stebri/profili, sidranje).
+- **Več segmentov** (`segmenti:`, YAML shema v2): vsak segment ima lahko
+  lastne mere, vrata/prehode in kot (vogal). Stare datoteke (shema v1) se
+  samodejno migrirajo v pomnilniku (`migracija.py`), brez izgube podatkov.
+- **DXF izvoz** (`--dxf`, gumb »IZVOZI DXF«): R2010, mm 1:1, 9 plasti
+  (rez/vrtanje iz OUTLINE/POSTS/HOLES), zaprte konture, kote, naslovni blok.
+  **Omejitve:** brez G-code/toolpath, brez kompenzacije orodja/kerfa —
+  podrobnosti v `docs/dxf-specifikacija.md`.
+
+Pravila količin (tečaji, vijaki, prečke, diagonala) in odločitve so
+dokumentirani v `docs/issue-3-vrata-dxf.md`. **Risba NI statični izračun** —
+nosilnost, sidranje in veterno breme preveri usposobljen strokovnjak.
+
 ## Znane omejitve
 
 - Samodejno zaznavanje lamel/vijakov na fotografijah je **pomožno** — na
