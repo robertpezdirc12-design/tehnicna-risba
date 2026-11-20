@@ -30,8 +30,9 @@ import yaml
 from razrez import (nalozi_ostanke,
                      shrani_ostanke,
                      pot_ostanki,
-                     porazdeli_z_ostanki,
-                     optimiziraj_zalogo)
+                     razrez_podatki,
+                     stevilo_palic,
+                     kos_iz_vira)
 from matplotlib.patches import Circle, Polygon, Rectangle
 
 # ---------------------------------------------------------------- konstante
@@ -471,39 +472,83 @@ def narisi_zgradbo(v, zg, sp, lamele, x0r, x1r, b_lam, b_pro, cut=False):
         v.kocka(x0r, z0, x1r, z1, fill=b_lam)
 
 
-# ---------------------------------------------------------------- predloga: pokončna
-def razpored_pokoncna(m):
-    """Razpored pokončne ograje: stebri (lego), deske (x0), višine.
+def pozicije_nosilcev(sir, raz):
+    """Dejanske lege nosilcev (skupni izračun — risba, montažni list,
+    kosovnica in količine pritrdil se morajo ujemati, A4/A5).
 
-    Stebri po krajih in z največjim razmakom; deske med stebri z enakomerno
-    vrzeljo; če se ne prilegajo, se število samodejno prilagodi.
+    Vrne (pozicije [mm], dejanski razmak [mm]). `raz` je največji
+    dovoljeni razmak (omejitev, ne kota) — kotira se DEJANSKI razmak.
+    """
+    n = max(2, math.ceil(sir / raz) + 1)
+    rob = min(100.0, sir * 0.1)          # odmik od roba (varen tudi za ozke ograje)
+    pozicije = [rob + i * (sir - 2 * rob) / (n - 1) for i in range(n)]
+    dejanski = (sir - 2 * rob) / (n - 1)
+    return pozicije, dejanski
+
+
+# ---------------------------------------------------------------- predloga: pokončna
+# KONSTRUKCIJSKA GEOMETRIJA (dokumentirana odločitev — B2):
+#   - stebri stojijo v enakomernih legah (prvi/zadnji ob robovih ograje),
+#   - deske potekajo po POLJIH med stebri (se NE prekrivajo s stebri) in so
+#     pritrjene na oba sosednja stebra (2 vijaka na stik = 4 na desko),
+#   - `vrzel` je uporabnikova zahtevana mera in se uporabi NATANČNO;
+#     če se deske s to vrzeljo ne prilegajo v polje, funkcija vrne jasno
+#     napako (brez tihega prilagajanja proizvodnega podatka).
+def razpored_pokoncna(m):
+    """Razpored pokončne ograje: stebri (lega), deske po poljih, višine.
+
+    Vrne dict s centri stebrov, polji (in legami desk po poljih),
+    višino desk (visina - rocaj_v - odcep) in natanko uporabnikovo vrzeljo.
     """
     sir, vis = m["sirina"], m["visina"]
     odcep, rv = m["odcep"], m["rocaj_v"]
-    ss, sd = m["steber_sirina"], m["steber_debelina"]
-    ds, dd = m["deska_sirina"], m["deska_debelina"]
-    vrzel, n = m["vrzel"], m["lamele"]
+    ss = m["steber_sirina"]
+    ds = m["deska_sirina"]
+    vrzel, n = float(m["vrzel"]), int(m["lamele"])
     raz = m["razmak_stebrov"]
 
     n_stebrov = max(2, math.ceil((sir - ss) / raz) + 1)
-    centri = [ss / 2 + i * (sir - ss) / (n_stebrov - 1) for i in range(n_stebrov)]
+    centri = [ss / 2 + i * (sir - ss) / (n_stebrov - 1)
+              for i in range(n_stebrov)]
 
-    cona = sir - n_stebrov * ss               # za deske (med stebri)
-    n_max = max(1, int((cona + vrzel) // (ds + vrzel)))
-    if n > n_max:
-        print(f"[OPOZORILO] {n} desk × {ds} mm se ne prilega v cono "
-              f"{cona:.0f} mm — prilagojeno na {n_max} desk.")
-        n = n_max
-    if n * ds > cona:
-        raise ValueError("Deske se ne prilegajo — zmanjšaj število ali "
-                         "širino desk.")
-    vrzel_r = (cona - n * ds) / (n - 1) if n > 1 else 0
-    x0_prva = ss / 2 + (cona - n * ds - (n - 1) * vrzel_r) / 2
-    deske_x = [x0_prva + i * (ds + vrzel_r) for i in range(n)]
+    # polja med stebri
+    n_polj = n_stebrov - 1
+    sirine_polj = [(sir - ss) / n_polj - ss for _ in range(n_polj)]
+    osn = n // n_polj
+    dod = n % n_polj
+    st_desk_polje = [(osn + 1 if i < dod else osn) for i in range(n_polj)]
+
+    polja = []
+    deske_x = []
+    for i in range(n_polj):
+        levo = centri[i] + ss / 2
+        desno = centri[i + 1] - ss / 2
+        sirina_polja = sirine_polj[i]
+        n_f = st_desk_polje[i]
+        potrebno = n_f * ds + max(0, n_f - 1) * vrzel
+        if potrebno > sirina_polja + 1e-6:
+            raise ValueError(
+                f"Deske se ne prilegajo v polje med stebroma "
+                f"(polje {i + 1}: {fmt(sirina_polja)} mm) pri {n_f} deskah "
+                f"× {fmt(ds)} mm in vrzeli {fmt(vrzel)} mm — potrebnih "
+                f"{fmt(potrebno)} mm. Zmanjšaj število desk, vrzel ali "
+                "širino desk.")
+        rob = (sirina_polja - potrebno) / 2
+        x_polje = [levo + rob + j * (ds + vrzel) for j in range(n_f)]
+        deske_x.extend(x_polje)
+        polja.append({"levo": levo, "desno": desno, "sirina": sirina_polja,
+                      "rob": rob, "deske_x": x_polje,
+                      "stebri": (centri[i], centri[i + 1])})
+
+    if n > 1 and (vrzel < 5 or vrzel > 30):
+        print(f"OPOZORILO: Vrzel med deskami {fmt(vrzel)} mm je izven "
+              f"priporočenega območja proizvajalca (5–30 mm).",
+              file=sys.stderr)
     deske_h = vis - rv - odcep
-    return {"centri": centri, "deske_x": deske_x, "deske_h": deske_h,
-            "vrzel": vrzel_r, "n_stebrov": n_stebrov, "n_desk": n,
-            "rocaj": (vis - rv, vis), "deske_z": (odcep, odcep + deske_h)}
+    return {"centri": centri, "polja": polja, "deske_x": deske_x,
+            "deske_h": deske_h, "vrzel": vrzel, "n_stebrov": n_stebrov,
+            "n_desk": n, "rocaj": (vis - rv, vis),
+            "deske_z": (odcep, odcep + deske_h)}
 
 
 def narisi_pokoncna(ax, c):
@@ -542,14 +587,17 @@ def narisi_pokoncna(ax, c):
         v.kocka(xc - ss / 2 - 15, 0, xc + ss / 2 + 15, 6, fill=b_pro)  # osnova
     v.kocka(0, vis - rv, sir, vis, fill=b_pro)  # ročaj
     tla(ax, v.X(-3), v.X(sir + 3), v.Y(0))
-    # vijaki (pika = priključek deska↔steber, 2 vijaka)
-    for xc in p["centri"]:
-        for xr in p["deske_x"]:
-            for fz in (0.25, 0.75):
-                z = p["deske_z"][0] + cona_z * fz
-                ax.add_patch(Circle((v.X(xc), v.Y(z)), 0.55,
-                                    facecolor="#e8e8e8", edgecolor="none",
-                                    zorder=4))
+    # vijaki (pika = priključek deska↔steber; 2 vijaka na stik — deska v
+    # polju se pritrdi na OBА sosednja stebra = 4 vijake na desko)
+    for polje in p["polja"]:
+        xc_l, xc_d = polje["stebri"]
+        for xr in polje["deske_x"]:
+            for xc in (xc_l, xc_d):
+                for fz in (0.25, 0.75):
+                    z = p["deske_z"][0] + cona_z * fz
+                    ax.add_patch(Circle((v.X(xc), v.Y(z)), 0.55,
+                                        facecolor="#e8e8e8", edgecolor="none",
+                                        zorder=4))
     dim_h(ax, v.X(0), v.X(sir), v.Y(vis) + 8, v.Y(vis), v.Y(vis),
           f"{fmt(sir)} mm")
     dim_v(ax, v.Y(0), v.Y(vis), v.X(0) - 3, v.X(-3), v.X(0), f"{fmt(vis)} mm")
@@ -561,7 +609,7 @@ def narisi_pokoncna(ax, c):
     dim_v(ax, v.Y(0), v.Y(odcep), xk, v.X(sir), v.X(sir), f"{fmt(odcep)} mm")
     if len(p["centri"]) >= 2:
         dim_h(ax, v.X(p["centri"][0]), v.X(p["centri"][1]), v.Y(0) - 5,
-              None, None, f"{fmt(p['centri'][1] - p['centri'][0])} mm")
+              None, None, f"{fmt(round(p['centri'][1] - p['centri'][0]))} mm")
     # širina deske + vrzel (kota na prvih dveh deskah, zgoraj)
     if len(p["deske_x"]) >= 2:
         pass  # širina deske se kotira na DETAJL DESKE
@@ -774,7 +822,7 @@ def narisi_pokoncna(ax, c):
         "datum": datum, "izdelal": c["izdelal"],
         "pregledal": c.get("pregledal") or "—",
         "odobril": c.get("odobril") or "—",
-        "material": mat_cel, "list": "1 od 1",
+        "material": mat_cel, "list": "1 od 2",
         "stranka": c.get("stranka") or "—", "objekt": c.get("objekt") or "—",
     })
 
@@ -808,10 +856,10 @@ def narisi_ogrado(ax, c):
     narisi_zgradbo(v, zg, sp, lamele, 0, sir, b_lam, b_pro)
     tla(ax, v.X(-3), v.X(sir + 3), v.Y(0))
     # lega pritrdilnih nosilcev (kos 4): črtkane linije + puščice na tleh,
-    # vijaki/piščavniki na vsaki lameli; razmak nosilcev se izpiše kot kota
+    # vijaki/piščavniki na vsaki lameli; kotira se DEJANSKI razmak (A4)
     raz = m.get("razmak_nosilcev", 1000)
-    n_nos = max(2, math.ceil(sir / raz) + 1)
-    xs_nos = [100 + i * (sir - 200) / (n_nos - 1) for i in range(n_nos)]
+    xs_nos, razmak_dejanski = pozicije_nosilcev(sir, raz)
+    n_nos = len(xs_nos)
     for xn in xs_nos:
         ax.plot([v.X(xn)] * 2, [v.Y(0) - 2, v.Y(sp[1])], color=CRNA, lw=0.5,
                 zorder=2, linestyle=(0, (4, 2, 1, 2)))
@@ -825,7 +873,7 @@ def narisi_ogrado(ax, c):
                                 zorder=4))
     if n_nos >= 2:
         dim_h(ax, v.X(xs_nos[0]), v.X(xs_nos[1]), v.Y(0) - 5, None, None,
-              f"{fmt(raz)} mm")
+              f"{fmt(round(razmak_dejanski))} mm")
     ozna_st(ax, v.X(xs_nos[-1]), v.Y(0), v.X(xs_nos[-1]), v.Y(0) - 10, 4)
     dim_h(ax, v.X(0), v.X(sir), v.Y(vis) + 8, v.Y(vis), v.Y(vis),
           f"{fmt(sir)} mm")
@@ -1026,7 +1074,7 @@ def narisi_ogrado(ax, c):
         "datum": datum, "izdelal": c["izdelal"],
         "pregledal": c.get("pregledal") or "—",
         "odobril": c.get("odobril") or "—",
-        "material": mat_cel, "list": "1 od 1",
+        "material": mat_cel, "list": "1 od 2",
         "stranka": c.get("stranka") or "—", "objekt": c.get("objekt") or "—",
     })
 
@@ -1044,7 +1092,7 @@ PRIVZETO = {
     "izdelal": "R. Pezdirc",
     "stranka": "",            # naročnik (glava + montažni list)
     "objekt": "",             # lokacija objekta (glava + montažni list)
-    "uporabi_ostanke": True,  # iz skladišča ostankov.yaml najprej porabi ostanke
+    "uporabi_ostanke": False,  # privzeto NE uporabi skladišča (varno); vklop porabe je izrecen
     "dolzine_deske": [5800],  # tovarniške dolžine (npr. 5800, 4000, 2200)
     "dolzina_deske": 5800,    # (združljivost — posamezna dolžina)
     "dolzina_palice": 6000,   # tovarniška dolžina alu profila
@@ -1196,7 +1244,7 @@ def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki,
                     sestava=None):
     """Skupni izgled montažnega lista (stran 2) za vse predloge."""
     iso_okvir(ax)
-    oznaka(ax, 20, 286, "MONTAŽNI LIST — POTREBŠČINE")
+    oznaka(ax, 20, 286, "MONTAŽNI LIST (LIST 2/2) — POTREBŠČINE")
     datum = c.get("datum") or datetime.date.today().strftime("%d.%m.%Y")
     ax.text(20, 278, f"Naloga: {c['risba_st']}   •   Datum: {datum}",
             fontsize=9, ha="left", va="center")
@@ -1299,7 +1347,8 @@ def narisi_montazni_list(ax, c):
     sir = m["sirina"]
     zg, sp, lamele, vrzel, n = razpored(m)
     raz = m.get("razmak_nosilcev", 1000)
-    n_nos = max(2, math.ceil(sir / raz) + 1)
+    xs_nos, razmak_dejanski = pozicije_nosilcev(sir, raz)
+    n_nos = len(xs_nos)
     vijaki = n * n_nos * 2
     profil = c.get("profil") or "ROMB 67"
     dl_deske = c.get("dolzina_deske", 5800)
@@ -1311,26 +1360,24 @@ def narisi_montazni_list(ax, c):
     vijak_lamela_naziv = c.get("vijak_lamela") or "RF vijak M8×70 (lamela↔profil)"
     vijak_nosilec_naziv = c.get("vijak_nosilec") or         f"Pritrdilni vijaki za {podlaga or 'podlago'}"
 
-    # ostanki iz skladišča (ostanki.yaml) — najprej se porabijo
-    ostanki = nalozi_ostanke() if c.get("uporabi_ostanke", True) else []
-    iz_ost, preost_kosov, ostanki_novi = porazdeli_z_ostanki(
-        sir, n, ostanki, kerf, barva, profil)
-    kos_iz_ost = sum(k for _, k in iz_ost)
-
-    traki = optimiziraj_zalogo(sir, preost_kosov,
-                               c.get("dolzine_deske") or [dl_deske], kerf)
-    palice = math.ceil((2 * sir + 2 * kerf) / dl_palice)
+    # rezalni načrt — EN VIR RESNICE (razrez_podatki): A3/A5/B1
+    rp = razrez_podatki(sir, n, c, oznaka="L", glava="LAMELE ŠT.")
+    traki = rp["traki"]
+    rez_rows = rp["rez_rows"]
+    viz_traki = rp["viz_traki"]
+    kos_iz_ost = rp["iz_ost_kos"]
+    palice = stevilo_palic(sir, 2, dl_palice, kerf)  # 2 U-profila dolžine sir
     pot = [
         [f"WPC deska {profil}",
          " + ".join(f"{t} × {fmt(B)} mm" for B, t in traki_nabava(traki))
          or f"{fmt(dl_deske)} mm", f"{len(traki)} kos",
-         (f"za {fmt(preost_kosov / 1000)} m lamel; {kos_iz_ost} kos iz "
+         (f"za {fmt((n - kos_iz_ost) * sir / 1000)} m lamel; {kos_iz_ost} kos iz "
           f"ostankov" if kos_iz_ost else
           f"skupaj {fmt(n * sir / 1000)} m lamel")],
         ["Alu profili 80×40 (zg.) + 60×40 (sp.)", f"{fmt(dl_palice)} mm",
          f"{palice} kos", f"obe sta dolgi {fmt(sir)} mm"],
         ["Nosilni nosilec 50×50×5", "—", f"{n_nos} kos",
-         f"razmak ≤ {fmt(raz)} mm"],
+         f"razmak ≤ {fmt(raz)} mm • dejanski {fmt(round(razmak_dejanski))} mm"],
         [vijak_lamela_naziv, "—", f"{vijaki} kos",
          f"2 na priključek ({n * n_nos}) • Ø+1 mm"],
         [vijak_nosilec_naziv, "—", f"{n_nos * 2} kos", "2 na nosilec"],
@@ -1339,29 +1386,10 @@ def narisi_montazni_list(ax, c):
         pot.insert(1, ["Uporabljeni ostanki (iz skladišča)", "—",
                        f"{kos_iz_ost} kos", "ni nabave"])
 
-    rez_rows = [["VIR", "KOSOV", "LAMELE ŠT.", "OSTANEK PO REZU (mm)"]]
-    viz_traki = []
-    pc = 1
-    for (oi, kol) in iz_ost:
-        o = ostanki[oi]
-        p1, p2 = pc, pc + kol - 1
-        pc += kol
-        ost_nov = max(0, o["dolzina"] - kol * (sir + kerf))
-        rez_rows.append([f"OSTANEK #{oi + 1} ({fmt(o['dolzina'])} mm)",
-                         str(kol), f"{p1}–{p2}", fmt(ost_nov)])
-        viz_traki.append((o["dolzina"],
-                          [(f"L{p1 + j}", sir) for j in range(kol)]))
-    for ti, (B, zac_k) in enumerate(traki):
-        zac = min(zac_k, preost_kosov)
-        p1, p2 = pc, pc + zac - 1
-        pc += zac
-        ost = max(0, B - zac * sir - zac * kerf)
-        rez_rows.append([f"DESKA {ti + 1} (nabava, {fmt(B)} mm)", str(zac),
-                         f"{p1}–{p2}", fmt(ost)])
-        viz_traki.append((B, [(f"L{p1 + j}", sir) for j in range(zac)]))
     koraki = [
         "Preveri dejanske mere objekta in primerjaj z risbo.",
-        f"Označi lego nosilcev (razmak največ {fmt(raz)} mm); "
+        f"Označi lego nosilcev (razmak največ {fmt(raz)} mm, dejanski "
+        f"{fmt(round(razmak_dejanski))} mm); "
         "preveri razvod inštalacij pred vrtanjem.",
         "Pritrdi nosilce (bočno/vrh po dogovoru — glej DETAJL "
         "PRITRJEVANJA); za WPC vedno predrtje Ø + 1 mm.",
@@ -1414,16 +1442,7 @@ def narisi_montazni_list(ax, c):
         f"- {vijak_lamela_naziv} — {vijaki} kos",
         f"- {vijak_nosilec_naziv} — {n_nos * 2} kos",
     ]
-    kosovnica = []
-    pc_k = 1
-    for (oi, kol) in iz_ost:
-        for j in range(kol):
-            kosovnica.append((str(pc_k), sir, f"ostanek #{oi + 1}", barva))
-            pc_k += 1
-    for (B, kol) in traki:
-        for j in range(kol):
-            kosovnica.append((str(pc_k), sir, f"deska #{B // 1000} m", barva))
-            pc_k += 1
+    kosovnica = rp["kosovnica"]
     wpc_postavke = [f"{B / 1000:.1f} m ({t} kos)"
                     for B, t in traki_nabava(traki)]
     kolicine = {"postavke": [
@@ -1437,7 +1456,7 @@ def narisi_montazni_list(ax, c):
          n_nos * 2),
     ],
     "narocilo": "\n".join(nar),
-    "ostanki_posodobitev": (ostanki_novi if kos_iz_ost else None),
+    "ostanki_posodobitev": rp["ostanki_posodobitev"],
     "kosovnica": kosovnica,
     }
     return {"postavke": kolicine["postavke"], "narocilo": kolicine["narocilo"],
@@ -1463,20 +1482,20 @@ def narisi_montazni_pokoncna(ax, c):
     dl_palice = c.get("dolzina_palice", 6000)
     kerf = c.get("kerf", 3.0)
 
-    ostanki = nalozi_ostanke() if c.get("uporabi_ostanke", True) else []
-    iz_ost, preost_desk, ostanki_novi = porazdeli_z_ostanki(
-        deska_h, n_d, ostanki, kerf, barva, profil)
-    kos_iz_ost = sum(k for _, k in iz_ost)
-
-    traki = optimiziraj_zalogo(deska_h, preost_desk,
-                               c.get("dolzine_deske") or [dl_deske], kerf)
-    palice_s = math.ceil(n_s * (vis + kerf) / dl_palice)
-    vijaki = n_d * n_s * 2
+    # rezalni načrt — EN VIR RESNICE (razrez_podatki): A3/A5/B1
+    rp = razrez_podatki(deska_h, n_d, c, oznaka="D", glava="DESKE ŠT.")
+    traki = rp["traki"]
+    rez_rows = rp["rez_rows"]
+    viz_traki = rp["viz_traki"]
+    kos_iz_ost = rp["iz_ost_kos"]
+    palice_s = stevilo_palic(vis, n_s, dl_palice, kerf)  # regresija agregatne formule
+    vijaki = n_d * 4   # 2 vijaka na stik × 2 sosednja stebra (deska v polju)
     pot = [
         [f"WPC deska {profil}",
          " + ".join(f"{t} × {fmt(B)} mm" for B, t in traki_nabava(traki))
          or f"{fmt(dl_deske)} mm", f"{len(traki)} kos",
-         (f"za {fmt(preost_desk)} m desek; {kos_iz_ost} kos iz ostankov"
+         (f"za {fmt((n_d - kos_iz_ost) * deska_h / 1000)} m desek; "
+          f"{kos_iz_ost} kos iz ostankov"
           if kos_iz_ost else
           f"skupaj {fmt(n_d * deska_h / 1000)} m desek")],
         ["Alu steber 60×40", f"{fmt(dl_palice)} mm", f"{palice_s} kos",
@@ -1486,7 +1505,7 @@ def narisi_montazni_pokoncna(ax, c):
         ["Osnova za steber (vrh)", "90×90×6", f"{n_s} kos",
          f"{vijak_nosilec_naziv} × 2 na osnovo"],
         [vijak_lamela_naziv, "—", f"{vijaki} kos",
-         f"2 na desko na steber • Ø+1 mm"],
+         f"2 na stik, 4 na desko (levo + desno) • Ø+1 mm"],
         [vijak_nosilec_naziv, "—", f"{n_s * 2} kos",
          f"2 na osnovo • sidranje ≥ 60 mm (beton C20/25)"],
     ]
@@ -1494,26 +1513,6 @@ def narisi_montazni_pokoncna(ax, c):
         pot.insert(1, ["Uporabljeni ostanki (iz skladišča)", "—",
                        f"{kos_iz_ost} kos", "ni nabave"])
 
-    rez_rows = [["VIR", "KOSOV", "DESKE ŠT.", "OSTANEK PO REZU (mm)"]]
-    viz_traki = []
-    pc = 1
-    for (oi, kol) in iz_ost:
-        o = ostanki[oi]
-        p1, p2 = pc, pc + kol - 1
-        pc += kol
-        ost_nov = max(0, o["dolzina"] - kol * (deska_h + kerf))
-        rez_rows.append([f"OSTANEK #{oi + 1} ({fmt(o['dolzina'])} mm)",
-                         str(kol), f"{p1}–{p2}", fmt(ost_nov)])
-        viz_traki.append((o["dolzina"],
-                          [(f"D{p1 + j}", deska_h) for j in range(kol)]))
-    for ti, (B, zac_k) in enumerate(traki):
-        zac = min(zac_k, preost_desk)
-        p1, p2 = pc, pc + zac - 1
-        pc += zac
-        ost = max(0, B - zac * deska_h - zac * kerf)
-        rez_rows.append([f"DESKA {ti + 1} (nabava, {fmt(B)} mm)", str(zac),
-                         f"{p1}–{p2}", fmt(ost)])
-        viz_traki.append((B, [(f"D{p1 + j}", deska_h) for j in range(zac)]))
     koraki = [
         "Preveri dejanske mere objekta in primerjaj z risbo.",
         f"Označi lege stebrov (razmak največ {fmt(m['razmak_stebrov'])} mm); "
@@ -1521,8 +1520,8 @@ def narisi_montazni_pokoncna(ax, c):
         f"Pritrdi osnove z {vijak_nosilec_naziv} (vrh v ploščo — glej "
         "DETAJL PRITRJEVANJA); kontroliraj ravnost.",
         "Postavi stebre; kontroliraj navpičnost.",
-        f"Vgradi deske (2 × {vijak_lamela_naziv} na desko na steber; "
-        "predrtje Ø + 1 mm).",
+        f"Vgradi deske po poljih med stebri ({vijak_lamela_naziv}: "
+        "2 vijaka na stik, 4 na desko; predrtje Ø + 1 mm).",
         "Vgradi ročaj, kontrola ravni in višine, slika izvedbo, podpis "
         "stranke.",
     ]
@@ -1564,8 +1563,8 @@ def narisi_montazni_pokoncna(ax, c):
     y_iz = 197 - (8.5 + 7 + n_vrst_r * 7) - 5.5
     ax.text(20, y_iz, f"IZRAČUN VIŠINE: {fmt(vis)} = {fmt(m['rocaj_v'])} "
             f"(ročaj) + {fmt(deska_h)} (deske) + {fmt(odcep)} (odcep) • "
-            f"ŠIRINA: {fmt(sir)} = {n_d} × {fmt(m['deska_sirina'])} + "
-            f"{n_d - 1} × vrzel {p['vrzel']:.1f} mm",
+            f"ŠIRINA: {fmt(sir)} = {n_s} stebrov + {n_s - 1} polj; "
+            f"deske po poljih med stebri, vrzel {fmt(p['vrzel'])} mm",
             fontsize=6.5, color="#555555", ha="left", va="center")
     por_s = sum(B for B, _ in traki) / 1000
     odp_s = por_s - n_d * deska_h / 1000
@@ -1576,17 +1575,7 @@ def narisi_montazni_pokoncna(ax, c):
             color="#555555", ha="left", va="center")
     por_s = sum(B for B, _ in traki) / 1000
     por_st = palice_s * dl_palice / 1000
-    kosovnica = []
-    pc_k = 1
-    for (oi, kol) in iz_ost:
-        for j in range(kol):
-            kosovnica.append((str(pc_k), deska_h, f"ostanek #{oi + 1}", barva))
-            pc_k += 1
-    for (B, kol) in traki:
-        for j in range(kol):
-            kosovnica.append((str(pc_k), deska_h, f"deska #{B // 1000} m",
-                              barva))
-            pc_k += 1
+    kosovnica = rp["kosovnica"]
     wpc_postavke = [f"{B / 1000:.1f} m ({t} kos)"
                     for B, t in traki_nabava(traki)]
     return {"postavke": [
@@ -1600,13 +1589,25 @@ def narisi_montazni_pokoncna(ax, c):
         (vijak_nosilec_naziv, f"{n_s * 2}", "kos", "anker_kos", n_s * 2),
     ],
     "narocilo": "\n".join(nar),
-    "ostanki_posodobitev": (ostanki_novi if kos_iz_ost else None),
+    "ostanki_posodobitev": rp["ostanki_posodobitev"],
     "kosovnica": kosovnica}
 
 
 def preveri_cfg(cfg):
     """Kontrola pravilnosti PRED izvozom. Vrne seznam napak (prazno = OK)."""
     nap = []
+    # A6: izklop optimizacije NI podprt — optimiziranega rezultata ni
+    # dovoljeno zamenjati z neoptimiziranim ali prikriti.
+    for kljuc in ("brez_optimizacije", "brez_zdruzevanja_rezov"):
+        if cfg.get(kljuc):
+            nap.append(f"Zahteva '{kljuc}' NI podprta: razrez se vedno "
+                       "optimizira in združuje reze; neoptimiziranega "
+                       "izpisa ne označimo kot optimiziranega.")
+    for kljuc in ("optimizacija_rezov", "zdruzevanje_rezov"):
+        if cfg.get(kljuc) is False:
+            nap.append(f"Zahteva '{kljuc}=false' NI podprta: razrez se vedno "
+                       "optimizira; neoptimiziranega izpisa ne označimo "
+                       "kot optimiziranega.")
     m = cfg.get("mere", {})
     for k in ("sirina", "visina"):
         v = m.get(k)
@@ -1657,27 +1658,54 @@ def preveri_cfg(cfg):
     kerf = cfg.get("kerf", 3.0)
     if not isinstance(kerf, (int, float)) or kerf < 0:
         nap.append("Kerf (širina rezila) ne sme biti negativen.")
+        kerf = 0.0
     dl = cfg.get("dolzine_deske")
     if dl is None:
         dl = [cfg.get("dolzina_deske", 5800)]
     if not isinstance(dl, (list, tuple)) or not dl:
         nap.append("Dolžine desk morajo biti seznam števil "
                    "(npr. '5800; 4000; 2200').")
+        dl = []
     else:
         for x in dl:
             if not isinstance(x, (int, float)) or x <= 0:
                 nap.append(f"Dolžina deske {x!r} mora biti pozitivno število.")
-        # dolžina kosa po predlogi — vsaj ena nabavna dolžina mora zadoščati
+    # dolžina kosa po predlogi — EN sam vir resnice (A2):
+    #   prečna ograja: lamele se režejo na ŠIRINO ograje,
+    #   pokončna: deske na višino desk (visina - rocaj_v - odcep).
+    if cfg.get("predloga") == "pokončna":
+        kos_dol = (m.get("visina", 0) - m.get("odcep", 0)
+                   - m.get("rocaj_v", 40))
+    else:
+        kos_dol = m.get("sirina", 0)
+    dl_ok = [x for x in dl
+             if isinstance(x, (int, float))
+             and kos_iz_vira(x, kos_dol, kerf) >= 1]
+    if kos_dol > 0 and not dl_ok:
+        nap.append(f"Nobena nabavna dolžina desk ni dovolj velika za kos "
+                   f"{kos_dol:.0f} mm (kerf {kerf:g} mm).")
+
+    # alu palice: ročaj/stebri/U-profili ne smejo presegati tovarniške dolžine
+    dl_palice = cfg.get("dolzina_palice", 6000)
+    if isinstance(dl_palice, (int, float)) and dl_palice > 0:
+        preseganja = [(m.get("sirina", 0), "zaključni profil/ročaj")]
         if cfg.get("predloga") == "pokončna":
-            kos_dol = (m.get("visina", 0) - m.get("odcep", 0)
-                       - m.get("rocaj_v", 40))
-        else:
-            kos_dol = m.get("lamela_v", 0)
-        dl_ok = [x for x in dl
-                 if isinstance(x, (int, float)) and x >= kos_dol + kerf]
-        if kos_dol > 0 and not dl_ok:
-            nap.append(f"Nobena nabavna dolžina desk ni dovolj velika za kos "
-                       f"{kos_dol:.0f} mm (+ kerf {kerf} mm).")
+            preseganja.append((m.get("visina", 0), "steber"))
+        for kosa, opis in preseganja:
+            if isinstance(kosa, (int, float)) and kosa > dl_palice + 1e-9:
+                nap.append(f"{opis.capitalize()} ({kosa:.0f} mm) presega "
+                           f"tovarniško dolžino palice ({dl_palice:.0f} mm) "
+                           "— potreben spoj ali druga dolžina palice.")
+
+    # geometrija pokončne predloge: brez tihega prilagajanja proizvodnih
+    # podatkov (B2) — če se deske ne prilegajo, je to napaka, ne popravek.
+    if cfg.get("predloga") == "pokončna":
+        try:
+            razpored_pokoncna(m)
+        except ValueError as e:
+            nap.append(str(e))
+        except (KeyError, TypeError):
+            pass  # manjkajoče mere že javijo spodnji preverbi
     if cfg.get("foto") and not os.path.isfile(cfg["foto"]):
         nap.append(f"Fotografija ne obstaja: {cfg['foto']}")
     return nap
@@ -1686,7 +1714,7 @@ def preveri_cfg(cfg):
 def narisi_nalepke(ax, c, kosovnica):
     """Stran 4: nalepke za kose (izreži, označi, prilepi na kos)."""
     iso_okvir(ax)
-    oznaka(ax, 20, 286, "NALEPKE ZA KOSE")
+    oznaka(ax, 20, 286, "NALEPKE ZA KOSE (PRILAGA — ni risalni list)")
     datum = c.get("datum") or datetime.date.today().strftime("%d.%m.%Y")
     ax.text(20, 278, f"Naloga: {c['risba_st']} • Datum: {datum} • "
             f"izreži vsak kos in prilepi oznako", fontsize=8.5,
@@ -1716,10 +1744,26 @@ def narisi_nalepke(ax, c, kosovnica):
 
 
 def narisi_predracun(ax, c, postavke):
-    """Stran 3: orientacijski predračun (samo če so cene v konfiguraciji)."""
+    """Stran 3: orientacijski predračun (samo če so cene v konfiguraciji).
+
+    A8: če so vse uporabljene cene 0.00 (PRIMER vrednosti), se predračun
+    izpiše kot INFORMATIVEN — brez zavajajočih zneskov „0,00 EUR“.
+    """
     cene = c.get("cene") or {}
+    uporabljene = [float(cene.get(kljuc) or 0)
+                   for (_n, _k, _e, kljuc, num) in postavke if num]
+    if cene.get("dela_ure") and cene.get("dela_ur_cena"):
+        uporabljene.append(float(cene.get("dela_ur_cena") or 0))
+    vse_nic = all(abs(v) < 1e-9 for v in uporabljene) if uporabljene else True
+    delno = any(abs(v) < 1e-9 for v in uporabljene) and not vse_nic
+
     iso_okvir(ax)
-    oznaka(ax, 20, 286, "PREDRAČUN (ORIENTACIJSKI)")
+    if vse_nic:
+        oznaka(ax, 20, 286,
+               "PREDRAČUN (INFORMATIVEN — BREZ VELJAVNEGA CENIKA) — PRILAGA")
+    else:
+        oznaka(ax, 20, 286,
+               "PREDRAČUN (ORIENTACIJSKI) — PRILAGA (ni risalni list)")
     datum = c.get("datum") or datetime.date.today().strftime("%d.%m.%Y")
     ax.text(20, 278, f"Naloga: {c['risba_st']}   •   Datum: {datum}   •   "
             f"Veljavnost: 30 dni", fontsize=9, ha="left", va="center")
@@ -1733,121 +1777,165 @@ def narisi_predracun(ax, c, postavke):
         if cena is None or not num:
             continue
         sk = num * cena
-        vrste.append([naziv, f"{kol_str} {enota}",
-                      f"{cena:.2f} EUR/{enota}", f"{sk:.2f} EUR"])
-        skup += sk
+        if abs(cena) < 1e-9:
+            vrste.append([naziv, f"{kol_str} {enota}",
+                          "PRIMER (ni obračunano)", "ni obračunano"])
+        else:
+            vrste.append([naziv, f"{kol_str} {enota}",
+                          f"{cena:.2f} EUR/{enota}", f"{sk:.2f} EUR"])
+            skup += sk
     ur, ur_c = cene.get("dela_ure"), cene.get("dela_ur_cena")
-    if ur and ur_c:
-        vrste.append(["Delo (izdelava + montaža)", f"{fmt(ur)} h",
-                      f"{ur_c:.2f} EUR/h", f"{ur * ur_c:.2f} EUR"])
-        skup += ur * ur_c
-    vrste.append(["SKUPAJ (brez DDV)", "", "", f"{skup:.2f} EUR"])
+    if ur and ur_c is not None:
+        if abs(float(ur_c or 0)) < 1e-9:
+            vrste.append(["Delo (izdelava + montaža)", f"{fmt(ur)} h",
+                          "PRIMER (ni obračunano)", "ni obračunano"])
+        else:
+            vrste.append(["Delo (izdelava + montaža)", f"{fmt(ur)} h",
+                          f"{ur_c:.2f} EUR/h", f"{ur * ur_c:.2f} EUR"])
+            skup += ur * ur_c
+    if vse_nic:
+        vrste.append(["SKUPAJ (brez DDV)", "", "", "ni obračunano"])
+    elif delno:
+        vrste.append(["SKUPAJ (delno — manjkajoče cene niso upoštevane)",
+                      "", "", f"{skup:.2f} EUR"])
+    else:
+        vrste.append(["SKUPAJ (brez DDV)", "", "", f"{skup:.2f} EUR"])
     tabela(ax, 20, 256, [110, 55, 60, 45], 7.5, vrste, naslov="PREDRAČUN")
 
-    opombe_blok(ax, 20, 185, 260, [
+    opombe = []
+    if vse_nic:
+        opombe.append("Cenik vsebuje samo PRIMER vrednosti (0.00) — zneski "
+                      "NISO obračunani in ta predračun ni ponudba.")
+    elif delno:
+        opombe.append("Cenik ni popoln — postavke brez cene niso "
+                      "obračunane.")
+    opombe += [
         "Predračun je ORIENTACIJSKI in brez DDV; veljavnost 30 dni.",
         "Cene materialov so nastavljene v konfiguraciji ('cene'); "
         "količine po dejanski porabi, odpad je prikazan posebej.",
         "Konstrukcijsko ustreznost (nosilnost, sidranje, veterno breme) "
         "preveri usposobljen strokovnjak — risba ni statični izračun.",
         "Montaža po dogovoru; končno poravnanje po prevzemu dela.",
-    ], naslov_t="OPOMBE K PREDRAČUNU")
+    ]
+    opombe_blok(ax, 20, 185, 260, opombe, naslov_t="OPOMBE K PREDRAČUNU")
 
 
 # ---------------------------------------------------------------- glavno
 ZADNJA_OPOZORILA = []   # opozorila zadnjega generiraj() (npr. padel list 2)
 
 
-def generiraj(cfg, dpi_png=200):
-    """Iz konfiguracije nariše risbo in vrne (pot_pdf, pot_png).
+def _opozori(sporocilo):
+    """Zabeleži opozorilo o nepopolnem dokumentu (A1): vidno uporabniku."""
+    ZADNJA_OPOZORILA.append(sporocilo)
+    print("OPOZORILO: " + sporocilo, file=sys.stderr)
 
-    Opozorila o delno izdelanem PDF (npr. brez montažnega lista) so v
-    ZADNJA_OPOZORILA in na stderr — risba strani 1 ostane na voljo.
+
+def generiraj(cfg, dpi_png=200):
+    """Iz konfiguracije nariše risbo in vrne (pot_pdf, pot_png, dodatni, kolicine).
+
+    Vse strani PDF se zapišejo v ENEM življenjskem ciklu PdfPages (A1) —
+    nobenega savefig po zaprtju (matplotlib bi sicer tiho prepisal datoteko).
+    Figure se vedno zaprejo tudi ob napaki (try/finally). Če kateri list
+    odpove, je to jasno zapisano v ZADNJA_OPOZORILA in na stderr — nepopoln
+    dokument NI prikazan kot običajen uspeh.
     """
-    pred_norm = ("pokončna" if str(cfg.get("predloga", "")).strip().lower()
-                 == "pokončna" else "ograja")
-    predloga = PREDLOGE.get(pred_norm) or PREDLOGE.get("ograja")
-    if predloga is None:
-        raise ValueError(f"Neznana predloga: {cfg.get('predloga')} "
-                         f"(na voljo: {', '.join(PREDLOGE)})")
+    cfg = zdruzi(cfg or {})
+    surovo = str(cfg.get("predloga", "") or "ograja").strip().lower()
+    pred_norm = {"ograda": "ograja"}.get(surovo, surovo)
+    if pred_norm not in ("ograja", "pokončna"):
+        raise ValueError(f"Neznana predloga: {cfg.get('predloga')!r} "
+                         f"(na voljo: ograja, pokončna)")
+    predloga = PREDLOGE[pred_norm]
     napake = preveri_cfg(cfg)
     if napake:
         raise ValueError("Kontrola pravilnosti ni uspela — PDF ni bil "
                          "izdelan:\n- " + "\n- ".join(napake))
-
-    fig, ax = nov_list()
-    predloga(ax, cfg)
-    fig2 = None
-    kolicine = None
+    del ZADNJA_OPOZORILA[:]
+    izhod = os.path.abspath(cfg["izhod"])
     ml_fn = {"ograja": narisi_montazni_list,
              "ograda": narisi_montazni_list,
              "pokončna": narisi_montazni_pokoncna}.get(pred_norm)
-    del ZADNJA_OPOZORILA[:]
-    if ml_fn:
-        try:
-            fig2, ax2 = nov_list()
-            kolicine = ml_fn(ax2, cfg)
-        except Exception as napaka:
-            if fig2 is not None:
-                plt.close(fig2)
-            fig2 = None
-            sporocilo = (f"Montažni list ni bil izdelan — PDF ima samo "
-                         f"risbo. Vzrok: {napaka}")
-            ZADNJA_OPOZORILA.append(sporocilo)
-            print("OPOZORILO: " + sporocilo, file=sys.stderr)
-    izhod = os.path.abspath(cfg["izhod"])
-    with PdfPages(izhod) as pdf:
-        pdf.savefig(fig)
-        if fig2 is not None:
-            pdf.savefig(fig2)
-        fig3 = None
+
+    fig = fig2 = fig3 = fig4 = None
+    try:
+        fig, ax = nov_list()
+        predloga(ax, cfg)
+
+        kolicine = None
+        if ml_fn:
+            try:
+                fig2, ax2 = nov_list()
+                kolicine = ml_fn(ax2, cfg)
+            except Exception as napaka:
+                if fig2 is not None:
+                    plt.close(fig2)
+                fig2 = None
+                _opozori(f"Montažni list (list 2/2) ni bil izdelan — PDF "
+                         f"vsebuje samo risbo (list 1/2). Vzrok: {napaka}")
+
         if kolicine and (cfg.get("cene") or {}):
             try:
                 fig3, ax3 = nov_list()
                 narisi_predracun(ax3, cfg, kolicine["postavke"])
-                pdf.savefig(fig3)
             except Exception as napaka:
                 if fig3 is not None:
                     plt.close(fig3)
                 fig3 = None
-                sporocilo = (f"Predračun ni bil izdelan — PDF je brez "
-                             f"strani 3. Vzrok: {napaka}")
-                ZADNJA_OPOZORILA.append(sporocilo)
-                print("OPOZORILO: " + sporocilo, file=sys.stderr)
-    png = os.path.splitext(izhod)[0] + ".png"
-    fig.savefig(png, dpi=dpi_png)
-    dodatni = []
-    if kolicine and kolicine.get("kosovnica"):
-        cs_pot = os.path.splitext(izhod)[0] + "-kosovnica.csv"
-        with open(cs_pot, "w", encoding="utf-8-sig", newline="") as f:
-            f.write("Oznaka;Dolzina (mm);Vir;Material\n")
-            for (oz, dol, vir, mat) in kolicine["kosovnica"]:
-                f.write(f"{oz};{fmt(dol)};{vir};{mat}\n")
-        dodatni.append(cs_pot)
-        fig4, ax4 = nov_list()
-        narisi_nalepke(ax4, cfg, kolicine["kosovnica"])
-        pdf.savefig(fig4)
-        p4 = os.path.splitext(izhod)[0] + "-nalepke.png"
-        fig4.savefig(p4, dpi=dpi_png)
-        dodatni.append(p4)
-        plt.close(fig4)
-    if kolicine and kolicine.get("narocilo"):
-        n_pot = os.path.splitext(izhod)[0] + "-narocilo.txt"
-        with open(n_pot, "w", encoding="utf-8") as f:
-            f.write(kolicine["narocilo"])
-        dodatni.append(n_pot)
-    if fig2 is not None:
-        p2 = os.path.splitext(izhod)[0] + "-montazni-list.png"
-        fig2.savefig(p2, dpi=dpi_png)
-        dodatni.append(p2)
-        plt.close(fig2)
-    if fig3 is not None:
-        p3 = os.path.splitext(izhod)[0] + "-predracun.png"
-        fig3.savefig(p3, dpi=dpi_png)
-        dodatni.append(p3)
-        plt.close(fig3)
-    plt.close(fig)
-    return izhod, png, dodatni, kolicine
+                _opozori(f"Predračun (priloga) ni bil izdelan — PDF je brez "
+                         f"strani s predračunom. Vzrok: {napaka}")
+
+        if kolicine and kolicine.get("kosovnica"):
+            try:
+                fig4, ax4 = nov_list()
+                narisi_nalepke(ax4, cfg, kolicine["kosovnica"])
+            except Exception as napaka:
+                if fig4 is not None:
+                    plt.close(fig4)
+                fig4 = None
+                _opozori(f"Nalepke (priloga) niso bile izdelane — PDF je brez "
+                         f"strani z nalepkami. Vzrok: {napaka}")
+
+        # VSE strani v enem PdfPages ciklu (A1) — vrstni red: risba,
+        # montažni list, predračun, nalepke.
+        with PdfPages(izhod) as pdf:
+            pdf.savefig(fig)
+            for f in (fig2, fig3, fig4):
+                if f is not None:
+                    pdf.savefig(f)
+
+        # dodatni izvozi (PNG/CSV/TXT) — po zaprtju PDF, ne vplivajo nanj
+        png = os.path.splitext(izhod)[0] + ".png"
+        fig.savefig(png, dpi=dpi_png)
+        dodatni = []
+        if kolicine and kolicine.get("kosovnica"):
+            cs_pot = os.path.splitext(izhod)[0] + "-kosovnica.csv"
+            with open(cs_pot, "w", encoding="utf-8-sig", newline="") as f:
+                f.write("Oznaka;Dolzina (mm);Vir;Material\n")
+                for (oz, dol, vir, mat) in kolicine["kosovnica"]:
+                    f.write(f"{oz};{fmt(dol)};{vir};{mat}\n")
+            dodatni.append(cs_pot)
+            if fig4 is not None:
+                p4 = os.path.splitext(izhod)[0] + "-nalepke.png"
+                fig4.savefig(p4, dpi=dpi_png)
+                dodatni.append(p4)
+        if kolicine and kolicine.get("narocilo"):
+            n_pot = os.path.splitext(izhod)[0] + "-narocilo.txt"
+            with open(n_pot, "w", encoding="utf-8") as f:
+                f.write(kolicine["narocilo"])
+            dodatni.append(n_pot)
+        if fig2 is not None:
+            p2 = os.path.splitext(izhod)[0] + "-montazni-list.png"
+            fig2.savefig(p2, dpi=dpi_png)
+            dodatni.append(p2)
+        if fig3 is not None:
+            p3 = os.path.splitext(izhod)[0] + "-predracun.png"
+            fig3.savefig(p3, dpi=dpi_png)
+            dodatni.append(p3)
+        return izhod, png, dodatni, kolicine
+    finally:
+        for f in (fig, fig2, fig3, fig4):
+            if f is not None:
+                plt.close(f)
 
 
 def main():
@@ -1872,9 +1960,18 @@ def main():
     print(f"[OK] Predogled: {png}")
     for p in dodatni:
         print(f"[OK] Dodatno: {p}")
-    if a.potrosi_ostanke and kolicine and             kolicine.get("ostanki_posodobitev") is not None:
-        shrani_ostanke(kolicine["ostanki_posodobitev"])
-        print("[OK] Ostanki odpisani iz skladišča (ostanki.yaml)")
+    if a.potrosi_ostanke:
+        if not kolicine or kolicine.get("ostanki_posodobitev") is None:
+            print("[INFO] Ni sprememb skladišča ostankov za odpis.")
+        else:
+            pot, backup = shrani_ostanke(kolicine["ostanki_posodobitev"])
+            print(f"[OK] Ostanki odpisani iz skladišča: {pot}")
+            if backup:
+                print(f"[OK] Varnostna kopija: {backup}")
+    if ZADNJA_OPOZORILA:
+        print("[OPOZORILO] Dokument NI popoln — poglej opozorila zgoraj.",
+              file=sys.stderr)
+        sys.exit(2)
 
 
 if __name__ == "__main__":
