@@ -1,0 +1,3 @@
+# razvojne odvisnosti — regresijski testi (tests/) in preverjanje PDF
+pytest
+pypdf

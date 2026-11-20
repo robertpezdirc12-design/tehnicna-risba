@@ -22,11 +22,13 @@ measurement assistant.
 - **Montažni list (stran 2 PDF-a)** — potrebščine, rezalni načrt z ostanki
   (kerf-pozavesten), vizualni rez z izkoristkom, izračun višine, montažni
   koraki s sklici na detajle, kontrola terena, podpis stranke
-- **Predračun (stran 3 PDF-a, neobvezno)** — če v konfiguracijo vpišeš `cene:`
-  (EUR/m, EUR/kos, delo), se samodejno ustvari orientacijski predračun
-- **Kosovnica + nalepke (stran 4 PDF-a)** — CSV `<nalog>-kosovnica.csv`
+- **Predračun (priloga PDF-a, neobvezno)** — če v konfiguracijo vpišeš `cene:`
+  (EUR/m, EUR/kos, delo), se samodejno ustvari orientacijski predračun;
+  če so vse cene 0.00 (PRIMER), je jasno označen kot informativen in
+  brez zavajajočih zneskov
+- **Kosovnica + nalepke (priloga PDF-a)** — CSV `<nalog>-kosovnica.csv`
   (vsak kos: dolžina, vir — ostanek ali nabava) in nalepke za kose
-  (izreži, označi, prilepi)
+  (izreži, označi, prilepi); sta prilogi in ne štejeta kot risalna lista
 - **Naročilnik** — datoteka `<nalog>-narocilo.txt` s pripravljenim naročilom
   materiala (deske po modelu/barvi/dolžini, profili, pritrdila) za
   copy-paste v e-pošto dobavitelju
@@ -37,10 +39,14 @@ measurement assistant.
   nosilec/osnova↔podlaga sta prosto besedilo; sledijo jim potrebščine,
   naročilo, detajli, montažni koraki in material (Inox/Pocinkano) iz naziva;
   dobavitelj v naročilu je nastavljiv (privzeto WoodCore)
-- **Skladišče ostankov** (`ostanki.yaml`) — naslednji nalog ostanki.yaml
-  samodejno najprej porabi (po barvi in profilu, najdaljši prvi); odpis
-  porabljenih pa potrdiš sam (CLI: `--potrosi-ostanke`, GUI: gumb
-  „ODPIŠI OSTANKE”)
+- **Skladišče ostankov** — naslednji nalog lahko (izrecno vklopljeno)
+  najprej porabi ostanke (po barvi in profilu, najdaljši prvi); privzeto je
+  uporaba IZKLOPLJENA. Generiranje nikoli samodejno ne spreminja skladišča —
+  odpis potrdiš sam (CLI: `--potrosi-ostanke`, GUI: gumb „ODPIŠI OSTANKE”),
+  z varnostno kopijo in atomičnim zapisom. Datoteka `ostanki.yaml` je v
+  uporabniški podatkovni mapi (`%APPDATA%\TehnicnaRisba`, Linux
+  `~/.local/share/TehnicnaRisba`), ki jo lahko prekrižeš z okoljsko
+  spremenljivko `TEHNICNA_RISBA_DATA`
 - **Kontrola pravilnosti** — pred izvozom program preveri mere in geometrijo;
   pri napaki NE nastane nepopoln PDF
 - **Konstrukcijska varnost** — risba izrecno NI statični izračun; nosilnost,
@@ -128,12 +134,38 @@ slike/              primeri izhodov
 
 ## Kako deluje izračun rezalnega načrta
 
-Iz širine ograje, števila lamel in tovarniških dolžin desk (npr. `5800; 4000;
-2200`) optimizator izbere trakove z najmanjšim odpadom na kos (upošteva
-**kerf** — širino rezila), najprej porabi skladišče ostankov, nato izpiše
-ostanek vsakega traku in izkoristek. Nosilci se razporedijo po izbranem
-največjem razmaku, količina vijakov pa se izračuna iz števila lamel in
-nosilcev.
+Enoten model reza (kerf) velja povsod — v validaciji, optimizatorju,
+risbah, kosovnici in naročilu: n kosov dolžine `k` iz traku `V` zasede
+`n × (k + kerf)`; ostanek je `V − n × (k + kerf)`. Iz širine ograje,
+števila lamel in tovarniških dolžin desk (npr. `5800; 4000; 2200`)
+optimizator izbere trakove z najmanjšim odpadom na kos, najprej porabi
+skladišče ostankov (če je vklopljeno), nato izpiše ostanek vsakega traku
+in izkoristek. Če razrez ni popoln (manjkajo kosi), program tega ne
+označi kot uspeh, ampak javi napako.
+
+**Konstrukcijska geometrija (dokumentirana odločitev):**
+
+- **pokončna predloga** — stebri so v enakomernih legah, deske potekajo
+  po poljih med stebri in so pritrjene na oba sosednja stebra (2 vijaka
+  na stik = **4 vijake na desko**); uporabnikova `vrzel` se uporabi
+  natanko in se ne prilagaja tiho; če se deske ne prilegajo, je to
+  jasna napaka,
+- **prečna (ograja)** — vhod je število lamel, vrzel med lamelami se
+  izračuna porazdeljeno; razmak nosilcev je največja dovoljena vrednost,
+  na risbi in v listih pa se kotira **dejanski** razmak.
+
+## Testi (regresijski)
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest tests/ -v
+```
+
+Testi (74) v mapi `tests/` pokrivajo vse popravke: življenjski cikel
+`PdfPages` in štetje strani s `pypdf`, dolžino kosa za obe predlogi,
+validacijo (kerf, dolžine, ročaj/palica), dvojno odštevanje ostankov,
+varno skladišče, palice, vijake, pokončno geometrijo, informativni
+predračun in krog shranjevanja nastavitev v GUI.
 
 ## Izdelava Windows EXE (samostojni program)
 
@@ -144,22 +176,35 @@ pyinstaller TehnicnaRisba.spec --noconfirm
 ```
 
 Spec vključi risba.py + razrez.py + vmesnik.py; nastavitve se shranijo poleg
-EXE (`zadnje_nastavitve.yaml`), ostanki v delovno mapo (`ostanki.yaml`).
+EXE (`zadnje_nastavitve.yaml`), ostanki pa v uporabniško podatkovno mapo
+(`%APPDATA%\TehnicnaRisba`) — ne več v delovno mapo.
+
+**Poštena izjava o preizkusih:** regresijski testi so bili izvedeni v
+razvojnem okolju Windows 11 / Python 3.11.9 / matplotlib 3.11.2; sam
+izdelani EXE v tem popravku ni bil ponovno zgrajen ali preizkušen — pred
+objavo ga zgradi in preizkusi zgoraj opisanimi koraki.
 
 ## Znane omejitve
 
 - Samodejno zaznavanje lamel/vijakov na fotografijah je **pomožno** — na
   terenskih posnetkih pod kotom ni zanesljivo; zanesljiva pot je kalibracija +
-  klik-merjenje. Odtenek WPC se potrdi s vzorcem proizvajalca (ni RAL).
+  klik-merjenje. Odtenek WPC se potrdi z vzorcem proizvajalca (ni RAL).
 - Predlogi **prečno** (vodoravne lamele) in **pokončno** (navpične deske na
   stebrih) sta polno podprti.
 - Odpis ostankov po rezanju je ročen: gumb „ODPIŠI OSTANKE" v GUI ali
-  CLI zastavica `--potrosi-ostanke` (namenoma — potrdiš, da so kosove res
+  CLI zastavica `--potrosi-ostanke` (namenoma — potrdiš, da so kose res
   rezali po načrtu).
-- Če se kakšen dodaten list (montažni list, predračun) ne more izrisati,
-  program to javi kot opozorilo — PDF strani 1 ostane.
+- Če se kakšen dodaten list (montažni list, predračun, nalepke) ne more
+  izrisati, program to jasno javi kot opozorilo (CLI vrne kodo 2, GUI
+  pokaže status) — dokument NI tiho prikazan kot popoln.
+- **matplotlib >= 3.10.7:** `savefig` po zaprtju `PdfPages` tiho prepise
+  PDF v 0 B. Program zato vse strani zapiše v ENEM ciklu `PdfPages`
+  (brez risanja po zaprtju) — priporočena različica je v `requirements.txt`.
+- Spletni generator (`api/`) na Vercelu NI aktiven — objavljena je statična
+  predstavitvena stran (`index.html`); lokalni program je Windows EXE/CLI.
 
-## Avtorske pravice
+## Avtorske pravice in licenca
 
-© 2026. Za notranjo uporabo. WPC in znamki proizvajalcev pripadajo njihovim
-lastnikom (npr. WoodCore / roksal.com — vir referenčnih specifikacij).
+Koda je objavljena pod licenco **MIT** (glej `LICENSE`). WPC in znamke
+proizvajalcev pripadajo njihovim lastnikom (npr. WoodCore / roksal.com —
+vir referenčnih specifikacij)..
