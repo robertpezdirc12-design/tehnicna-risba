@@ -1,0 +1,3 @@
+# Na Vercelu naj bo samo statični HTML (brez Python API / serverless funkcij).
+api/
+api/**
