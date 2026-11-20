@@ -60,7 +60,10 @@ def git_stanje():
             return ""
     return {"commit": _pozeni("git", "rev-parse", "HEAD"),
             "veja": _pozeni("git", "rev-parse", "--abbrev-ref", "HEAD"),
-            "dirty": bool(_pozeni("git", "status", "--porcelain"))}
+            # dirty = spremenjene SLEDEČE datoteke (stari untracked ostanki
+            # iz prejšnjih sej ne štejejo — niso del izdelka)
+            "dirty": bool(_pozeni("git", "status", "--porcelain",
+                                  "--untracked-files=no"))}
 
 
 def razlicice():
