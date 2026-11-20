@@ -1,10 +1,12 @@
-"""Testi geometrije in količin za vrata/prehode (issue #3).
+"""Testi geometrije in količin za vrata/prehode (issue #3, popravljeno v #6).
 
-Ročno izračunane pričakovane vrednosti (invariant verige:
-r_bok + w_1 + r_med + ... + r_bok = S_o):
-- enokrilna 1000x2100: w_k = (1000-2*5)/1 = 990; h_k = 2100-50-5 = 2045
-- dvokrilna 3000x2155: w_k = (3000-2*5-10)/2 = 1490; h_k = 2155-50-5 = 2100
-- pasja 700x655: w_k = (700-2*5)/2 = 345 (brez reže med kriloma)
+Ročno izračunane pričakovane vrednosti (invariant verige — issue #6:
+veriga vključuje profile okvirja, ki stojijo znotraj odprtine:
+2·60 + r_bok + w_1 + r_med + ... + r_bok = S_o):
+- enokrilna 1000x2100: w_k = (1000-2*60-2*5)/1 = 870; h_k = 2100-50-5 = 2045
+- dvokrilna 3000x2155: w_k = (3000-2*60-2*5-10)/2 = 1430; h_k = 2155-50-5 = 2100
+- pasja 700x655: w_k = (700-2*60-2*5)/2 = 285 (brez reže med kriloma)
+- diagonala (P6): hipotenuza NOTRANJIH mer krila, ceil5 (npr. 790x1965 -> 2120)
 """
 from __future__ import annotations
 

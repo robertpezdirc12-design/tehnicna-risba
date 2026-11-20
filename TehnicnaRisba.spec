@@ -6,7 +6,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=[],
+    hiddenimports=['ezdxf', 'yaml', 'PIL.ImageTk'],   # zaklepanje (issue #6)
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -14,7 +14,7 @@ a = Analysis(
               # težke, neuporabljene odvisnosti (issue #6 §9: hitrejši in
               # vitkejši build; matplotlib/ezdxf jih ne potrebujejo)
               'PySide6', 'PySide2', 'shiboken6', 'shiboken2',
-              'PyQt5', 'PyQt6', 'PyQt5',
+              'PyQt5', 'PyQt6', 'PIL.ImageQt',
               'IPython', 'ipykernel', 'jupyter', 'jupyter_client',
               'jupyter_core', 'notebook', 'tornado', 'zmq',
               'cloudpickle', 'llvmlite', 'numba', 'sympy', 'scipy'],
@@ -33,7 +33,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,   # UPX ni nameščen — konsistenten, dokumentiran izid (issue #6)
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,

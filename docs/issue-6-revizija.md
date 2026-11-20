@@ -15,8 +15,8 @@ pod-agenti (vzporedno, po vlogah iz §10):
 |---|---|---|---|
 | 1 — matematični model, geometrija | `issue6-podag-mat-v1` | opravljen | potrditev napake 120/80; 15 neskladij izpis↔spec; past predloge `pokoncna`; model vrat se fizično ne izide (60+990+60>1000); P6 diagonala 3 različne vrednosti; T1–T12 referenčne vrednosti |
 | 2 — proizvodnja, cutting-stock | `issue6-podag-cut-v1` | opravljen | fizični model reza (B) je pravilen; greedy optimizator slabši v 38 % majhnih primerov (dokazni primer: 2 surovca/500 mm odpada); FFD model A namesto B (zavračal 3000 iz 3000); trivialne A5 invariante |
-| 3 — QA, testna avtomatizacija | `issue6-podag-qa-v1` | v teku | (poročilo bo vključeno v §7 — testi, artefakti PDF/CSV, nepokrite poti) |
-| 4 — Windows build/release | `issue6-podag-build-v1` | v teku | (poročilo bo vključeno v §6 — spec, ponovljivost, sledljivost artefaktov) |
+| 3 — QA, testna avtomatizacija | `issue6-podag-qa-v1` | opravljen | 163/163 zelenih; artefakti (PDF/CSV/nalepke/DXF) preverjeni vsebinsko — brez neskladij z internimi izračuni; 14 najdb (2× P1: zastarel dokstring testa, vakuumska asercija — obe odpravljeni), 12 predlogov testov z ročnimi vrednostmi |
+| 4 — Windows build/release | `issue6-podag-build-v1` | opravljen | revizija spec/build skripte: headless brez try/except (tveganje modalnega dialoga), manjkajoči Pillow v requirements, brez version info, pravila izdaje (nov tag, draft, nikoli zamenjava assetov), sledljivost commit→zapisnik→release; vse kritično aplicirano (§6) |
 | 5 — Python arhitektura | — | izvedeno interno | centralizacija `proizvodni_model` (§2) in `vrata.geometrija_vrat` sta bili presojeni kot najmanj tvegan način; obstoječi vmesniki (cfg ključi) nespremenjeni |
 
 Glavni agent je vsako ključno ugotovitev preveril neposredno v kodi
@@ -135,22 +135,55 @@ mer) — velja od issue #2 in se preverja s testi.
 ## 6. Ponovljiv Windows build (§9)
 
 Orodje: `python build_windows.py --smoke` (enoten, dokumentiran postopek:
-različice → PyInstaller iz `TehnicnaRisba.spec` → SHA-256/velikost →
-funkcionalni smoke prek `--brez-zaslona` / `TEHNICNA_RISBA_HEADLESS=1`,
-ki sta bila dodana v `vmesnik.py` za neinteraktivni preizkus).
+različice + git stanje → PyInstaller iz `TehnicnaRisba.spec` → SHA-256/
+velikost → funkcionalni smoke prek `--brez-zaslona` / `TEHNICNA_RISBA_HEADLESS=1`
+oba načina, hermetično s `TEHNICNA_RISBA_DATA` v temp mapi) — struktura
+in pravila: `docs/build.md`.
 
-Rezultati in kontrolne vsote: `build-zapisnik.json` (različice orodja,
-hash, velikost, trajanje, rezultat smoke — PDF 2 strani preverjen s
-pypdf). **Omejitev ponovljivosti:** PyInstaller ne zagotavlja bit-identičnega
-izida (časovni žigi v PE) — ponovljivost pomeni isti postopek + iste
-različice → delujoč EXE z enako funkcionalnostjo; hash se vodi v
-zapisniku za sledljivost.
+Popravki po reviziji pod-agenta 4: headless veja z `try/except` (windowed
+EXE sicer odpre modalni dialog in visi), `Pillow` v `requirements.txt`
+(`merjenje.py` ga uvozi nepogojno) + `requirements-build.txt` (freeze),
+spec: `upx=False` (UPX ni nameščen — konsistenten izid), dedup/razširitev
+`excludes` (`PIL.ImageQt` ipd. — EXE 198 → 103 MB), `hiddenimports`
+zaklepanje (ezdxf, yaml, PIL.ImageTk).
+
+Rezultati in kontrolne vsote: `build-zapisnik.json` (različice, git
+commit/veja/dirty, spec sha256, EXE sha256/velikost, smoke: PDF 3 strani
+preverjen s pypdf, oba načina zagona). **Omejitev ponovljivosti:**
+PyInstaller ne zagotavlja bit-identičnega izida (časovni žigi v PE) —
+ponovljivost pomeni isti postopek + iste različice → delujoč EXE z
+enako funkcionalnostjo; hash se vodi za sledljivost.
+
+**Sledljivost izdaj:** obstoječa `v1.0`/`v1.1` nimata zapisanega commit
+SHA in sta nastali pred tem postopkom; pravilo za naprej (docs/build.md):
+nova izdaja = nov tag, objavljena kot DRAFT šele po potrditvi (§9),
+nikoli zamenjava assetov obstoječega taga.
 
 **Izdaja NI objavljena** — EXE je samo v `dist/` in ga je treba
 objaviti šele po potrditvi (§9/§10). Neobjavljeno je tudi preverjeno na
-GitHubu (ni novih release-ov).
+GitHubu (ni novih release-ov). Znana omejitev: `migracija.py` (shema v2)
+ni vključena v EXE — dokumentirano v docs/build.md.
 
 ## 7. QA ugotovitve in testni obseg
+
+Pod-agent 3 (QA) je pregledal teste, pokritost in **vsebinsko** preveril
+artefakte (5 konfiguracij: PDF strani/besedilo s pypdf, CSV kosovnice s
+seštevki, nalepke, DXF+PDF skupaj, dolga serija 60 kosov) — **med
+artefakti in internimi izračuni ni neskladij** (vijaki enaki na strani 1,
+strani 2 in v naročilu; CSV vrstice = kosovnica; P6 diagonala v kosovnici
+in DXF skladna).
+
+Najdbe in odziv glavnega agenta:
+
+| Najdba | Resnost | Rešitev |
+|---|---|---|
+| dokstring `test_vrata.py` je dokumentiral stare vrednosti (990/1490/345) | P1 | odpravljeno — dokstring opisuje nov model (870/1430/285) |
+| vakuumska asercija `"80" in narocilo` (podniz tudi v "Ø8×80") | P1 | odpravljeno — natančna vrstica `"- RF M8×70 Inox — 80 kos"` + `"120 kos" not in` |
+| `proizvodni_model` z nepopolnim `mere` vrže surovi `KeyError` | P2 | dokumentirano: javni vstop je `generiraj`/`zdruzi`; neposredni klic je interni API |
+| headless način brez testov | P2 | delno (smoke v buildu preizkusi oba načina na EXE); testni predlogi T1–T12 so v poročilu za naslednji krog |
+| `generiraj({})` tiho piše `BO-001.pdf` v CWD | P2 | dokumentirano (znana past), predlog za ločeno izdajo |
+| nekatere veje (fig3/fig4 degradacija, krajšanje rezalnega načrta, `preveri_cfg` B1–B7, CLI `--potrosi-ostanke`, rotacija segmentov v DXF) brez testov | P2/P3 | sprejeto kot znana vrzel; predlogi T1–T12 (z ročno izračunanimi vrednostmi) so zapisani za razširitev testne suite |
+| dve definiciji odpada na montažnem listu (PORABA „odpad“ vključuje kerf, REZ „ostanek“ ga ne) | P3 | konservativnost namerna — zapisano v docs/build.md in poročilu; predlog T10 to zaklene |
 
 - skupaj **163 testov** (74 iz #2 nespremenjenih + 61 iz #3 + 28 novih),
   vsi zeleni; testni program modela reza je neodvisen od produkcijskega;
@@ -158,9 +191,10 @@ GitHubu (ni novih release-ov).
   (križanje strani 1↔2), CSV kosovnice vsebinsko (vrstice, seštevki),
   DXF okrogla vožnja z ezdxf (že iz #3);
 - znane omejitve (poštene, dokumentirane): kotna postavitev segmentov v
-  tlorisu je bodoče delo (podatkovni model `kot` obstaja), ostanki se ne
-  porabljajo čez dolžine zalog v `razrez_kosov`, dimenzije v DXF so
-  statične (brez G-kode — disclaimers v DXF/README/docs).
+  tlorisu je bodoče delo (podatkovni model `kot` obstaja; `generiraj` PDF
+  segmentov ne upošteva — DXF jih), ostanki se ne porabljajo čez dolžine
+  zalog v `razrez_kosov`, dimenzije v DXF so statične (brez G-kode —
+  disclaimers v DXF/README/docs), `migracija.py` ni v EXE.
 
 ## 8. Povezave
 

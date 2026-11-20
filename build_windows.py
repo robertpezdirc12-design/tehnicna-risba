@@ -50,12 +50,26 @@ SMOKE_CFG = {
 }
 
 
+def git_stanje():
+    """Commit/veja/dirty — sledljivost artefakta (issue #6, pod-agent 4)."""
+    def _pozeni(*arg):
+        try:
+            return subprocess.run(arg, cwd=KOREN, capture_output=True,
+                                  text=True, timeout=30).stdout.strip()
+        except Exception:
+            return ""
+    return {"commit": _pozeni("git", "rev-parse", "HEAD"),
+            "veja": _pozeni("git", "rev-parse", "--abbrev-ref", "HEAD"),
+            "dirty": bool(_pozeni("git", "status", "--porcelain"))}
+
+
 def razlicice():
     import PyInstaller
     return {
         "python": sys.version.split()[0],
         "pyinstaller": PyInstaller.__version__,
         "platform": sys.platform,
+        "upx": bool(__import__("shutil").which("upx")),
     }
 
 
@@ -86,14 +100,16 @@ def smoke():
     cfg_pot = os.path.join(delo, "smoke.json")
     with open(cfg_pot, "w", encoding="utf-8") as f:
         json.dump(cfg, f, ensure_ascii=False)
+    # hermetično: podatke (ostanki ipd.) v začasno mapo, ne v uporabniško
+    env = dict(os.environ, TEHNICNA_RISBA_HEADLESS="1",
+               TEHNICNA_RISBA_DATA=os.path.join(delo, "data"))
     # 1) preklop prek okoljske spremenljivke (kot zahteva §9)
-    env = dict(os.environ, TEHNICNA_RISBA_HEADLESS="1")
     koda = subprocess.run([EXE, cfg_pot], env=env, cwd=delo,
                           capture_output=True, text=True, timeout=300).returncode
     if koda != 0:
         sys.exit(f"Smoke (env način) ni uspel, izhodna koda {koda}.")
     # 2) preklop prek stikala
-    koda = subprocess.run([EXE, "--brez-zaslona", cfg_pot], cwd=delo,
+    koda = subprocess.run([EXE, "--brez-zaslona", cfg_pot], env=env, cwd=delo,
                           capture_output=True, text=True, timeout=300).returncode
     if koda != 0:
         sys.exit(f"Smoke (--brez-zaslona) ni uspel, izhodna koda {koda}.")
@@ -101,15 +117,20 @@ def smoke():
         sys.exit("Smoke: PDF ni nastal.")
     from pypdf import PdfReader
     strani = len(PdfReader(pdf).pages)
-    if strani < 2:
-        sys.exit(f"Smoke: PDF ima samo {strani} strani (pričakovano 2).")
-    return {"pdf": pdf, "strani": strani, "velikost_b": os.path.getsize(pdf)}
+    # privzeta konfiguracija (brez 'cene') daje 3 strani: risba, montažni, nalepke
+    if strani != 3:
+        sys.exit(f"Smoke: PDF ima {strani} strani (pričakovano 3).")
+    return {"pdf": pdf, "strani": strani, "velikost_b": os.path.getsize(pdf),
+            "nacini": ["TEHNICNA_RISBA_HEADLESS=1", "--brez-zaslona"]}
 
 
 if __name__ == "__main__":
     zac = time.time()
-    zapisnik = {"zacetek": time.strftime("%Y-%m-%d %H:%M:%S"),
-                "razlicice": razlicice()}
+    zapisnik = {"zapisnik_verzija": 1,
+                "zacetek": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()) + " UTC",
+                "razlicice": razlicice(), "git": git_stanje(),
+                "spec_sha256": sha256(SPEC),
+                "ukaz": "python build_windows.py --smoke"}
     zapisnik["build"] = zgradi()
     if "--smoke" in sys.argv:
         zapisnik["smoke"] = smoke()

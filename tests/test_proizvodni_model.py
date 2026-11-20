@@ -97,8 +97,10 @@ def test_t12_strani_pdf_kazejo_enake_kolicine(tmp_path):
     for s in (s1, s2):
         assert "120 kos" not in s
     assert "80 kos" in s1 and "80 kos" in s2
-    # količine/naročilo iz istega modela
-    assert "80" in kolicine["narocilo"]
+    # natančna vrstica vijakov v naročilu (ne vakuumska "80" — QA najdba #2)
+    nar = kolicine["narocilo"]
+    assert "- RF M8×70 Inox — 80 kos" in nar
+    assert "120 kos" not in nar
 
 
 def test_narocilo_prečne_vsebuje_obe_sekciji_profila_in_nosilce(tmp_path):
