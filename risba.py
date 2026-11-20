@@ -667,6 +667,67 @@ def vrata_vrstice_potrebscine(vp):
     return vrstice
 
 
+# --------------------------------------------- kanonični proizvodni model (issue #6)
+def proizvodni_model(c):
+    """KANONIČNI izračun količin — EN vir resnice za vse izpise.
+
+    Tabela sestavnih delov (PDF stran 1), potrebščine montažnega lista,
+    količine, kosovnica in naročilo smejo šteti SAMO iz tega modela —
+    noben izpis ne izvaja lastnih vzporednih formul (issue #6, §3).
+
+    Konstrukcijska pravila pritrjevanja (dokumentirana):
+    - pokončna (B2): deska v polju se pritrdi na OBА sosednja stebra,
+      2 vijaka na stik => 4 vijake na celotno desko. Deska, ki jo
+      odprtina razreže, ohrani oba robova (stika) => prav tako 4;
+      deska znotraj odprtine odpade => 0. Štejejo se ROBOVI kosov.
+    - prečna: vsaka lamele se pritrdi na vsak nosilec, ki ga prečka,
+      z 2 vijakoma => 2 × Σ (prisotnost materiala na legi nosilca).
+    - ankerji/pritrdila nosilca: 2 na nosilec/steber.
+    Odprtine (vrata/prehodi) vplivajo na število kosov in pritrdila.
+    """
+    m = c.get("mere") or {}
+    vp = vrata_podatki(c)
+    odprtine = vp["odprtine"]
+    if (c.get("predloga") or "ograja") == "pokončna":
+        p = razpored_pokoncna(m)
+        ds = float(m.get("deska_sirina", 0) or 0)
+        n_kosov = 0
+        n_stikov = 0
+        for xr in p["deske_x"]:
+            intervali = razdeli_po_odprtinah(xr, xr + ds, odprtine)
+            n_kosov += len(intervali)
+            # stik = rob kosa, ki sovpada z robom deske (pritrditev na steber)
+            if any(abs(a - xr) < 1e-6 for a, _b in intervali):
+                n_stikov += 1
+            if any(abs(b - (xr + ds)) < 1e-6 for _a, b in intervali):
+                n_stikov += 1
+        n_s = p["n_stebrov"]
+        return {"tip": "pokoncna", "n_kosov": n_kosov,
+                "n_brez_odprtin": p["n_desk"], "n_nosilcev": n_s,
+                "n_stikov": n_stikov,
+                "vijaki_element": n_stikov * 2,
+                "pritrdila_nosilec": n_s * 2,
+                "dolzina_elementa": p["deske_h"], "opis_elementa": "deska"}
+    zg, sp, lamele, vrzel, n = razpored(m)
+    xs_nos, razmak_dejanski = pozicije_nosilcev(
+        m.get("sirina", 0) or 0, m.get("razmak_nosilcev", 1000) or 1000)
+    n_kosov = 0
+    stikov = 0
+    for _z0, _z1 in lamele:
+        intervali = razdeli_po_odprtinah(0, m.get("sirina", 0) or 0, odprtine)
+        n_kosov += len(intervali)
+        for xn in xs_nos:
+            if any(a - 1e-6 <= xn <= b + 1e-6 for a, b in intervali):
+                stikov += 1
+    n_nos = len(xs_nos)
+    return {"tip": "ograja", "n_kosov": n_kosov,
+            "n_brez_odprtin": n, "n_nosilcev": n_nos,
+            "n_stikov": stikov, "vijaki_element": stikov * 2,
+            "pritrdila_nosilec": n_nos * 2,
+            "dolzina_elementa": m.get("sirina", 0) or 0,
+            "opis_elementa": "lamela", "razmak_dejanski": razmak_dejanski}
+
+
 # ---------------------------------------------------------------- predloga: pokončna
 # KONSTRUKCIJSKA GEOMETRIJA (dokumentirana odločitev — B2):
 #   - stebri stojijo v enakomernih legah (prvi/zadnji ob robovih ograje),
@@ -959,20 +1020,21 @@ def narisi_pokoncna(ax, c):
         mat = c["material"]
         profil = c.get("profil") or "POLNA DESKA 100"
         ml = c.get("material_lamel") or "WPC lesni kompozit"
-        n_vij = p["n_desk"] * p["n_stebrov"] * 2
+        model = proizvodni_model(c)          # kanonični izračun (issue #6)
+        steber_dim = f"{fmt(m['steber_sirina'])}×{fmt(m['steber_debelina'])}"
         deli = [
             ["Ročaj", mat, f"{fmt(sir)} mm", "1 kos"],
             [f"WPC deska {profil}", ml, f"{fmt(ds)}×{fmt(dd)}",
-             f"{p['n_desk']} kos"],
-            ["Alu steber 60×40", "Aluminij", "60×40",
-             f"{p['n_stebrov']} kos"],
-            ["Osnova za steber (vrh)", "Jeklo", "90×90×6",
-             f"{p['n_stebrov']} kos"],
+             f"{model['n_kosov']} kos"],
+            [f"Alu steber {steber_dim}", "Aluminij", steber_dim,
+             f"{model['n_nosilcev']} kos"],
+            ["Osnova za steber (vrh)", "Jeklo", c.get("osnova_dim") or "90×90×6",
+             f"{model['n_nosilcev']} kos"],
             [c.get("vijak_lamela") or "Vijaki M8×70 (deska↔steber)",
              pritrdilo_material(c.get("vijak_lamela")),
-             vijak_dim(c.get("vijak_lamela")), f"{n_vij} kos"],
+             vijak_dim(c.get("vijak_lamela")), f"{model['vijaki_element']} kos"],
             [vijak_nosilec_naziv, pritrdilo_material(vijak_nosilec_naziv),
-             anker_dim, f"{p['n_stebrov'] * 2} kos"],
+             anker_dim, f"{model['pritrdila_nosilec']} kos"],
         ]
     vrste = [["Št.", "Naziv dela", "Material", "Dimenzije (mm)", "Količina"]]
     vrste += [[i] + list(d) for i, d in enumerate(deli, 1)]
@@ -1223,16 +1285,21 @@ def narisi_ogrado(ax, c):
         mat = c["material"]
         profil = c.get("profil") or "ROMB 67"
         ml = c.get("material_lamel") or "WPC lesni kompozit"
+        model = proizvodni_model(c)          # kanonični izračun (issue #6)
+        nosilec_dim = c.get("nosilec_dim") or "50×50×5"
         deli = [
-            ["Zgornji profil", mat, "80×40×3", "1 kos"],
+            ["Zgornji profil", mat, c.get("profil_zg_dim") or "80×40×3", "1 kos"],
             [f"WPC deska {profil}", ml,
-             f"{fmt(m['lamela_v'])}×{fmt(m['debelina'])}", f"{n_lamel} kos"],
-            ["Spodnji profil", mat, "60×40×3", "1 kos"],
-            ["Nosilni nosilec 50×50×5", "Jeklo", "50×50×5", f"{n_nos} kos"],
+             f"{fmt(m['lamela_v'])}×{fmt(m['debelina'])}",
+             f"{model['n_kosov']} kos"],
+            ["Spodnji profil", mat, c.get("profil_sp_dim") or "60×40×3", "1 kos"],
+            [f"Nosilni nosilec {nosilec_dim}", "Jeklo", nosilec_dim,
+             f"{model['n_nosilcev']} kos"],
             [vijak_lamela_naziv, pritrdilo_material(vijak_lamela_naziv),
-             vijak_dim(vijak_lamela_naziv), f"{n_lamel * n_nos * 2} kos"],
+             vijak_dim(vijak_lamela_naziv), f"{model['vijaki_element']} kos"],
             [vijak_nosilec_naziv, pritrdilo_material(vijak_nosilec_naziv),
-             vijak_dim(vijak_nosilec_naziv, "Ø8×80"), f"{n_nos * 2} kos"],
+             vijak_dim(vijak_nosilec_naziv, "Ø8×80"),
+             f"{model['pritrdila_nosilec']} kos"],
         ]
     vrste = [["Št.", "Naziv dela", "Material", "Dimenzije (mm)", "Količina"]]
     vrste += [[i] + list(d) for i, d in enumerate(deli, 1)]
@@ -1311,6 +1378,12 @@ PRIVZETO = {
     "vijak_nosilec": "",      # pritrditev nosilec↔podlaga (prazno = privzeti)
     "deli": None,
     "opombe": None,
+    # dimenzije profilov/konstrukcijskih delov (issue #6: trdo zapisane
+    # dimenzije so odstranjene iz generatorjev — to so privzete vrednosti)
+    "profil_zg_dim": "80×40×3",   # zgornji alu profil (prečna)
+    "profil_sp_dim": "60×40×3",   # spodnji alu profil (prečna)
+    "nosilec_dim": "50×50×5",     # nosilni nosilec (prečna)
+    "osnova_dim": "90×90×6",      # osnova stebra (pokončna)
     "mere": {"sirina": 3000, "visina": 1200, "globina": 1200,
              "odcep": 60, "profil_v": 40, "lamela_v": 60,
              "debelina": 20, "lamele": 13, "razmak_nosilcev": 1000,
@@ -1544,7 +1617,8 @@ def narisi_montazni_list(ax, c):
     raz = m.get("razmak_nosilcev", 1000)
     xs_nos, razmak_dejanski = pozicije_nosilcev(sir, raz)
     n_nos = len(xs_nos)
-    vijaki = n * n_nos * 2
+    model = proizvodni_model(c)              # kanonični izračun (issue #6)
+    vijaki = model["vijaki_element"]
     profil = c.get("profil") or "ROMB 67"
     dl_deske = c.get("dolzina_deske", 5800)
     dl_palice = c.get("dolzina_palice", 6000)
@@ -1595,12 +1669,14 @@ def narisi_montazni_list(ax, c):
          (f"za {fmt(uporabno_m)} m lamel; {kos_iz_ost} kos iz "
           f"ostankov" if kos_iz_ost else
           f"skupaj {fmt(uporabno_m)} m lamel")],
-        ["Alu profili 80×40 (zg.) + 60×40 (sp.)", f"{fmt(dl_palice)} mm",
+        [f"Alu profili {c.get('profil_zg_dim') or '80×40×3'} (zg.) + "
+         f"{c.get('profil_sp_dim') or '60×40×3'} (sp.)", f"{fmt(dl_palice)} mm",
          f"{palice} kos", f"obe sta dolgi {fmt(sir)} mm"],
-        ["Nosilni nosilec 50×50×5", "—", f"{n_nos} kos",
+        [f"Nosilni nosilec {c.get('nosilec_dim') or '50×50×5'}", "—",
+         f"{n_nos} kos",
          f"razmak ≤ {fmt(raz)} mm • dejanski {fmt(round(razmak_dejanski))} mm"],
         [vijak_lamela_naziv, "—", f"{vijaki} kos",
-         f"2 na priključek ({n * n_nos}) • Ø+1 mm"],
+         f"2 na stik ({model['n_stikov']} stikov) • Ø+1 mm"],
         [vijak_nosilec_naziv, "—", f"{n_nos * 2} kos", "2 na nosilec"],
     ]
     if kos_iz_ost:
@@ -1657,7 +1733,7 @@ def narisi_montazni_list(ax, c):
         + (f" + {kos_iz_ost} kos iz ostankov" if kos_iz_ost else ""),
         "",
         "PROFILI (aluminij):",
-        f"- 80×40×3 — {palice} kos × {fmt(dl_palice)} mm "
+        f"- {c.get('profil_zg_dim') or '80×40×3'} — {palice} kos × {fmt(dl_palice)} mm "
         f"(razrez: 2 × {fmt(sir)} mm)",
         "",
         "PRITRDILNI MATERIAL:",
@@ -1718,13 +1794,14 @@ def narisi_montazni_pokoncna(ax, c):
     for op in vp["opozorila"]:
         _opozori(op)
     if vp["odprtine"]:
-        ds_p = m.get("deska_sirina", 100) or 100
         kosi_d = []
         for xr in p["deske_x"]:
-            kosi_d += razdeli_po_odprtinah(xr, xr + ds_p, vp["odprtine"])
+            kosi_d += razdeli_po_odprtinah(xr, xr + (m.get("deska_sirina", 100) or 100),
+                                          vp["odprtine"])
         n_eff = len(kosi_d)
     else:
         n_eff = n_d
+    model = proizvodni_model(c)              # kanonični izračun (issue #6)
 
     # rezalni načrt — EN VIR RESNICE (razrez_podatki): A3/A5/B1
     rp = razrez_podatki(deska_h, n_eff, c, oznaka="D", glava="DESKE ŠT.")
@@ -1742,8 +1819,9 @@ def narisi_montazni_pokoncna(ax, c):
             rv = razrez_kosov_podatki(kos_v, c, oznaka="V", glava="VRATA ŠT.")
             rp["rez_rows"] += rv["rez_rows"][1:]
             rp["viz_traki"] += rv["viz_traki"]
+    steber_dim = f"{fmt(m['steber_sirina'])}×{fmt(m['steber_debelina'])}"
     palice_s = stevilo_palic(vis, n_s, dl_palice, kerf)  # regresija agregatne formule
-    vijaki = n_eff * 4   # 2 vijaka na stik × 2 sosednja stebra (deska v polju)
+    vijaki = model["vijaki_element"]  # 2 vijaka na stik (B2: 2 stika na desko)
     pot = [
         [f"WPC deska {profil}",
          " + ".join(f"{t} × {fmt(B)} mm" for B, t in traki_nabava(traki))
@@ -1752,11 +1830,12 @@ def narisi_montazni_pokoncna(ax, c):
           f"{kos_iz_ost} kos iz ostankov"
           if kos_iz_ost else
           f"skupaj {fmt(n_eff * deska_h / 1000)} m desek")],
-        ["Alu steber 60×40", f"{fmt(dl_palice)} mm", f"{palice_s} kos",
+        [f"Alu steber {steber_dim}", f"{fmt(dl_palice)} mm", f"{palice_s} kos",
          f"{n_s} stebrov (L = {fmt(vis)} mm)"],
         ["Ročaj (WPC/alu)", f"{fmt(sir)} mm", "1 kos",
          "pritrjen na steber"],
-        ["Osnova za steber (vrh)", "90×90×6", f"{n_s} kos",
+        ["Osnova za steber (vrh)", c.get("osnova_dim") or "90×90×6",
+         f"{n_s} kos",
          f"{vijak_nosilec_naziv} × 2 na osnovo"],
         [vijak_lamela_naziv, "—", f"{vijaki} kos",
          f"2 na stik, 4 na desko (levo + desno) • Ø+1 mm"],
@@ -1795,7 +1874,7 @@ def narisi_montazni_pokoncna(ax, c):
         + (f" + {kos_iz_ost} kos iz ostankov" if kos_iz_ost else ""),
         "",
         "PROFILI (aluminij):",
-        f"- 60×40×5 — {palice_s} kos × {fmt(dl_palice)} mm "
+        f"- {steber_dim} — {palice_s} kos × {fmt(dl_palice)} mm "
         f"(razrez: {n_s} × {fmt(vis)} mm — stebri)",
         "",
         "OSTALA PRITRDITVA:",
@@ -1808,8 +1887,9 @@ def narisi_montazni_pokoncna(ax, c):
         ("Ročaj (WPC/alu)", f"L = {fmt(sir)} mm"),
         (f"WPC deska {profil}",
          f"{fmt(m['deska_sirina'])}×{fmt(m['deska_debelina'])} mm"),
-        ("Alu steber 60×40", f"L = {fmt(vis)} mm"),
-        ("Osnova za steber 90×90×6", f"{vijak_nosilec_naziv} × 2"),
+        (f"Alu steber {steber_dim}", f"L = {fmt(vis)} mm"),
+        (f"Osnova za steber {c.get('osnova_dim') or '90×90×6'}",
+         f"{vijak_nosilec_naziv} × 2"),
     ]
     montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki, sestava=sestava)
 
