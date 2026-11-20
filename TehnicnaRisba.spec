@@ -10,7 +10,14 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['cv2'],
+    excludes=['cv2',
+              # težke, neuporabljene odvisnosti (issue #6 §9: hitrejši in
+              # vitkejši build; matplotlib/ezdxf jih ne potrebujejo)
+              'PySide6', 'PySide2', 'shiboken6', 'shiboken2',
+              'PyQt5', 'PyQt6', 'PyQt5',
+              'IPython', 'ipykernel', 'jupyter', 'jupyter_client',
+              'jupyter_core', 'notebook', 'tornado', 'zmq',
+              'cloudpickle', 'llvmlite', 'numba', 'sympy', 'scipy'],
     noarchive=False,
     optimize=0,
 )

@@ -1,0 +1,19 @@
+{
+  "zacetek": "2026-11-20 22:41:16",
+  "razlicice": {
+    "python": "3.11.9",
+    "pyinstaller": "6.22.3",
+    "platform": "win32"
+  },
+  "build": {
+    "exe": "C:\\Users\\admin\\Downloads\\tehnicna-risba\\dist\\TehnicnaRisba.exe",
+    "velikost_b": 102767219,
+    "sha256": "d2bd6d9f1f42c561de2d4d2a71a4f55311d2bf47b52c17143454b12deb253378"
+  },
+  "smoke": {
+    "pdf": "C:\\Users\\admin\\AppData\\Local\\Temp\\tr_smoke_hwu09g4v\\smoke.pdf",
+    "strani": 3,
+    "velikost_b": 84816
+  },
+  "trajanje_s": 638.0
+}
