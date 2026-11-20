@@ -31,8 +31,10 @@ from razrez import (nalozi_ostanke,
                      shrani_ostanke,
                      pot_ostanki,
                      razrez_podatki,
+                     razrez_kosov_podatki,
                      stevilo_palic,
                      kos_iz_vira)
+import vrata as vrat
 from matplotlib.patches import Circle, Polygon, Rectangle
 
 # ---------------------------------------------------------------- konstante
@@ -486,6 +488,173 @@ def pozicije_nosilcev(sir, raz):
     return pozicije, dejanski
 
 
+# --------------------------------------------------- vrata in prehodi (issue #3)
+def vrata_podatki(c):
+    """Geometrija in količine vrat/prehodov iz cfg (vir resnice: vrata.py).
+
+    Vrne {vrata, prehodi, odprtine, elementi, napake, opozorila}; uporabljata
+    jo obe predlogi (ograda + pokončna), količine, montažni list in DXF.
+    """
+    m = c.get("mere") or {}
+    odcep = m.get("odcep", 0) or 0
+    sir = m.get("sirina", 0) or 0
+    vis = m.get("visina", 0) or 0
+    H_o = vis - odcep
+    izhod = {"vrata": [], "prehodi": [], "odprtine": [], "elementi": [],
+             "napake": [], "opozorila": []}
+    if not (c.get("vrata") or c.get("prehodi")):
+        return izhod
+    for i, v in enumerate(c.get("vrata") or [], start=1):
+        try:
+            g = vrat.geometrija_vrat(v, v.get("sirina", 900), H_o)
+        except ValueError as e:
+            izhod["napake"].append(f"Vrata {i}: {e}")
+            continue
+        ozn = f"V{i}"
+        izhod["vrata"].append({"oznaka": ozn, "g": g, "vnos": v,
+                               "kosovnica": vrat.kosovnica_vrat(g, ozn)})
+        x = g["x"]
+        izhod["odprtine"].append((x, x + g["odprtina"]["sirina"], ozn))
+        for vr, pod, plast in vrat.elementi_vrat(g):
+            if vr == "kvadrat":
+                px, py, pw, ph = pod
+                izhod["elementi"].append(
+                    ("kvadrat", (px + x, py + odcep, pw, ph), plast, ozn))
+            elif vr == "crta":
+                x1, y1, x2, y2 = pod
+                izhod["elementi"].append(
+                    ("crta", (x1 + x, y1 + odcep, x2 + x, y2 + odcep), plast, ozn))
+            elif vr == "krog":
+                cx, cy, dd = pod
+                izhod["elementi"].append(
+                    ("krog", (cx + x, cy + odcep, dd), plast, ozn))
+    for i, p in enumerate(c.get("prehodi") or [], start=1):
+        try:
+            g = vrat.geometrija_prehoda(p, p.get("sirina", 1000), H_o)
+        except ValueError as e:
+            izhod["napake"].append(f"Prehod {i}: {e}")
+            continue
+        ozn = f"P{i}"
+        izhod["prehodi"].append({"oznaka": ozn, "g": g, "vnos": p,
+                                 "kosovnica": vrat.kosovnica_prehoda(g)})
+        x = g["x"]
+        izhod["odprtine"].append((x, x + g["odprtina"]["sirina"], ozn))
+        for vr, pod, plast in vrat.elementi_prehoda(g):
+            px, py, pw, ph = pod
+            izhod["elementi"].append(
+                ("kvadrat", (px + x, py + odcep, pw, ph), plast, ozn))
+    # trki odprtin z nosilci/stebri -> opozorilo (ne blokira)
+    lege = []
+    if sir > 0 and vis > 0:
+        try:
+            if (c.get("predloga") or "ograja") == "pokončna":
+                ss_p = (m.get("steber_sirina", 60) or 60) / 2.0
+                lege = [(x - ss_p, x + ss_p)
+                        for x in razpored_pokoncna(m)["centri"]]
+            else:
+                poz, _razmk = pozicije_nosilcev(
+                    sir, m.get("razmak_nosilcev", 1000) or 1000)
+                lege = [(x - 40.0, x + 40.0) for x in poz]
+        except (ValueError, TypeError, KeyError):
+            lege = []
+    for a, b, oz in izhod["odprtine"]:
+        for pa, pb in lege:
+            if pa < b - 1e-9 and pb > a + 1e-9:
+                izhod["opozorila"].append(
+                    f"{oz}: odprtina seka nosilec/steber "
+                    f"({fmt(pa)}–{fmt(pb)} mm) — preveri izvedbo.")
+                break
+    izhod["napake"] += vrat.preveri_odprtine(
+        [(a, b - a, H_o, oz) for a, b, oz in izhod["odprtine"]], sir, vis)
+    return izhod
+
+
+def razdeli_po_odprtinah(x0, x1, odprtine):
+    """Intervali [x0, x1] brez odprtin (odprtine: [(ox0, ox1, oznaka)])."""
+    intervali = [(float(x0), float(x1))]
+    for odprtina in odprtine:
+        ox0, ox1 = odprtina[0], odprtina[1]
+        novi = []
+        for a, b in intervali:
+            if ox1 <= a or ox0 >= b:
+                novi.append((a, b))
+            else:
+                if a < ox0:
+                    novi.append((a, ox0))
+                if ox1 < b:
+                    novi.append((ox1, b))
+        intervali = novi
+    return [(a, b) for a, b in intervali if b - a > 1e-6]
+
+
+BARVA_OKOVJA = "#8a8a8a"
+
+
+def narisi_odprtine_in_vrata(ax, v, vp, b_lam, b_pro, merilo_s):
+    """Nariše vrate/prehode v sprednji pogled (iz iste geometrije kot DXF)."""
+    for vr, pod, plast, ozn in vp["elementi"]:
+        if vr == "kvadrat" and plast != "DIMENSIONS":
+            px, py, pw, ph = pod
+            barva = (b_pro if plast in ("POSTS", "FRAME") else
+                     BARVA_OKOVJA if plast == "HARDWARE" else b_lam)
+            v.kocka(px, py, px + pw, py + ph, fill=barva)
+        elif vr == "crta" and plast != "DIMENSIONS":
+            x1, y1, x2, y2 = pod
+            ax.plot([v.X(x1), v.X(x2)], [v.Y(y1), v.Y(y2)], color="white",
+                    lw=0.5, zorder=5)
+        elif vr == "krog":
+            cx, cy, dd = pod
+            ax.add_patch(Circle((v.X(cx), v.Y(cy)), max(0.4, dd * merilo_s / 2),
+                                facecolor=BARVA_OKOVJA, edgecolor="none",
+                                zorder=5))
+    # oznake in kota širine odprtine
+    for enota in vp["vrata"] + vp["prehodi"]:
+        g = enota["g"]
+        x = g["x"]
+        w = g["odprtina"]["sirina"]
+        ozn = enota["oznaka"]
+        tip = g["tip"]
+        ax.text(v.X(x + w / 2), v.Y(g.get("h", g["odprtina"]["visina"])) + 5,
+                f"{ozn} ({tip})", ha="center", va="bottom", fontsize=6.5,
+                fontweight="bold", color=CRNA)
+        dim_h(ax, v.X(x), v.X(x + w), v.Y(0) - 8, v.Y(0), v.Y(0),
+              f"{fmt(w)} mm")
+
+
+def vrata_vrstice_kolicin(vp):
+    """Postavke vrat/prehodov za količine (5-tuple, kot ostale postavke)."""
+    vrstice = []
+    for enota in vp["vrata"] + vp["prehodi"]:
+        ozn = enota["oznaka"]
+        for naziv, kol, enota_m, kljuc in vrat.kupljene_vrstice(enota["kosovnica"]):
+            vrstice.append((f"VRATA {ozn} — {naziv}", f"{fmt(kol)}", enota_m,
+                            kljuc, float(kol)))
+        for ozn_k, dol, sir_k, kol, opis, _kljuc in enota["kosovnica"]["izdelani"]:
+            vrstice.append((f"VRATA {ozn} — {opis} ({ozn_k})",
+                            f"{kol} × {fmt(dol)} mm", "kos", None,
+                            float(kol)))
+    return vrstice
+
+
+def vrata_vrstice_potrebscine(vp):
+    """Vrstice »VRATA/PREHODI« za tabelo potrebščin na montažnem listu."""
+    vrstice = []
+    for enota in vp["vrata"] + vp["prehodi"]:
+        ozn = enota["oznaka"]
+        g = enota["g"]
+        sir = g["odprtina"]["sirina"]
+        vis_o = g["odprtina"]["visina"]
+        vrstice.append([f"{ozn} ({g['tip']})", f"{fmt(sir)} × {fmt(vis_o)} mm",
+                        "1 kompletno", f"x = {fmt(g['x'])} mm"])
+        for ozn_k, dol, sir_k, kol, opis, _kljuc in enota["kosovnica"]["izdelani"]:
+            vrstice.append([f"  {opis} ({ozn_k})", f"{fmt(dol)} mm",
+                            f"{kol} kos", f"profil {fmt(sir_k)} mm"])
+        for ozn_k, kol, enota_m, _kljuc, opis in enota["kosovnica"]["kupljeni"]:
+            vrstice.append([f"  {opis} ({ozn_k})", "—", f"{fmt(kol)} {enota_m}",
+                            "kupljeno"])
+    return vrstice
+
+
 # ---------------------------------------------------------------- predloga: pokončna
 # KONSTRUKCIJSKA GEOMETRIJA (dokumentirana odločitev — B2):
 #   - stebri stojijo v enakomernih legah (prvi/zadnji ob robovih ograje),
@@ -577,15 +746,22 @@ def narisi_pokoncna(ax, c):
 
     iso_okvir(ax)
 
+    # vrata/prehodi (issue #3) — ista geometrija kot količine in DXF
+    vp = vrata_podatki(c)
+    for op in vp["opozorila"]:
+        _opozori(op)
+
     # ==================== SPREDNJI POGLLED ====================
     oznaka(ax, 30, 286, "SPREDNJI POGLLED")
     v = Pogled(ax, 35, 206, s)
-    for xr in p["deske_x"]:                    # deske (za stebri)
-        v.kocka(xr, p["deske_z"][0], xr + ds, p["deske_z"][1], fill=b_lam)
+    for xr in p["deske_x"]:                    # deske (za stebri), brez odprtin
+        for xa, xb in razdeli_po_odprtinah(xr, xr + ds, vp["odprtine"]):
+            v.kocka(xa, p["deske_z"][0], xb, p["deske_z"][1], fill=b_lam)
     for xc in p["centri"]:                     # stebri (pred deskami)
         v.kocka(xc - ss / 2, 0, xc + ss / 2, vis, fill=b_pro)
         v.kocka(xc - ss / 2 - 15, 0, xc + ss / 2 + 15, 6, fill=b_pro)  # osnova
     v.kocka(0, vis - rv, sir, vis, fill=b_pro)  # ročaj
+    narisi_odprtine_in_vrata(ax, v, vp, b_lam, b_pro, s)
     tla(ax, v.X(-3), v.X(sir + 3), v.Y(0))
     # vijaki (pika = priključek deska↔steber; 2 vijaka na stik — deska v
     # polju se pritrdi na OBА sosednja stebra = 4 vijake na desko)
@@ -850,10 +1026,17 @@ def narisi_ogrado(ax, c):
 
     iso_okvir(ax)
 
+    # vrata/prehodi (issue #3) — ista geometrija kot količine in DXF
+    vp = vrata_podatki(c)
+    for op in vp["opozorila"]:
+        _opozori(op)
+
     # ==================== SPREDNJI POGLLED ====================
     oznaka(ax, 30, 286, "SPREDNJI POGLLED")
     v = Pogled(ax, 35, 206, s)
-    narisi_zgradbo(v, zg, sp, lamele, 0, sir, b_lam, b_pro)
+    for xa, xb in razdeli_po_odprtinah(0, sir, vp["odprtine"]):
+        narisi_zgradbo(v, zg, sp, lamele, xa, xb, b_lam, b_pro)
+    narisi_odprtine_in_vrata(ax, v, vp, b_lam, b_pro, s)
     tla(ax, v.X(-3), v.X(sir + 3), v.Y(0))
     # lega pritrdilnih nosilcev (kos 4): črtkane linije + puščice na tleh,
     # vijaki/piščavniki na vsaki lameli; kotira se DEJANSKI razmak (A4)
@@ -1360,20 +1543,46 @@ def narisi_montazni_list(ax, c):
     vijak_lamela_naziv = c.get("vijak_lamela") or "RF vijak M8×70 (lamela↔profil)"
     vijak_nosilec_naziv = c.get("vijak_nosilec") or         f"Pritrdilni vijaki za {podlaga or 'podlago'}"
 
+    # vrata/prehodi (issue #3) — vplivajo na polnilo, količine in razrez
+    vp = vrata_podatki(c)
+    for op in vp["opozorila"]:
+        _opozori(op)
+
     # rezalni načrt — EN VIR RESNICE (razrez_podatki): A3/A5/B1
-    rp = razrez_podatki(sir, n, c, oznaka="L", glava="LAMELE ŠT.")
+    if vp["odprtine"]:
+        # lamele so razrezane okoli odprtin — kosi različnih dolžin
+        kosi_l = []
+        for _z0, _z1 in lamele:
+            for xa, xb in razdeli_po_odprtinah(0, sir, vp["odprtine"]):
+                kosi_l.append((f"L{len(kosi_l) + 1}", xb - xa))
+        rp = razrez_kosov_podatki(kosi_l, c, oznaka="L", glava="LAMELE ŠT.")
+        uporabno_m = sum(d for _o, d in kosi_l) / 1000.0
+    else:
+        rp = razrez_podatki(sir, n, c, oznaka="L", glava="LAMELE ŠT.")
+        uporabno_m = n * sir / 1000.0
     traki = rp["traki"]
     rez_rows = rp["rez_rows"]
     viz_traki = rp["viz_traki"]
     kos_iz_ost = rp["iz_ost_kos"]
+    if vp["vrata"] or vp["prehodi"]:
+        # kosi okvirjev/kril vrat — ločen rez (različni profili)
+        kos_v = []
+        for enota in vp["vrata"] + vp["prehodi"]:
+            for ozn_k, dol, _sir_k, kol, _op, _kl in enota["kosovnica"]["izdelani"]:
+                for _ in range(int(kol)):
+                    kos_v.append((f"{enota['oznaka']}-{ozn_k}", float(dol)))
+        if kos_v:
+            rv = razrez_kosov_podatki(kos_v, c, oznaka="V", glava="VRATA ŠT.")
+            rp["rez_rows"] += rv["rez_rows"][1:]
+            rp["viz_traki"] += rv["viz_traki"]
     palice = stevilo_palic(sir, 2, dl_palice, kerf)  # 2 U-profila dolžine sir
     pot = [
         [f"WPC deska {profil}",
          " + ".join(f"{t} × {fmt(B)} mm" for B, t in traki_nabava(traki))
          or f"{fmt(dl_deske)} mm", f"{len(traki)} kos",
-         (f"za {fmt((n - kos_iz_ost) * sir / 1000)} m lamel; {kos_iz_ost} kos iz "
+         (f"za {fmt(uporabno_m)} m lamel; {kos_iz_ost} kos iz "
           f"ostankov" if kos_iz_ost else
-          f"skupaj {fmt(n * sir / 1000)} m lamel")],
+          f"skupaj {fmt(uporabno_m)} m lamel")],
         ["Alu profili 80×40 (zg.) + 60×40 (sp.)", f"{fmt(dl_palice)} mm",
          f"{palice} kos", f"obe sta dolgi {fmt(sir)} mm"],
         ["Nosilni nosilec 50×50×5", "—", f"{n_nos} kos",
@@ -1385,6 +1594,7 @@ def narisi_montazni_list(ax, c):
     if kos_iz_ost:
         pot.insert(1, ["Uporabljeni ostanki (iz skladišča)", "—",
                        f"{kos_iz_ost} kos", "ni nabave"])
+    pot += vrata_vrstice_potrebscine(vp)   # VRATA/PREHODI (issue #3)
 
     koraki = [
         "Preveri dejanske mere objekta in primerjaj z risbo.",
@@ -1413,7 +1623,7 @@ def narisi_montazni_list(ax, c):
             f"{fmt(m['odcep'])} (odcep)", fontsize=6.5, color="#555555",
             ha="left", va="center")
     por_m = sum(B for B, _ in traki) / 1000
-    odp_m = por_m - n * sir / 1000
+    odp_m = por_m - uporabno_m
     ax.text(20, y_iz - 5, f"PORABA: nabavne deske {len(traki)} kos = "
             f"{por_m:.2f} m • odpad {odp_m:.2f} m "
             f"({odp_m / por_m * 100:.0f} %) • alu palice {palice} kos = "
@@ -1443,6 +1653,11 @@ def narisi_montazni_list(ax, c):
         f"- {vijak_nosilec_naziv} — {n_nos * 2} kos",
     ]
     kosovnica = rp["kosovnica"]
+    for enota in vp["vrata"] + vp["prehodi"]:
+        for ozn_k, dol, _sir_k, kol, _op, _kl in enota["kosovnica"]["izdelani"]:
+            for _ in range(int(kol)):
+                kosovnica.append((f"{enota['oznaka']}-{ozn_k}", dol, "vrata",
+                                  barva))
     wpc_postavke = [f"{B / 1000:.1f} m ({t} kos)"
                     for B, t in traki_nabava(traki)]
     kolicine = {"postavke": [
@@ -1459,6 +1674,10 @@ def narisi_montazni_list(ax, c):
     "ostanki_posodobitev": rp["ostanki_posodobitev"],
     "kosovnica": kosovnica,
     }
+    if vp["vrata"] or vp["prehodi"]:
+        kolicine["postavke"] += vrata_vrstice_kolicin(vp)
+        kolicine["narocilo"] += "\n\nVRATA/PREHODI:\n" + "\n".join(
+            f"- {vr[0]}: {vr[1]} {vr[2]}" for vr in vrata_vrstice_potrebscine(vp))
     return {"postavke": kolicine["postavke"], "narocilo": kolicine["narocilo"],
             "ostanki_posodobitev": kolicine["ostanki_posodobitev"],
             "kosovnica": kolicine["kosovnica"]}
@@ -1482,22 +1701,45 @@ def narisi_montazni_pokoncna(ax, c):
     dl_palice = c.get("dolzina_palice", 6000)
     kerf = c.get("kerf", 3.0)
 
+    # vrata/prehodi (issue #3) — deske, ki jih seka odprtina, se razrežejo
+    vp = vrata_podatki(c)
+    for op in vp["opozorila"]:
+        _opozori(op)
+    if vp["odprtine"]:
+        ds_p = m.get("deska_sirina", 100) or 100
+        kosi_d = []
+        for xr in p["deske_x"]:
+            kosi_d += razdeli_po_odprtinah(xr, xr + ds_p, vp["odprtine"])
+        n_eff = len(kosi_d)
+    else:
+        n_eff = n_d
+
     # rezalni načrt — EN VIR RESNICE (razrez_podatki): A3/A5/B1
-    rp = razrez_podatki(deska_h, n_d, c, oznaka="D", glava="DESKE ŠT.")
+    rp = razrez_podatki(deska_h, n_eff, c, oznaka="D", glava="DESKE ŠT.")
     traki = rp["traki"]
     rez_rows = rp["rez_rows"]
     viz_traki = rp["viz_traki"]
     kos_iz_ost = rp["iz_ost_kos"]
+    if vp["vrata"] or vp["prehodi"]:
+        kos_v = []
+        for enota in vp["vrata"] + vp["prehodi"]:
+            for ozn_k, dol, _sir_k, kol, _op, _kl in enota["kosovnica"]["izdelani"]:
+                for _ in range(int(kol)):
+                    kos_v.append((f"{enota['oznaka']}-{ozn_k}", float(dol)))
+        if kos_v:
+            rv = razrez_kosov_podatki(kos_v, c, oznaka="V", glava="VRATA ŠT.")
+            rp["rez_rows"] += rv["rez_rows"][1:]
+            rp["viz_traki"] += rv["viz_traki"]
     palice_s = stevilo_palic(vis, n_s, dl_palice, kerf)  # regresija agregatne formule
-    vijaki = n_d * 4   # 2 vijaka na stik × 2 sosednja stebra (deska v polju)
+    vijaki = n_eff * 4   # 2 vijaka na stik × 2 sosednja stebra (deska v polju)
     pot = [
         [f"WPC deska {profil}",
          " + ".join(f"{t} × {fmt(B)} mm" for B, t in traki_nabava(traki))
          or f"{fmt(dl_deske)} mm", f"{len(traki)} kos",
-         (f"za {fmt((n_d - kos_iz_ost) * deska_h / 1000)} m desek; "
+         (f"za {fmt((n_eff - kos_iz_ost) * deska_h / 1000)} m desek; "
           f"{kos_iz_ost} kos iz ostankov"
           if kos_iz_ost else
-          f"skupaj {fmt(n_d * deska_h / 1000)} m desek")],
+          f"skupaj {fmt(n_eff * deska_h / 1000)} m desek")],
         ["Alu steber 60×40", f"{fmt(dl_palice)} mm", f"{palice_s} kos",
          f"{n_s} stebrov (L = {fmt(vis)} mm)"],
         ["Ročaj (WPC/alu)", f"{fmt(sir)} mm", "1 kos",
@@ -1509,6 +1751,7 @@ def narisi_montazni_pokoncna(ax, c):
         [vijak_nosilec_naziv, "—", f"{n_s * 2} kos",
          f"2 na osnovo • sidranje ≥ 60 mm (beton C20/25)"],
     ]
+    pot += vrata_vrstice_potrebscine(vp)   # VRATA/PREHODI (issue #3)
     if kos_iz_ost:
         pot.insert(1, ["Uporabljeni ostanki (iz skladišča)", "—",
                        f"{kos_iz_ost} kos", "ni nabave"])
@@ -1567,7 +1810,7 @@ def narisi_montazni_pokoncna(ax, c):
             f"deske po poljih med stebri, vrzel {fmt(p['vrzel'])} mm",
             fontsize=6.5, color="#555555", ha="left", va="center")
     por_s = sum(B for B, _ in traki) / 1000
-    odp_s = por_s - n_d * deska_h / 1000
+    odp_s = por_s - n_eff * deska_h / 1000
     ax.text(20, y_iz - 5, f"PORABA: nabavne deske {len(traki)} kos = "
             f"{por_s:.2f} m • odpad {odp_s:.2f} m "
             f"({odp_s / por_s * 100:.0f} %) • alu palice {palice_s} kos = "
@@ -1578,6 +1821,12 @@ def narisi_montazni_pokoncna(ax, c):
     kosovnica = rp["kosovnica"]
     wpc_postavke = [f"{B / 1000:.1f} m ({t} kos)"
                     for B, t in traki_nabava(traki)]
+    v_vrst = vrata_vrstice_kolicin(vp)
+    for enota in vp["vrata"] + vp["prehodi"]:
+        for ozn_k, dol, _sir_k, kol, _op, _kl in enota["kosovnica"]["izdelani"]:
+            for _ in range(int(kol)):
+                kosovnica.append((f"{enota['oznaka']}-{ozn_k}", dol, "vrata",
+                                  barva))
     return {"postavke": [
         (f"WPC deske {profil} (nabava: " + " + ".join(wpc_postavke) + ")",
          f"{fmt(por_s)} m", "m", "wpc_deska_m", por_s),
@@ -1587,8 +1836,10 @@ def narisi_montazni_pokoncna(ax, c):
         ("Osnove za steber", f"{n_s}", "kos", "osnova_kos", n_s),
         (vijak_lamela_naziv, f"{vijaki}", "kos", "vijak_kos", vijaki),
         (vijak_nosilec_naziv, f"{n_s * 2}", "kos", "anker_kos", n_s * 2),
-    ],
-    "narocilo": "\n".join(nar),
+    ] + v_vrst,
+    "narocilo": "\n".join(nar) + (("\n\nVRATA/PREHODI:\n" + "\n".join(
+        f"- {vr[0]}: {vr[1]} {vr[2]}" for vr in vrata_vrstice_potrebscine(vp)))
+        if vp["vrata"] or vp["prehodi"] else ""),
     "ostanki_posodobitev": rp["ostanki_posodobitev"],
     "kosovnica": kosovnica}
 
@@ -1708,6 +1959,12 @@ def preveri_cfg(cfg):
             pass  # manjkajoče mere že javijo spodnji preverbi
     if cfg.get("foto") and not os.path.isfile(cfg["foto"]):
         nap.append(f"Fotografija ne obstaja: {cfg['foto']}")
+    # vrata/prehodi (issue #3) — le če so prisotni (brez vrat ni dodatnih napak)
+    if cfg.get("vrata") or cfg.get("prehodi"):
+        try:
+            nap += vrata_podatki(cfg)["napake"]
+        except (TypeError, ValueError, KeyError) as e:
+            nap.append(f"Vrata/prehodi: {e}")
     return nap
 
 
@@ -1825,7 +2082,13 @@ ZADNJA_OPOZORILA = []   # opozorila zadnjega generiraj() (npr. padel list 2)
 
 
 def _opozori(sporocilo):
-    """Zabeleži opozorilo o nepopolnem dokumentu (A1): vidno uporabniku."""
+    """Zabeleži opozorilo o nepopolnem dokumentu (A1): vidno uporabniku.
+
+    Enaka opozorila se zabeležijo le enkrat (vrata se preverjajo v več
+    pogledih — brez podvajanja).
+    """
+    if sporocilo in ZADNJA_OPOZORILA:
+        return
     ZADNJA_OPOZORILA.append(sporocilo)
     print("OPOZORILO: " + sporocilo, file=sys.stderr)
 
@@ -1945,6 +2208,8 @@ def main():
     ap.add_argument("-o", "--izhod", help="ime izhodne PDF datoteke")
     ap.add_argument("--potrosi-ostanke", action="store_true",
                     help="odpiše porabljene ostanke iz ostanki.yaml")
+    ap.add_argument("--dxf", action="store_true",
+                    help="izvozi tudi DXF za CAD/CNC (ezdxf, mm 1:1)")
     a = ap.parse_args()
 
     cfg = nalozi_konf(a.konf) if a.konf else interaktivno()
@@ -1958,6 +2223,13 @@ def main():
 
     print(f"[OK] Risba:    {izhod}")
     print(f"[OK] Predogled: {png}")
+    if a.dxf:
+        try:
+            import dxf_izvoz
+            pot_dxf, por = dxf_izvoz.izvozi_dxf(cfg)
+            print(f"[OK] DXF:      {pot_dxf}")
+        except Exception as e:
+            sys.exit(f"Napaka pri DXF izvozu: {e}")
     for p in dodatni:
         print(f"[OK] Dodatno: {p}")
     if a.potrosi_ostanke:
