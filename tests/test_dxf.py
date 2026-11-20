@@ -22,7 +22,7 @@ def cfg_osnovni(tmp_path):
         "stranka": "Naročnik Šček",
         "izhod": str(tmp_path / "T-001.pdf"),
         "predloga": "ograja",
-        "mere": {"sirina": 3000, "visina": 1200},
+        "mere": {"sirina": 3000, "visina": 2300, "odcep": 60},
     }
 
 
@@ -132,8 +132,8 @@ def test_bbox_realno_merilo(cfg_osnovni):
 def test_vrata_v_dxf_so_pravih_mer(cfg_z_vrati):
     pot, _ = dxf_izvoz.izvozi_dxf(cfg_z_vrati)
     doc = ezdxf.readfile(pot)
-    # Odprtina: sirina 1000, H_o = visina - odcep = 1200 - 60 = 1140.
-    g = vrata.geometrija_vrat(cfg_z_vrati["vrata"][0], 1000, 1140)
+    # Odprtina vrat: sirina 1000, H_o = 2000 (višina vrat iz konfiguracije).
+    g = vrata.geometrija_vrat(cfg_z_vrati["vrata"][0], 1000, 2000)
     w_k = g["sirine_kril"][0]                        # 990 mm
     assert w_k == 990.0
     # Kontura krila (OUTLINE): w_k x (h_k - 40) — glej vrata.elementi_vrat.
@@ -177,10 +177,13 @@ def test_segmenti_zamaknjeni_brez_prekrivanja(tmp_path):
         "ime": "Segmenti",
         "izhod": str(tmp_path / "S-001.pdf"),
         "segmenti": [
-            {"ime": "S1", "tip": "ograja", "mere": {"sirina": 2400, "visina": 1200},
-             "prehodi": [{"x": 500, "sirina": 1000}]},
-            {"ime": "S2", "tip": "ograja", "mere": {"sirina": 2000, "visina": 1200},
-             "vrata": [{"tip": "dvokrilna", "x": 300, "sirina": 1600, "visina": 2000}]},
+            {"ime": "S1", "tip": "ograja", "mere": {"sirina": 2400, "visina": 2300,
+                                               "odcep": 60},
+             "prehodi": [{"x": 500, "sirina": 1000, "visina": 2000}]},
+            {"ime": "S2", "tip": "ograja", "mere": {"sirina": 2000, "visina": 2300,
+                                               "odcep": 60},
+             "vrata": [{"tip": "dvokrilna", "x": 300, "sirina": 1600,
+                        "visina": 2000}]},
         ],
     }
     pot, por = dxf_izvoz.izvozi_dxf(cfg)
@@ -192,6 +195,16 @@ def test_segmenti_zamaknjeni_brez_prekrivanja(tmp_path):
     # S1: 0–2400, razmak 1000, S2: 3400–5400 — brez prekrivanja.
     assert max(xs) == pytest.approx(5400.0, abs=1e-6)
     assert not any(2400.0 + 1e-6 < x < 3400.0 - 1e-6 for x in xs)
+
+
+def test_dxf_ne_obstoji_ob_zavrnitvi(cfg_osnovni):
+    # Višina vrat z odcepom presega ograjo -> izvoz zavrne, brez datoteke.
+    cfg = dict(cfg_osnovni)
+    cfg["vrata"] = [{"tip": "enokrilna", "x": 0, "sirina": 900,
+                     "visina": 3000}]
+    with pytest.raises(ValueError, match="presega"):
+        dxf_izvoz.izvozi_dxf(cfg)
+    assert not os.path.exists(str(cfg_osnovni["izhod"]).replace(".pdf", ".dxf"))
 
 
 def test_opombe_vsebujejo_omejitve_cnc(cfg_osnovni):

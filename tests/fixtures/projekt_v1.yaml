@@ -1,0 +1,28 @@
+# Primer projekta v shemi v1 (issue #2) — brez ključa "shema".
+# Uporablja se za test migracije v1 → v2.
+ime: "PO-V1"
+risba_st: "PO-001"
+stranka: "Naročnik Žarn"
+datum: "01.06.2026"
+merilo: "auto"
+izhod: "PO-001.pdf"
+predloga: "ograja"
+barva: "Antracit"
+profil: "ROMB 67"
+material_lamel: "WPC"
+dolzina_deske: 5800
+dolzina_palice: 6000
+kerf: 3.0
+uporabi_ostanke: false
+faktor: 0.35
+mere:
+  sirina: 3000
+  visina: 1200
+  globina: 120
+  odcep: 250
+  lamela_v: 120
+  lamele: 6
+  vrzel: 30
+  profil_v: 80
+  razmak_nosilcev: 1000
+lastno_polje_v1: "ohranjeno pri migraciji"
