@@ -31,3 +31,6 @@ _jezik.py
 _patch*
 _popravki.py
 ostanki.yaml
+
+# lokalni testni izhodi
+.test/
