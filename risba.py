@@ -576,8 +576,12 @@ def vrata_podatki(c):
                     f"{oz}: odprtina seka nosilec/steber "
                     f"({fmt(pa)}–{fmt(pb)} mm) — preveri izvedbo.")
                 break
+    # issue #6: višino odprtine preverimo DEJANSKO (ne višino ograje)
+    visine_odprtin = {e["oznaka"]: e["g"]["odprtina"]["visina"]
+                      for e in izhod["vrata"] + izhod["prehodi"]}
     izhod["napake"] += vrat.preveri_odprtine(
-        [(a, b - a, vis, oz) for a, b, oz in izhod["odprtine"]], sir, vis)
+        [(a, b - a, visine_odprtin.get(oz, vis), oz)
+         for a, b, oz in izhod["odprtine"]], sir, vis)
     return izhod
 
 
@@ -688,7 +692,13 @@ def proizvodni_model(c):
     m = c.get("mere") or {}
     vp = vrata_podatki(c)
     odprtine = vp["odprtine"]
-    if (c.get("predloga") or "ograja") == "pokončna":
+    predloga = c.get("predloga") or "ograja"
+    # issue #6 (past pod-agenta): neznana/pomotoma zapisana predloga (npr.
+    # ASCII "pokoncna") ne sme TIHO pasti v prečno vejo — jasna napaka.
+    if predloga not in ("ograja", "pokončna"):
+        raise ValueError(
+            f"Neznana predloga {predloga!r} (dovoljeno: ograja, pokončna)")
+    if predloga == "pokončna":
         p = razpored_pokoncna(m)
         ds = float(m.get("deska_sirina", 0) or 0)
         n_kosov = 0
@@ -958,7 +968,7 @@ def narisi_pokoncna(ax, c):
                         edgecolor="none", zorder=4))
     ax.add_patch(Circle((cx + 11.5, cy + 13), 1.2, facecolor="#e8e8e8",
                         edgecolor="none", zorder=4))
-    dim_h(ax, cx - 7.5, cx + 7.5, cy + 21, None, None, "60 mm")
+    dim_h(ax, cx - 7.5, cx + 7.5, cy + 21, None, None, f"{fmt(ss)} mm")
     ax.add_patch(Circle((cx, cy), r, facecolor="none", edgecolor=CRNA,
                         lw=LW_THICK, zorder=8))
     ax.text(cx, cy - r - 3, "NERAZMERJENO", ha="center", va="center",
@@ -1030,7 +1040,7 @@ def narisi_pokoncna(ax, c):
              f"{model['n_nosilcev']} kos"],
             ["Osnova za steber (vrh)", "Jeklo", c.get("osnova_dim") or "90×90×6",
              f"{model['n_nosilcev']} kos"],
-            [c.get("vijak_lamela") or "Vijaki M8×70 (deska↔steber)",
+            [vijak_lamela_naziv,
              pritrdilo_material(c.get("vijak_lamela")),
              vijak_dim(c.get("vijak_lamela")), f"{model['vijaki_element']} kos"],
             [vijak_nosilec_naziv, pritrdilo_material(vijak_nosilec_naziv),
@@ -1661,7 +1671,13 @@ def narisi_montazni_list(ax, c):
             rv = razrez_kosov_podatki(kos_v, c, oznaka="V", glava="VRATA ŠT.")
             rp["rez_rows"] += rv["rez_rows"][1:]
             rp["viz_traki"] += rv["viz_traki"]
-    palice = stevilo_palic(sir, 2, dl_palice, kerf)  # 2 U-profila dolžine sir
+    # 2 U-profila (zgornji + spodnji) sta RAZLIČNI sekciji — vsaka svoja zaloga
+    palice_zg = stevilo_palic(sir, 1, dl_palice, kerf)
+    palice_sp = stevilo_palic(sir, 1, dl_palice, kerf)
+    palice = palice_zg + palice_sp
+    dim_zg = c.get("profil_zg_dim") or "80×40×3"
+    dim_sp = c.get("profil_sp_dim") or "60×40×3"
+    dim_nos = c.get("nosilec_dim") or "50×50×5"
     pot = [
         [f"WPC deska {profil}",
          " + ".join(f"{t} × {fmt(B)} mm" for B, t in traki_nabava(traki))
@@ -1669,10 +1685,11 @@ def narisi_montazni_list(ax, c):
          (f"za {fmt(uporabno_m)} m lamel; {kos_iz_ost} kos iz "
           f"ostankov" if kos_iz_ost else
           f"skupaj {fmt(uporabno_m)} m lamel")],
-        [f"Alu profili {c.get('profil_zg_dim') or '80×40×3'} (zg.) + "
-         f"{c.get('profil_sp_dim') or '60×40×3'} (sp.)", f"{fmt(dl_palice)} mm",
-         f"{palice} kos", f"obe sta dolgi {fmt(sir)} mm"],
-        [f"Nosilni nosilec {c.get('nosilec_dim') or '50×50×5'}", "—",
+        [f"Alu profil {dim_zg} (zgornji)", f"{fmt(dl_palice)} mm",
+         f"{palice_zg} kos", f"dolg {fmt(sir)} mm"],
+        [f"Alu profil {dim_sp} (spodnji)", f"{fmt(dl_palice)} mm",
+         f"{palice_sp} kos", f"dolg {fmt(sir)} mm"],
+        [f"Nosilni nosilec {dim_nos}", "—",
          f"{n_nos} kos",
          f"razmak ≤ {fmt(raz)} mm • dejanski {fmt(round(razmak_dejanski))} mm"],
         [vijak_lamela_naziv, "—", f"{vijaki} kos",
@@ -1732,13 +1749,16 @@ def narisi_montazni_list(ax, c):
         + "".join(f" — {t} kos × {fmt(B)} mm" for B, t in traki_nabava(traki))
         + (f" + {kos_iz_ost} kos iz ostankov" if kos_iz_ost else ""),
         "",
-        "PROFILI (aluminij):",
-        f"- {c.get('profil_zg_dim') or '80×40×3'} — {palice} kos × {fmt(dl_palice)} mm "
-        f"(razrez: 2 × {fmt(sir)} mm)",
+        "PROFILI (aluminij) — vsaka sekcija svoja zaloga:",
+        f"- {dim_zg} (zgornji) — {palice_zg} kos × {fmt(dl_palice)} mm "
+        f"(razrez: 1 × {fmt(sir)} mm)",
+        f"- {dim_sp} (spodnji) — {palice_sp} kos × {fmt(dl_palice)} mm "
+        f"(razrez: 1 × {fmt(sir)} mm)",
         "",
         "PRITRDILNI MATERIAL:",
         f"- {vijak_lamela_naziv} — {vijaki} kos",
         f"- {vijak_nosilec_naziv} — {n_nos * 2} kos",
+        f"- Nosilni nosilec {dim_nos} — {n_nos} kos",
     ]
     kosovnica = rp["kosovnica"]
     for enota in vp["vrata"] + vp["prehodi"]:
@@ -1753,7 +1773,7 @@ def narisi_montazni_list(ax, c):
          f"{fmt(por_m)} m", "m", "wpc_deska_m", por_m),
         ("Alu profili (nabava)", f"{palice} kos = {fmt(por_alu)} m", "m",
          "alu_m", por_alu),
-        ("Nosilni nosilci 50×50×5", f"{n_nos}", "kos", "nosilec_kos", n_nos),
+        (f"Nosilni nosilci {dim_nos}", f"{n_nos}", "kos", "nosilec_kos", n_nos),
         (vijak_lamela_naziv, f"{vijaki}", "kos", "vijak_kos", vijaki),
         (vijak_nosilec_naziv, f"{n_nos * 2}", "kos", "fasadni_kos",
          n_nos * 2),
