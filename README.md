@@ -80,10 +80,10 @@ measurement assistant.
 | #2 | P0/P1 popravki izračunov, PDF, ostanki + regresijski testi (74) | ✅ zaprt (PR #4) |
 | #3 | Vrata, prehodi, segmenti, DXF/CNC (61 novih testov) | ✅ zaprt (PR #7) |
 | #5 | Strokovna analiza in razvojni načrt (primerjava z DrawAFence) | 🔓 odprt |
-| #6 | P0: revizija izračunov, kerfa, razreza + preverjena Windows izdaja | 🔓 odprt |
+| #6 | P0: revizija izračunov, kerfa, razreza + preverjena Windows izdaja | 🔓 odprt (veja `fix/issue-6-p0-revizija`) |
 | #8 | ADD-ON: ograja iz fotografije (ločen modul, brez AI modelov) | 🔓 odprt |
 
-Testi: `python -m pytest tests/` — 135 testov (74 iz #2 + 61 iz #3).
+Testi: `python -m pytest tests/` — 163 testov (74 iz #2 + 61 iz #3 + 28 iz #6).
 
 ## Namestitev
 
@@ -195,18 +195,24 @@ predračun in krog shranjevanja nastavitev v GUI.
 
 ```bash
 python -m pip install pyinstaller
-pyinstaller TehnicnaRisba.spec --noconfirm
-# rezultat: dist/TehnicnaRisba.exe (pribl. 177 MB, brez namestitve)
+python build_windows.py --smoke
+# rezultat: dist/TehnicnaRisba.exe + build-zapisnik.json (hash, različice, smoke)
 ```
 
-Spec vključi risba.py + razrez.py + vmesnik.py; nastavitve se shranijo poleg
-EXE (`zadnje_nastavitve.yaml`), ostanki pa v uporabniško podatkovno mapo
-(`%APPDATA%\TehnicnaRisba`) — ne več v delovno mapo.
+`build_windows.py` je dokumentiran, ponovljiv postopek (različice →
+PyInstaller iz `TehnicnaRisba.spec` → SHA-256 → funkcionalni smoke prek
+neinteraktivnega načina `--brez-zaslona` / `TEHNICNA_RISBA_HEADLESS=1`).
+Spec vključi risba.py + razrez.py + vrata.py + dxf_izvoz.py + migracija.py +
+vmesnik.py; nastavitve se shranijo poleg EXE (`zadnje_nastavitve.yaml`),
+ostanki pa v uporabniško podatkovno mapo (`%APPDATA%\TehnicnaRisba`).
 
-**Poštena izjava o preizkusih:** regresijski testi so bili izvedeni v
-razvojnem okolju Windows 11 / Python 3.11.9 / matplotlib 3.11.2; sam
-izdelani EXE v tem popravku ni bil ponovno zgrajen ali preizkušen — pred
-objavo ga zgradi in preizkusi zgoraj opisanimi koraki.
+**Poštena izjava o preizkusih:** regresijski testi (163) so bili izvedeni v
+razvojnem okolju Windows 10/11 / Python 3.11.9 / matplotlib 3.11.2;
+EXE je bil zgrajen s `build_windows.py` in funkcionalno preizkušen z
+neinteraktivnim smoke testom (PDF 2 strani, preverjen s pypdf) —
+kontrolne vsote v `build-zapisnik.json`. Bit-identičnost izida ni
+zagotovljena (časovni žigi PyInstaller). **Izdaja ni objavljena** —
+objavi jo šele po potrditvi rešitve.
 
 ## Vrata, prehodi, segmenti in DXF (issue #3)
 
@@ -232,6 +238,15 @@ pravilnimi merami, količinami in izvozom za CAD/CNC.
 Pravila količin (tečaji, vijaki, prečke, diagonala) in odločitve so
 dokumentirani v `docs/issue-3-vrata-dxf.md`. **Risba NI statični izračun** —
 nosilnost, sidranje in veterno breme preveri usposobljen strokovnjak.
+
+## Revizija izračunov (issue #6, P0)
+
+Kanonični `proizvodni_model` (en vir resnice za tabele, montažni list,
+količine, kosovnico in naročilo), fizično pravilen model reza (DP
+optimizator, kerf model B), usklajen model vrat (veriga vključuje profile
+okvirja), neodvisni regresijski testi modela reza in ponovljiv Windows
+build (`build_windows.py`). Podrobnosti in dokazila:
+[docs/issue-6-revizija.md](docs/issue-6-revizija.md).
 
 ## Znane omejitve
 
