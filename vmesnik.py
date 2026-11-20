@@ -237,9 +237,9 @@ class App(tk.Tk):
         self._polje(f2, 3, 1, "kerf", 10)
         self._polje(f2, 4, 0, "dolzine_deske", 22)
         self._polje(f2, 4, 1, "dolzina_palice", 10)
-        self.st_ost = tk.BooleanVar(value=True)
+        self.st_ost = tk.BooleanVar(value=False)
         cb_ost = ttk.Checkbutton(
-            f2, text="Uporabi skladišče ostankov (ostanki.yaml)",
+            f2, text=f"Uporabi skladišče ostankov ({risba.pot_ostanki()})",
             variable=self.st_ost)
         cb_ost.grid(row=4, column=2, columnspan=2, sticky="w")
         self.polja.setdefault("uporabi_ostanke", []).append(cb_ost)
@@ -478,6 +478,7 @@ class App(tk.Tk):
             "material": self.v["material"].get().strip() or "Aluminij",
             "podlaga": self.v["podlaga"].get().strip() or None,
             "pritrditev": self.v["pritrditev_nacin"].get().strip() or None,
+            "pritrditev_nacin": self.v["pritrditev_nacin"].get().strip() or None,
             "vijak_lamela": self.v["vijak_lamela"].get().strip() or None,
             "vijak_nosilec": self.v["vijak_nosilec"].get().strip() or None,
             "deli": None, "opombe": None, "mere": m,
@@ -523,7 +524,12 @@ class App(tk.Tk):
         self.btn_cel.config(state="normal")
         if kolicine and kolicine.get("narocilo"):
             self.btn_nar.config(state="normal")
+        # Gumb za odpis ostankov je omogočen LE ob dejanski sprememb
+        # skladišča (B1) — po odpisu ga _odpisi_ostanke onemogoči.
+        if kolicine and kolicine.get("ostanki_posodobitev") is not None:
             self.btn_ost.config(state="normal")
+        else:
+            self.btn_ost.config(state="disabled")
         self.btn_narisi.config(state="normal", text="NARIŠI RISBO")
         dok = " + ".join(os.path.basename(p) for p in dodatni)
         opozorila = list(getattr(risba, "ZADNJA_OPOZORILA", []))
@@ -634,10 +640,14 @@ class App(tk.Tk):
 
         for k in ("ime", "risba_st", "izdelal", "podjetje", "pregledal",
                   "odobril", "stranka", "objekt", "material", "profil",
-                  "barva", "izhod", "foto", "podlaga", "pritrditev_nacin",
+                  "barva", "izhod", "foto", "podlaga",
                   "vijak_lamela", "vijak_nosilec", "material_lamel",
                   "dobavitelj", "kerf", "dolzina_palice"):
             nast(k, cfg.get(k))
+        # "Pritrditev" — krog shranjevanja/preverjanja (B5): zapisujemo
+        # oba ključa, beremo "pritrditev_nacin" s povratnim "pritrditev"
+        nast("pritrditev_nacin",
+             cfg.get("pritrditev_nacin", cfg.get("pritrditev")))
         for k in ("sirina", "visina", "globina", "lamele", "lamela_v",
                   "debelina", "odcep", "razmak_nosilcev", "vrzel"):
             nast(k, (cfg.get("mere") or {}).get(k))
@@ -687,15 +697,17 @@ class App(tk.Tk):
                 self.kolicine.get("ostanki_posodobitev") is not None):
             return
         try:
-            risba.shrani_ostanke(self.kolicine["ostanki_posodobitev"])
+            pot, backup = risba.shrani_ostanke(
+                self.kolicine["ostanki_posodobitev"])
         except Exception as e:
             messagebox.showerror("Ostanki", f"Napaka pri shranjevanju: {e}")
             return
         self.kolicine["ostanki_posodobitev"] = None
         self.btn_ost.config(state="disabled")
-        messagebox.showinfo(
-            "Ostanki", "Porabljeni ostanki so odpisani iz ostanki.yaml "
-            "(v mapi programa).")
+        sporocilo = f"Ostanki so odpisani iz skladišča:\n{pot}"
+        if backup:
+            sporocilo += f"\n\nVarnostna kopija pred prepisom:\n{backup}"
+        messagebox.showinfo("Ostanki", sporocilo)
 
     def _odpri_pdf(self):
         if self.pdf_pot:
@@ -722,6 +734,7 @@ class App(tk.Tk):
 
 if __name__ == "__main__":
     app = App()
-    for k, vred in app._privzeti().items():
-        app.v[k].set(vred)
+    # OPOMBA: privzetih vrednosti tukaj NE pišemo čez app.v — nalaganje
+    # zadnjih nastavitev (App.__init__ -> _nalozi_zadnje) mora ostati
+    # veljavno (regresija: pisanje čez naložene nastavitve).
     app.mainloop()
