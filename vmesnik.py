@@ -675,6 +675,8 @@ class App(tk.Tk):
         self.btn_nar.pack(side="right", padx=8)
         ttk.Button(fb, text="PONUDBA (PDF)",
                    command=self._ponudba_pdf).pack(side="right", padx=(0, 4))
+        ttk.Button(fb, text="3D PREDGLED",
+                   command=self._3d_predogled).pack(side="right", padx=(0, 4))
         self.btn_ost = ttk.Button(fb, text="ODPIŠI OSTANKE", state="disabled",
                                   command=self._odpisi_ostanke)
         self.btn_ost.pack(side="right")
@@ -804,6 +806,24 @@ class App(tk.Tk):
         self.status.config(text=f"Ponudba: {os.path.basename(izhod)}",
                            fg="#1b5e20")
         messagebox.showinfo("Ponudba", f"Ponudba je izdelana:\n{izhod}")
+
+    def _3d_predogled(self):
+        """Odpre shematski 3D prikaz ograje (Plan I)."""
+        try:
+            import tridimenzionalno as t3
+        except ImportError:
+            messagebox.showerror("Manjka modul",
+                                 "Modul tridimenzionalno.py ni najden.")
+            return
+        try:
+            cfg = self._zberi_cfg()
+        except ValueError as e:
+            messagebox.showerror("Napaka pri vnosu", str(e))
+            return
+        try:
+            t3.pokazi_3d(cfg, master=self)
+        except Exception as e:
+            messagebox.showerror("Napaka", f"3D prikaz ni uspel: {e}")
 
     def _zivi_sprememba(self, *_):
         """Sproži osvežitev živega povzetka z debounce (600 ms)."""
