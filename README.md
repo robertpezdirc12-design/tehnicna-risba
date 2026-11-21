@@ -13,6 +13,18 @@ measurement assistant.
 
 ![primer risbe](slike/BO-001-risba.png)
 
+### Faze razvoja (issue #5) — izvedeno
+
+| Faza | Vsebina | Stanje |
+|---|---|---|
+| F1 | P0 popravki pravilnosti (cene/predračun, DXF dolžina, reže, vrata ↔ kosovnica, montažne letve) | ✅ |
+| F2 | Arhitektura: `jedro.py` + `proizvodnja.py` + `risba.py`, snapshoti, CI | ✅ |
+| F3 | Varnost/UX: XSS, rate limit, UA, prag zanesljivosti merjenja | ✅ |
+| F4 | Pilot novih vrst: `nova_vrsta.py` (deklarativna polja, predogled) | ✅ |
+| F5 | CNC izvoz: `cnc.py` (CSV + informativni G-code) | ✅ |
+
+Odpri še iz načrta (P4): dodatni tipi vrat, statični izračun — ločene odločitve.
+
 ## Funkcije
 
 - **Tehnična risba A3** — sprednji/stranski pogled, tloris z rezom A–A, prerez,
