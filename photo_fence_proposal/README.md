@@ -79,3 +79,23 @@ python -m pytest testi_pfp.py -q
 | `testi_pfp.py` | samostojni testi (32) |
 
 Nič v tej mapi se ne priklopi v glavni program brez izrecne odobritve uporabnika.
+## Avtomatska skica (P1) — fotografija → A3 risba
+
+Modula `avtomatska_skica.py` + `rektifikacija.py` iz fotografije narišeta
+profesionalno A3 skico v slogu referenčne tehnične risbe: sprednji pogled z
+dimenzijsko verigo, prečni prerez A-A, detajl 'B', dokazno (rektificirano)
+fotografijo, kosovnico s statusi in naslovni blok.
+
+- **Metrična rektifikacija**: točke izginjanja iz robov (RANSAC, robustno na
+  motnje) → čeln pogled ravnine ograje; izpad → homografija iz 4 klikanih
+  vogalov.
+- **P1 (klik + referenca)**: `--interaktivno` (klik 4 vogalov v oknu) ali
+  `--vogali "x1,y1 x2,y2 x3,y3 x4,y4"` + `--referenca visina_ograje=1050`.
+  S klikanimi vogali in referenco so mere `izracunano` iz trdne geometrije.
+- **Poštenost**: brez reference vse mere `ocenjeno` (standardna lamela);
+  neverodostojne vrednosti so javno zavrnjene (`neznano`) z opozorilom;
+  dokument z negotovo zaznavo NI "pripravljen za izdelavo".
+- **Brez AI modelov**: vse klasični OpenCV + linearna algebra (omejitev #8).
+
+Primer:
+`python avtomatska_skica.py foto.png --izhod skica.pdf --lokacija "Balkon" --referenca visina_ograje=1050 --vogali "0,520 1920,280 1920,830 0,950"`

@@ -225,6 +225,7 @@ def narisi_skico(pod, pot_pdf):
             _kvadrat(ax, 284, 48, 86, 86 * h_img / max(w_img, 1), lw=0.6)
 
         # ============== KOSOVNICA (x 14..146) ==============
+        _oznaka(ax, 14, 44.5, "KOSOVNICA (predvideni material)", vel=7)
         _tabela(ax, 14, 42, [30, 28, 26, 14, 20],
                 [["NAZIV", "MATERIAL", "DIM.", "KOL.", "STATUS"],
                  *pod.get("kosovnica_vrstice", [])], vis=4.4, fs=5.9)
@@ -238,6 +239,7 @@ def narisi_skico(pod, pot_pdf):
                 y -= 3.6
 
         # ============== LEGENDA + NASLOVNI BLOK ==============
+        _oznaka(ax, 262, 44.5, "NASLOVNI BLOK", vel=7)
         ax.text(14, 12, "LEGENDA:  * izmerjeno (kalibrirano)   "
                         "‡ izracunano   ~ ocenjeno (NI potrjeno)   "
                         "?? neznano — potrdi",
@@ -315,11 +317,15 @@ def sestavi_podatke(mere, ritem, slika_rect, lokacija="—",
     }
 
 # ---------------------------------------------------------------- pogon
-def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None):
+def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None, vogali=None):
     """Celoten tok: fotografija → avtomatska A3 skica (PDF).
 
     referenca: (kaj, vrednost_mm) ali None. Brez reference so vse mere
     OCENJENO (standardna lamela) — nikoli izmišljene kot izmerjene.
+
+    vogali: [(x, y) × 4] v slikovnih pikah (TL, TR, BR, BL) — uporabnik
+    klikne vogale ograje (P1). S klikanimi vogali + referenco so mere
+    IZRAČUNANO iz trdne geometrije (ne več le ocena).
     """
     import numpy as np
     import zaznavanje
@@ -329,21 +335,40 @@ def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None):
     if slika is None:
         raise ValueError(f"Slike ni mogoče odpreti: {slika_pot}")
     zaznava = zaznavanje.zaznaj(slika_pot)
-    rect, _H, meta = rektifikacija.rektificiraj(slika, zaznava.obmocje_ograje_px)
+    obmocje = (list(vogali) if vogali else zaznava.obmocje_ograje_px)
+    rect, _H, meta = rektifikacija.rektificiraj(slika, obmocje)
     ritem = rektifikacija.lamelni_ritem(rect)
-    # pas OGRAJE (ne cele slike!) — skala in mere merijo pas lamel
-    pas = rektifikacija.pas_ograje(rect, ritem.get("pitch_px"))
-    if pas:
-        y0, y1, x0, x1 = pas
-        vis_px = float(y1 - y0)
-        sir_px = float(x1 - x0)
-    else:
+    if vogali:
+        # klikani vogali = ograja sama → merimo celotno rektificirano polje
         y0, y1, x0, x1 = 0, rect.shape[0], 0, rect.shape[1]
         vis_px = float(rect.shape[0])
         sir_px = float(rect.shape[1])
-    rect_pas = rect[y0:y1, x0:x1] if pas else rect
-    mm_na_px, meritev_skale = rektifikacija.skala_mm(
-        ritem, referenca, visina_slike_px=vis_px)
+    else:
+        # pas OGRAJE (ne cele slike!) — skala in mere merijo pas lamel
+        pas = rektifikacija.pas_ograje(rect, ritem.get("pitch_px"))
+        if pas:
+            y0, y1, x0, x1 = pas
+            vis_px = float(y1 - y0)
+            sir_px = float(x1 - x0)
+        else:
+            y0, y1, x0, x1 = 0, rect.shape[0], 0, rect.shape[1]
+            vis_px = float(rect.shape[0])
+            sir_px = float(rect.shape[1])
+    rect_pas = rect[y0:y1, x0:x1]
+    if vogali and referenca:
+        kaj_ref, vrednost_ref = referenca
+        if kaj_ref == "visina_ograje":
+            mm_na_px = float(vrednost_ref) / max(vis_px, 1e-9)
+        elif kaj_ref == "dolzina_ograje":
+            mm_na_px = float(vrednost_ref) / max(sir_px, 1e-9)
+        else:
+            raise ValueError(f"Neznana referenca {kaj_ref!r} — dovoljeni: "
+                             "'visina_ograje', 'dolzina_ograje'")
+        meritev_skale = Mera(float(vrednost_ref), IZMERJENO,
+                             f"{kaj_ref} (referenca uporabnika + klikani vogali)")
+    else:
+        mm_na_px, meritev_skale = rektifikacija.skala_mm(
+            ritem, referenca, visina_slike_px=vis_px)
 
     mere = {}
     opozorila = list(zaznava.opozorila) + list(meta.get("opozorila") or [])
@@ -353,6 +378,8 @@ def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None):
     def _st(ref):
         if referenca is not None and ref:
             return IZMERJENO
+        if vogali and referenca is not None:
+            return IZRACUNANO   # trdna geometrija klikanih vogalov
         if referenca is not None and not negotova:
             return IZRACUNANO
         return OCENJENO
@@ -382,7 +409,8 @@ def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None):
                         f"izračunana vrednost {v:.0f} mm ni fizično "
                         "verodostojna — zavrnjena")
         return Mera(v, status, opis
-                    + (" — zaznava NEGOTOVA, ocena!" if negotova else ""))
+                    + ((" — zaznava NEGOTOVA, ocena!" if negotova and not vogali
+                        else "")))
 
     if mm_na_px and n_lam and ritem.get("pitch_px"):
         vis_mm = vis_px * mm_na_px
@@ -420,6 +448,25 @@ def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None):
     return narisi_skico(pod, pot_pdf), pod
 
 
+def izberi_vogale(slika_pot):
+    """Interaktivni klik 4 vogalov ograje (TL, TR, BR, BL) na sliki.
+
+    Odpri okno, klikni 4 vogale po vrsti. Deluje le v GUI-okuolju;
+    za avtomatsko pot uporabi --vogali s koordinatami.
+    """
+    slika = cv2.imread(slika_pot)
+    if slika is None:
+        raise ValueError(f"Slike ni mogoče odpreti: {slika_pot}")
+    fig = plt.figure()
+    plt.imshow(cv2.cvtColor(slika, cv2.COLOR_BGR2RGB))
+    plt.title("Klikni 4 VOGALE ograje po vrsti: TL, TR, BR, BL")
+    tocke = plt.ginput(4, timeout=0)
+    plt.close(fig)
+    if len(tocke) != 4:
+        raise ValueError("Potrebni so točno 4 kliki (TL, TR, BR, BL).")
+    return [(float(x), float(y)) for x, y in tocke]
+
+
 def main():
     import argparse
     ap = argparse.ArgumentParser(description="Avtomatska A3 skica iz fotografije")
@@ -427,14 +474,27 @@ def main():
     ap.add_argument("--izhod", required=True, help="izhodni PDF")
     ap.add_argument("--lokacija", default="—")
     ap.add_argument("--referenca", default=None,
-                    help="npr. visina_ograje=1050 (mm)")
+                    help="npr. visina_ograje=1050 ali dolzina_ograje=4200 (mm)")
+    ap.add_argument("--vogali", default=None,
+                    help="4 vogali ograje v pikah: 'x1,y1 x2,y2 x3,y3 x4,y4' "
+                         "(TL, TR, BR, BL)")
+    ap.add_argument("--interaktivno", action="store_true",
+                    help="klikni vogale v oknu slike")
     args = ap.parse_args()
     ref = None
     if args.referenca:
         kaj, v = args.referenca.split("=")
         ref = (kaj.strip(), float(v))
+    vogali = None
+    if args.interaktivno:
+        vogali = izberi_vogale(args.fotografija)
+    elif args.vogali:
+        vogali = [tuple(float(t) for t in par.split(","))
+                  for par in args.vogali.split()]
+        if len(vogali) != 4:
+            raise ValueError("--vogali zahteva točno 4 točke.")
     pot, pod = generiraj(args.fotografija, args.izhod,
-                         lokacija=args.lokacija, referenca=ref)
+                         lokacija=args.lokacija, referenca=ref, vogali=vogali)
     print("Skica:", pot)
     for ime, m in sorted(pod["mere"].items()):
         print(f"  {ime}: {m.oznaka}")

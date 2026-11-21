@@ -617,6 +617,7 @@ def test_avtomatska_skica_pdf_vsebina(tmp_path):
     assert pot2 == pot and os.path.getsize(pot) > 5000
     t = PdfReader(pot).pages[0].extract_text()
     for kljuc in ("SPREDNJI POGLLED", "PRESEZ A-A", "DETAJL",
+                  "NASLOVNI BLOK", "KOSOVNICA", "izmerjeno", "izracunano",
                   "NASLOV", "LOKACIJA: TEST", "LEGENDA"):
         assert kljuc in t, kljuc
     # referenčna višina je potrjena
@@ -633,3 +634,63 @@ def test_avtomatska_skica_brez_reference_ne_izmisljuje(tmp_path):
         # brez reference NIČ ni 'izmerjeno' — samo ocenjeno/izracunano/neznano
         assert m.status != "izmerjeno", (ime, m.status)
     assert any("Brez referenčne mere" in o for o in pod["opombe"])
+
+
+def test_vp_ransac_z_outlierji():
+    """RANSAC najde točko izginjanja tudi ob 40 % motnjah."""
+    import numpy as np
+    import rektifikacija
+    rng = np.random.default_rng(7)
+    resnica = np.array([900.0, 300.0])       # prava točka izginjanja
+    linije = []
+    for _ in range(25):                      # prave premice skozi resnico
+        p = np.array([rng.uniform(0, 600), rng.uniform(0, 400)])
+        d = resnica - p
+        d /= np.linalg.norm(d)
+        linije.append((p, d))
+    for _ in range(18):                      # motnje (naključne smeri)
+        p = np.array([rng.uniform(0, 600), rng.uniform(0, 400)])
+        k = rng.uniform(0, np.pi)
+        linije.append((p, np.array([np.cos(k), np.sin(k)])))
+    v = rektifikacija.vp_ransac(linije, prag=2.0)
+    assert v is not None
+    assert np.linalg.norm(v - resnica) < 30.0, v
+
+
+def test_vogali_in_referenca_natančno_izmerita(tmp_path):
+    """P1: klikani vogali + 1 referenca -> mere iz trdne geometrije.
+
+    Sintetični prizor: plošča 2400x1200 mm zavita v perspektivo (trapez),
+    znani vogali. Referenca visina=1200 -> dolžina mora biti ~2400 mm.
+    """
+    import numpy as np
+    import cv2
+    import avtomatska_skica
+
+    # izvorna plošča (2 mm/px): lamele
+    Wp, Hp = 1200, 600
+    plosca = np.full((Hp, Wp), 235, dtype=np.uint8)
+    for y in range(30, Hp - 30, 58):
+        plosca[y:y + 44, :] = 55
+    # zavij v perspektivo (trapez) na 1200x900 platno
+    platno = np.full((900, 1200), 250, dtype=np.uint8)
+    cilj = np.float32([[120, 260], [1080, 160], [1120, 660], [80, 760]])
+    H = cv2.getPerspectiveTransform(
+        np.float32([[0, 0], [Wp, 0], [Wp, Hp], [0, Hp]]), cilj)
+    zavito = cv2.warpPerspective(plosca, H, (1200, 900))
+    maska = cv2.warpPerspective(np.full((Hp, Wp), 255, np.uint8), H, (1200, 900))
+    platno[maska > 0] = zavito[maska > 0]
+    pot_slike = str(tmp_path / "persp.png")
+    cv2.imwrite(pot_slike, platno)
+
+    pot_pdf = str(tmp_path / "skica.pdf")
+    pot2, pod = avtomatska_skica.generiraj(
+        pot_slike, pot_pdf,
+        referenca=("visina_ograje", 1200.0),
+        vogali=[tuple(map(float, t)) for t in cilj])
+    m = pod["mere"]
+    assert m["visina_ograje"].status == "izmerjeno"
+    assert m["dolzina_ograje"].status == "izracunano"   # klikani vogali
+    assert abs(m["visina_ograje"].vrednost_mm - 1200.0) < 3.0
+    assert abs(m["dolzina_ograje"].vrednost_mm - 2400.0) / 2400.0 < 0.05, \
+        m["dolzina_ograje"].oznaka
