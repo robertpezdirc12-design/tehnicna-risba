@@ -563,6 +563,8 @@ class App(tk.Tk):
                                   state="disabled",
                                   command=self._narocilo_kopiraj)
         self.btn_nar.pack(side="right", padx=8)
+        ttk.Button(fb, text="PONUDBA (PDF)",
+                   command=self._ponudba_pdf).pack(side="right", padx=(0, 4))
         self.btn_ost = ttk.Button(fb, text="ODPIŠI OSTANKE", state="disabled",
                                   command=self._odpisi_ostanke)
         self.btn_ost.pack(side="right")
@@ -670,6 +672,28 @@ class App(tk.Tk):
             "  F1 — to sporočilo\n\n"
             "Namigi: postavi miško na polje za razlago.\n"
             "Merjenje s slike: vedno preveri mere na objektu!")
+
+    def _ponudba_pdf(self):
+        """Izdela PDF ponudbo z opcijami Good/Better/Best (Plan G)."""
+        try:
+            import ponudba
+        except ImportError:
+            messagebox.showerror("Manjka modul", "Modul ponudba.py ni najden.")
+            return
+        try:
+            cfg = self._zberi_cfg()
+        except ValueError as e:
+            messagebox.showerror("Napaka pri vnosu", str(e))
+            return
+        izhod = os.path.splitext(cfg["izhod"])[0] + "-ponudba.pdf"
+        try:
+            ponudba.narisi_ponudbo(izhod, cfg)
+        except Exception as e:
+            messagebox.showerror("Napaka", f"Ponudba ni bila izdelana: {e}")
+            return
+        self.status.config(text=f"Ponudba: {os.path.basename(izhod)}",
+                           fg="#1b5e20")
+        messagebox.showinfo("Ponudba", f"Ponudba je izdelana:\n{izhod}")
 
     def _zivi_sprememba(self, *_):
         """Sproži osvežitev živega povzetka z debounce (600 ms)."""
