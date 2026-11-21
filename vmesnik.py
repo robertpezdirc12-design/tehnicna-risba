@@ -635,6 +635,22 @@ class App(tk.Tk):
                            command=self._meri_slike)
         btn_m.grid(row=1, column=2, sticky="w", padx=4)
         self.polja.setdefault("meri_slike", []).append(btn_m)
+        # predogled vstavljene fotografije (uporabnik vidi, kaj je vnesel)
+        self._foto_tk = None
+        self.foto_predogled = tk.Label(
+            f3, text="(brez fotografije)", width=26, height=9,
+            relief="sunken", fg="#888888", bg="#f4f4f4",
+            compound="center", justify="center")
+        self.foto_predogled.grid(row=0, column=3, rowspan=2, padx=8)
+        self.v["foto"].trace_add("write", self._osvezi_foto_predogled)
+        btn_skica = ttk.Button(f3, text="AVTOMATSKA SKICA (iz foto)",
+                               command=self._avtomatska_skica)
+        btn_skica.grid(row=2, column=2, sticky="w", padx=4, pady=(4, 0))
+        self.polja.setdefault("meri_slike", []).append(btn_skica)
+        tk.Label(f3, text="avtomatska skica: mere iz fotografije so označene "
+                 "z zaupanjem — pred izdelavo PREVERI na objektu",
+                 fg="#888888").grid(row=2, column=0, columnspan=2,
+                                    sticky="w", pady=(4, 0))
 
         # ---- CENE (predračun) ----
         f5 = ttk.LabelFrame(zg, text="CENE (EUR — neobvezno; doda stran 3 "
@@ -1143,10 +1159,82 @@ class App(tk.Tk):
     def _brskaj_foto(self):
         pot = filedialog.askopenfilename(
             title="Izberi fotografijo",
-            filetypes=[("Slike", "*.jpg *.jpeg *.png *.bmp"),
+            filetypes=[("Slike", "*.jpg *.jpeg *.png *.bmp *.webp *.tif *.tiff"),
                        ("Vse datoteke", "*.*")])
         if pot:
             self.v["foto"].set(pot)
+
+    def _osvezi_foto_predogled(self, *_):
+        """Majhen predogled vstavljene fotografije (brez PIL = le besedilo)."""
+        pot = self.v["foto"].get().strip()
+        if not pot or not os.path.isfile(pot):
+            self._foto_tk = None
+            self.foto_predogled.configure(image="", text="(brez fotografije)")
+            return
+        try:
+            from PIL import Image, ImageTk
+            with Image.open(pot) as surova:
+                slika = surova.convert("RGB")
+            slika.thumbnail((240, 180))
+            self._foto_tk = ImageTk.PhotoImage(slika)
+            self.foto_predogled.configure(image=self._foto_tk, text="")
+        except Exception as e:
+            self._foto_tk = None
+            self.foto_predogled.configure(
+                image="", text=f"predogled ni mogoč\n({type(e).__name__})")
+
+    def _avtomatska_skica(self):
+        """Avtomatska A3 skica iz fotografije (photo_fence_proposal — BREZ AI).
+
+        Mere na skici so označene z zaupanjem (izmerjeno/izračunano/
+        ocenjeno) — nikoli izmišljene kot izmerjene.
+        """
+        pot = self.v["foto"].get().strip()
+        if not pot or not os.path.isfile(pot):
+            pot = filedialog.askopenfilename(
+                title="Izberi fotografijo za avtomatsko skico",
+                filetypes=[("Slike", "*.jpg *.jpeg *.png *.bmp *.webp *.tif *.tiff"),
+                           ("Vse datoteke", "*.*")])
+            if not pot:
+                return
+            self.v["foto"].set(pot)
+        try:
+            import cv2  # noqa: F401
+        except ImportError:
+            messagebox.showerror(
+                "Manjka OpenCV",
+                "Za avtomatsko skico namesti OpenCV:\n\n"
+                "python -m pip install opencv-python")
+            return
+        paket = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "photo_fence_proposal")
+        if paket not in sys.path:
+            sys.path.insert(0, paket)
+        try:
+            import avtomatska_skica
+        except ImportError as e:
+            messagebox.showerror("Manjka modul",
+                                 f"Modul avtomatska_skica ni dosegljiv: {e}")
+            return
+        osnova = os.path.splitext(self.v["izhod"].get().strip()
+                                  or "BO-001.pdf")[0]
+        izhod = osnova + "-avtomatska-skica.pdf"
+        try:
+            self.status.config(text="GENERIRAM AVTOMATSKO SKICO …")
+            self.update_idletasks()
+            avtomatska_skica.generiraj(
+                pot, izhod,
+                lokacija=(self.v["objekt"].get().strip() or "—"))
+        except Exception as e:
+            self.status.config(text="Avtomatska skica ni uspela.")
+            messagebox.showerror("Napaka", f"Avtomatska skica ni uspela: {e}")
+            return
+        self.status.config(text=f"Avtomatska skica: {os.path.basename(izhod)}")
+        messagebox.showinfo(
+            "Avtomatska skica",
+            f"Skica je izdelana:\n{izhod}\n\n"
+            "Mere so označene z zaupanjem — pred izdelavo PREVERI "
+            "dejanske mere na objektu.")
 
     def _meri_slike(self):
         """Odpri pomožno merjenje s fotografije (kalibracija + zaznavanje)."""
@@ -1154,7 +1242,7 @@ class App(tk.Tk):
         if not pot or not os.path.isfile(pot):
             pot = filedialog.askopenfilename(
                 title="Izberi fotografijo za merjenje",
-                filetypes=[("Slike", "*.jpg *.jpeg *.png *.bmp"),
+                filetypes=[("Slike", "*.jpg *.jpeg *.png *.bmp *.webp *.tif *.tiff"),
                            ("Vse datoteke", "*.*")])
             if not pot:
                 return

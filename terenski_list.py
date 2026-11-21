@@ -130,6 +130,68 @@ def kvader(x, y, a, b, c, barva="crna", sirina_crte=0.5):
             "barva": _preveri_barvo(barva), "sirina_crte": float(sirina_crte)}
 
 
+def slika(x, y, sirina, visina, podatki, ime=""):
+    """Vstavljena fotografija/slika (npr. s terena) — VGRAJENA v dokument.
+
+    ``podatki``: base64 (JPEG) — dokument YAML je zato samozadosten in ga
+    lahko pošljete sodelavcu brez zunanjih datotek. V urejevalniku se ob
+    vstavitvi slika zmanjša (glej slika_iz_datoteke), da datoteka ne raste.
+    """
+    if sirina <= 0 or visina <= 0:
+        raise ValueError("Mere slike morajo biti pozitivne")
+    if not str(podatki or "").strip():
+        raise ValueError("Slika nima podatkov (base64)")
+    return {"tip": "slika", "x": float(x), "y": float(y),
+            "sirina": float(sirina), "visina": float(visina),
+            "podatki": str(podatki), "ime": str(ime or "")}
+
+
+def slika_iz_datoteke(pot, x, y, sirina=60.0, najvecja_roba=1200):
+    """Naloži slikovno datoteko (jpg/png/bmp/webp/tif …) in zgradi element.
+
+    Slika se zmanjša na dolgi rob ``najvecja_roba`` px in shrani kot JPEG
+    (kakovost 85) — dokument ostane razumne velikosti. ``x, y`` je
+    spodnji LEVI vogal; višina sledi razmerju stranic.
+    """
+    import base64
+    import io
+    from PIL import Image
+    if not os.path.isfile(pot):
+        raise ValueError(f"Slikovna datoteka ne obstaja: {pot}")
+    try:
+        with Image.open(pot) as surova:
+            im = surova.convert("RGB")
+            if max(im.size) > najvecja_roba:
+                f = najvecja_roba / max(im.size)
+                im = im.resize((max(1, int(im.width * f)),
+                                max(1, int(im.height * f))),
+                               Image.Resampling.LANCZOS)
+            razmerje = im.height / im.width
+            buf = io.BytesIO()
+            im.save(buf, format="JPEG", quality=85)
+    except Exception as e:
+        raise ValueError(f"Slike ni mogoče prebrati ({e})") from e
+    podatki = base64.b64encode(buf.getvalue()).decode("ascii")
+    return slika(x, y, sirina, sirina * razmerje, podatki,
+                 ime=os.path.basename(pot))
+
+
+def nalozi_sliko(el):
+    """PIL slika elementa 'slika' ali None, če podatki niso berljivi.
+
+    Napaka nalaganja NE sme podreti izvoza — klicatelj nariše nadomestni
+    okvir z opozorilom (pošteno, ne tiho prazno).
+    """
+    try:
+        import base64
+        import io
+        from PIL import Image
+        surovo = base64.b64decode(el.get("podatki") or "")
+        return Image.open(io.BytesIO(surovo)).convert("RGB")
+    except Exception:
+        return None
+
+
 VRSTE = {
     "poteza": ("tocke", "barva", "sirina"),
     "crta": ("a", "b", "barva", "sirina"),
@@ -140,6 +202,7 @@ VRSTE = {
     "mera": ("a", "b", "vsebina", "visina", "barva"),
     "kocka": ("x", "y", "a", "barva", "sirina_crte"),
     "kvader": ("x", "y", "a", "b", "c", "barva", "sirina_crte"),
+    "slika": ("x", "y", "sirina", "visina", "podatki", "ime"),
 }
 
 
@@ -315,6 +378,9 @@ def _tocke_elementa(el):
         return [(el["x"], el["y"])]
     if tip == "kvader":
         return [(el["x"], el["y"])]
+    if tip == "slika":
+        x, y, s, v = el["x"], el["y"], el["sirina"], el["visina"]
+        return [(x, y), (x + s, y), (x + s, y + v), (x, y + v)]
     raise ValueError(f"Neznana vrsta elementa {tip!r}")
 
 
@@ -453,6 +519,9 @@ def zavrti(el, kot_stopinje, srediste=None):
         nov["x"] = nova_sredina[0] - nov["sirina"] / 2.0
         nov["y"] = nova_sredina[1] - nov["visina"] / 2.0
         nov["rotacija"] = nov.get("rotacija", 0.0) + kot_stopinje
+    elif tip == "slika":
+        raise ValueError("Vrtenje vstavljenih slik ni podprto — sliko "
+                         "obrnite v urejevalniku slik pred vstavitvijo.")
     else:
         nov["x"], nov["y"] = _zavrti_tocko((nov["x"], nov["y"]), srediste, kot)
         nov["rotacija"] = nov.get("rotacija", 0.0) + kot_stopinje
@@ -485,6 +554,10 @@ def povecaj(el, faktor, srediste=None):
         nov["b"] = skaliraj(nov["b"])
         nov["visina"] *= faktor
     elif tip in ("pravokotnik", "elipsa"):
+        nov["x"], nov["y"] = skaliraj((nov["x"], nov["y"]))
+        nov["sirina"] *= faktor
+        nov["visina"] *= faktor
+    elif tip == "slika":
         nov["x"], nov["y"] = skaliraj((nov["x"], nov["y"]))
         nov["sirina"] *= faktor
         nov["visina"] *= faktor
@@ -612,6 +685,24 @@ def _narisi_element(ax, el, merilo_osa):
     elif tip == "kvader":
         _narisi_kvader(ax, el["x"], el["y"], el["a"], el["b"], el["c"],
                        barva, el["sirina_crte"])
+    elif tip == "slika":
+        img = nalozi_sliko(el)
+        if img is None:
+            # nadomestni okvir z opozorilom — NE tiho prazen prostor
+            from matplotlib.patches import Rectangle
+            ax.add_patch(Rectangle((el["x"], el["y"]),
+                                   el["sirina"], el["visina"],
+                                   fill=False, edgecolor="#c00000",
+                                   linewidth=0.6, linestyle="--"))
+            ax.text(el["x"] + el["sirina"] / 2.0, el["y"] + el["visina"] / 2.0,
+                    "SLIKE NI MOGOČE NALOŽITI", color="#c00000", fontsize=6,
+                    ha="center", va="center")
+        else:
+            import numpy as np
+            ax.imshow(np.asarray(img),
+                      extent=(el["x"], el["x"] + el["sirina"],
+                              el["y"], el["y"] + el["visina"]),
+                      aspect="auto", interpolation="bilinear", zorder=1)
     else:
         raise ValueError(f"Neznana vrsta elementa {tip!r} — ne morem narisati")
 
@@ -804,6 +895,10 @@ def _preslikaj(el, odmik_x, odmik_y, merilo_osa):
         nov["b"] *= merilo_osa
         nov["c"] *= merilo_osa
         nov["sirina_crte"] = max(0.15, nov["sirina_crte"] * merilo_osa)
+    elif tip == "slika":
+        nov["x"], nov["y"] = t((nov["x"], nov["y"]))
+        nov["sirina"] *= merilo_osa
+        nov["visina"] *= merilo_osa
     else:
         raise ValueError(f"Neznana vrsta elementa {tip!r}")
     return nov

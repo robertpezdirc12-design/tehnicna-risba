@@ -133,3 +133,23 @@ def test_statika_pregled_gumb():
         assert "NI STATIČNI IZRAČUN" in t
     finally:
         app.destroy()
+
+
+def test_foto_predogled(tmp_path):
+    """Pritožba uporabnika: vstavljene slike se ne vidijo. Zdaj vmesnik
+    pokaže predogled fotografije (in se pobriše, ko je pot prazen)."""
+    import tkinter as tk
+    from PIL import Image
+    try:
+        app = vmesnik.App()
+    except tk.TclError:
+        pytest.skip("Tk okolje ni na voljo")
+    try:
+        pot = str(tmp_path / "foto.jpg")
+        Image.new("RGB", (320, 240), (30, 90, 160)).save(pot, format="JPEG")
+        app.v["foto"].set(pot)          # trace sam pokliče osvežitev
+        assert app._foto_tk is not None
+        app.v["foto"].set("")
+        assert app._foto_tk is None
+    finally:
+        app.destroy()

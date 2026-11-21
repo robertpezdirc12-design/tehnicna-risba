@@ -1,0 +1,118 @@
+# -*- coding: utf-8 -*-
+"""Vstavljanje slik v terenski list (odziv uporabnika: 'slik ne morem vložiti').
+
+Element 'slika' je VGRAJEN v dokument (base64) — YAML je samozadosten.
+"""
+import base64
+import os
+
+import pytest
+
+import terenski_list as tl
+
+
+@pytest.fixture()
+def slika_pot(tmp_path):
+    from PIL import Image
+    pot = tmp_path / "foto.jpg"
+    im = Image.new("RGB", (320, 200), (200, 60, 60))
+    im.save(pot, format="JPEG")
+    return str(pot)
+
+
+def test_slika_iz_datoteke_in_nalozi(slika_pot):
+    el = tl.slika_iz_datoteke(slika_pot, 10.0, 20.0, sirina=60.0)
+    assert el["tip"] == "slika"
+    assert el["ime"] == "foto.jpg"
+    # razmerje 320:200 -> visina 60 * 200/320 = 37.5
+    assert abs(el["visina"] - 37.5) < 1e-9
+    img = tl.nalozi_sliko(el)
+    assert img is not None and img.size[0] > 0
+    # dokument je samozadosten: podatki so base64 v YAML-u
+    assert base64.b64decode(el["podatki"])
+
+
+def test_slika_yaml_roundtrip(slika_pot, tmp_path):
+    el = tl.slika_iz_datoteke(slika_pot, 0.0, 0.0, sirina=50.0)
+    d = tl.nov_dokument()
+    d["elementi"].append(el)
+    pot = str(tmp_path / "s.yaml")
+    tl.shrani(d, pot)
+    d2 = tl.nalozi(pot)
+    assert d2["elementi"][0]["tip"] == "slika"
+    assert d2["elementi"][0]["podatki"] == el["podatki"]
+    assert tl.nalozi_sliko(d2["elementi"][0]) is not None
+
+
+def test_slika_pdf_izvoz(slika_pot, tmp_path):
+    el = tl.slika_iz_datoteke(slika_pot, 20.0, 30.0, sirina=80.0)
+    d = tl.nov_dokument()
+    d["elementi"].append(el)
+    pot = str(tmp_path / "s.pdf")
+    tl.izvozi_pdf(d, pot)
+    assert os.path.getsize(pot) > 1000
+    from pypdf import PdfReader
+    r = PdfReader(pot)
+    assert len(r.pages) == 1
+    # slika je vgrajena kot slikovni objekt XObject
+    res = r.pages[0].get("/Resources", {})
+    xobj = res.get("/XObject", {})
+    assert xobj, "PDF mora vsebovati vgrajeno sliko (Image XObject)"
+
+
+def test_slika_transformacije_in_zadetek(slika_pot):
+    el = tl.slika_iz_datoteke(slika_pot, 0.0, 0.0, sirina=40.0)
+    d = tl.nov_dokument()
+    d["elementi"].append(el)
+    # zadetek znotraj pravokotnika slike
+    assert tl.zadetek(d, 20.0, el["visina"] / 2) == 0
+    prem = tl.premakni(el, 10.0, 5.0)
+    assert prem["x"] == 10.0 and prem["y"] == 5.0
+    vel = tl.povecaj(el, 2.0)
+    assert abs(vel["sirina"] - 80.0) < 1e-9
+    mn = tl.element_meje(el)
+    assert mn[2] == pytest.approx(40.0)
+    # vrtenje NI podprto — jasna napaka, ne tiho napaka
+    with pytest.raises(ValueError, match="Vrtenje"):
+        tl.zavrti(el, 45.0)
+
+
+def test_slika_napake(slika_pot, tmp_path):
+    with pytest.raises(ValueError):
+        tl.slika(0, 0, -5, 10, "abc")          # negativne mere
+    with pytest.raises(ValueError):
+        tl.slika(0, 0, 5, 10, "")              # brez podatkov
+    with pytest.raises(ValueError):
+        tl.slika_iz_datoteke(str(tmp_path / "ni.jpg"), 0, 0)   # ne obstaja
+    # okvarjeni podatki -> nalozi_sliko vrne None (brez izjeme)
+    el = tl.slika(0, 0, 10, 10, "ni-base64!!!")
+    assert tl.nalozi_sliko(el) is None
+    # PDF z okvarjeno sliko NE pade — nariše nadomestni okvir
+    d = tl.nov_dokument()
+    d["elementi"].append(el)
+    tl.izvozi_pdf(d, str(tmp_path / "napaka.pdf"))
+    assert os.path.getsize(str(tmp_path / "napaka.pdf")) > 1000
+
+
+def test_slika_pomanjsanje_omejeno(slika_pot):
+    """Dolga rob slike se zmanjša (YAML ne sme rasti v MB-e)."""
+    el = tl.slika_iz_datoteke(slika_pot, 0, 0, sirina=60.0, najvecja_roba=100)
+    img = tl.nalozi_sliko(el)
+    assert max(img.size) <= 100
+
+
+def test_slika_v_urejevalniku(slika_pot):
+    """Izris slike na platnu urejevalnika (brez Tk -> preskočeno)."""
+    import tkinter as tk
+    try:
+        import terenski_gui as tg
+        u = tg.Urejevalnik()
+    except tk.TclError:
+        pytest.skip("Tk okolje ni na voljo")
+    try:
+        el = tl.slika_iz_datoteke(slika_pot, 20.0, 20.0, sirina=60.0)
+        u.dok["elementi"].append(el)
+        u._narisi()                        # brez izjeme, slika narisana
+        assert u._tk_slike, "PhotoImage referenca mora obstajati (GC zaščita)"
+    finally:
+        u.destroy()

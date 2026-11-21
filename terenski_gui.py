@@ -26,6 +26,7 @@ ORODJA = [
     ("mera", "Ročna mera"),
     ("kocka", "Izometrična kocka"),
     ("kvader", "Izometrični kvader"),
+    ("slika", "Slika"),
 ]
 
 BARVE_KANVAS = {
@@ -48,6 +49,7 @@ class Urejevalnik(tk.Tk):
         self.orodje = tk.StringVar(value="izberi")
         self.barva = tk.StringVar(value="crna")
         self.izbran = None
+        self._tk_slike = []          # reference PhotoImage (GC zaščita)
 
         # pogled: px na mm in odmik
         self.lestvica = 3.0
@@ -158,6 +160,7 @@ class Urejevalnik(tk.Tk):
     def _narisi(self):
         p = self.platno
         p.delete("all")
+        self._tk_slike.clear()       # slike se ob vsakem izrisu znova naložijo
         nast = self.dok["nastavitve"]
         s, v = tl.dimenzije_strani(nast["stran"], nast["orientacija"])
         x0, y0 = self._v_platno(0, 0)
@@ -247,6 +250,23 @@ class Urejevalnik(tk.Tk):
                 ax, ay = self._v_platno(*crta_tocke[0])
                 bx, by = self._v_platno(*crta_tocke[1])
                 p.create_line(ax, ay, bx, by, fill=barva)
+        elif tip == "slika":
+            ax, ay = self._v_platno(el["x"], el["y"] + el["visina"])
+            bx, by = self._v_platno(el["x"] + el["sirina"], el["y"])
+            img = tl.nalozi_sliko(el)
+            if img is None:
+                # nadomestni okvir — NE tiho prazen prostor
+                p.create_rectangle(ax, ay, bx, by, outline="#c00000",
+                                   dash=(3, 3))
+                p.create_text((ax + bx) / 2, (ay + by) / 2,
+                              text="slike ni mogoče naložiti", fill="#c00000")
+            else:
+                from PIL import ImageTk
+                sir = max(1, int(abs(bx - ax)))
+                vis = max(1, int(abs(by - ay)))
+                tk_img = ImageTk.PhotoImage(img.resize((sir, vis)))
+                self._tk_slike.append(tk_img)      # zaščita pred GC
+                p.create_image((ax + bx) / 2, (ay + by) / 2, image=tk_img)
 
     @staticmethod
     def _glava(p, ax, ay, bx, by, barva):
@@ -328,6 +348,23 @@ class Urejevalnik(tk.Tk):
                 if vsebina:
                     self.dok["elementi"].append(
                         tl.besedilo(x, y, vsebina, barva=self.barva.get()))
+                    self._zapomni()
+            if orodje == "slika":
+                pot = filedialog.askopenfilename(
+                    parent=self, title="Izberi sliko",
+                    filetypes=[("Slike",
+                                "*.jpg *.jpeg *.png *.bmp *.webp *.tif *.tiff"),
+                               ("Vse datoteke", "*.*")])
+                if pot:
+                    try:
+                        el = tl.slika_iz_datoteke(pot, x, y, sirina=60.0)
+                    except ValueError as e:
+                        messagebox.showerror("Slika", str(e), parent=self)
+                        return
+                    # sredina slike naj bo pod točko klika
+                    el = tl.premakni(el, -el["sirina"] / 2.0, -el["visina"] / 2.0)
+                    self.dok["elementi"].append(el)
+                    self.izbran = len(self.dok["elementi"]) - 1
                     self._zapomni()
             return
         try:
@@ -432,8 +469,11 @@ class Urejevalnik(tk.Tk):
     def _zavrti(self):
         el = self._izbrani()
         if el is not None:
-            self.dok["elementi"][self.izbran] = tl.zavrti(el, 45.0)
-            self._zapomni()
+            try:
+                self.dok["elementi"][self.izbran] = tl.zavrti(el, 45.0)
+                self._zapomni()
+            except ValueError as e:      # npr. vrtenje slik ni podprto
+                messagebox.showinfo("Vrtenje", str(e), parent=self)
 
     def _spremeni(self, faktor):
         el = self._izbrani()
