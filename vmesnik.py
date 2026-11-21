@@ -14,6 +14,8 @@ from tkinter import ttk, filedialog, messagebox
 
 import yaml
 
+import proizvodnja
+
 # v exe načinu se nastavitve shranjujejo poleg programa (ne v začasni mapi)
 if getattr(sys, "frozen", False):
     _AP_DIR = os.path.dirname(sys.executable)
@@ -166,6 +168,9 @@ class App(tk.Tk):
         self.polja = {}               # referenca polj za skrivanje/prikaz
         self.vrata_sez = []           # vrata/prehodi (issue #3)
         self.st_preprost = tk.BooleanVar(value=True)   # preprosti način
+        # UI/UX Plan A: živi povzetek (debounce osveževanje)
+        self.st_zivo = tk.BooleanVar(value=True)
+        self._zivi_id = None
         self._zgradi()
         self._preklopi_nacin()
         self._nalozi_zadnje()
@@ -342,6 +347,35 @@ class App(tk.Tk):
                                font=("Segoe UI", 9))
         self.status.pack(side="right", padx=14)
 
+        # ---- ŽIVI POVZETEK (UI/UX Plan A) ----
+        fz = ttk.LabelFrame(zg, text="ŽIVI POVZETEK", padding=8)
+        fz.grid(row=0, column=1, rowspan=6, sticky="n", padx=(12, 0))
+        fr_z = ttk.Frame(fz)
+        fr_z.pack(fill="x")
+        ttk.Checkbutton(fr_z, text="Živo osveževanje",
+                        variable=self.st_zivo).pack(side="left")
+        ttk.Button(fr_z, text="Osveži",
+                   command=self._zivi_osvezi).pack(side="right")
+        self.zivi_platno = tk.Canvas(fz, width=324, height=210,
+                                     bg="white", highlightthickness=1,
+                                     highlightbackground="#cccccc")
+        self.zivi_platno.pack(pady=(6, 4))
+        self.zivi_vrstice = tk.Label(
+            fz, text="—", justify="left", font=("Segoe UI", 9), anchor="w")
+        self.zivi_vrstice.pack(fill="x")
+        self.zivi_cena = tk.Label(
+            fz, text="—", justify="left", font=("Segoe UI", 10, "bold"),
+            anchor="w")
+        self.zivi_cena.pack(fill="x", pady=(4, 0))
+        self.zivi_status = tk.Label(
+            fz, text="", fg="#555555", font=("Segoe UI", 8), anchor="w",
+            wraplength=310, justify="left")
+        self.zivi_status.pack(fill="x")
+        tk.Label(fz, text="(shematski prikaz in živa cena — natančna "
+                          "risba ostane gumb NARIŠI RISBO)",
+                 fg="#888888", font=("Segoe UI", 8), wraplength=310,
+                 justify="left").pack(fill="x", pady=(4, 0))
+
         # ---- PREDGLED ----
         self.fp = ttk.LabelFrame(self, text="PREDGLED RISBE", padding=6)
         self.fp.pack(fill="both", expand=True, padx=14, pady=(0, 12))
@@ -356,6 +390,11 @@ class App(tk.Tk):
         self.predogled.pack(fill="both", expand=True)
         self.predogled.bind("<Button-1>", self._klik_predogled)
 
+        # živo osveževanje: ob vsaki spremembi polja (debounce 600 ms)
+        for _var in self.v.values():
+            _var.trace_add("write", self._zivi_sprememba)
+        self.after(300, self._zivi_osvezi)
+
     def _polje(self, star, vrsta, stolpec, kljuc, sirina, napis=None):
         if kljuc not in self.v:
             self.v[kljuc] = tk.StringVar()
@@ -368,6 +407,109 @@ class App(tk.Tk):
         ent.grid(row=vrsta, column=stolpec * 2 + 1, sticky="w",
                  padx=(0, 12), pady=2)
         self.polja.setdefault(kljuc, []).extend([lbl, ent])
+
+    # --------------------------------------------- živi povzetek (Plan A)
+    def _zivi_sprememba(self, *_):
+        """Sproži osvežitev živega povzetka z debounce (600 ms)."""
+        if not self.st_zivo.get():
+            return
+        if self._zivi_id is not None:
+            try:
+                self.after_cancel(self._zivi_id)
+            except Exception:
+                pass
+        self._zivi_id = self.after(600, self._zivi_osvezi)
+
+    def _zivi_osvezi(self):
+        """Izračunaj in prikaži živo kosovnico/ceno ter shematski prikaz."""
+        self._zivi_id = None
+        if not hasattr(self, "zivi_cena"):
+            return
+        try:
+            cfg = self._zberi_cfg()
+        except ValueError as e:
+            self.zivi_status.config(text=f"Vnos ni veljaven — {e}",
+                                    fg="#b00020")
+            return
+        try:
+            kol = proizvodnja.izracunaj_kolicine(cfg)
+            znesek = proizvodnja.predracun_znesek(cfg.get("cene"),
+                                                   kol["postavke"])
+        except Exception as e:                      # ne sme sesuti GUI-ja
+            self.zivi_status.config(text=f"Izračun ni mogoč — {e}",
+                                    fg="#b00020")
+            return
+        po = {}
+        for _n, _ks, _e, kljuc, num in kol["postavke"]:
+            if kljuc:
+                po[kljuc] = po.get(kljuc, 0.0) + float(num or 0)
+        st_vrat = len(cfg.get("vrata") or [])
+        nos = po.get("nosilec_kos", 0) + po.get("osnova_kos", 0)
+        vij = (po.get("vijak_kos", 0) + po.get("fasadni_kos", 0)
+               + po.get("anker_kos", 0))
+        self.zivi_vrstice.config(text=(
+            f"WPC: {po.get('wpc_deska_m', 0):.1f} m   "
+            f"Alu: {po.get('alu_m', 0):.1f} m\n"
+            f"Nosilci/stebri: {nos:.0f}   Vijaki: {vij:.0f}\n"
+            f"Vrata/prehodi: {st_vrat}"))
+        if znesek["vse_nic"]:
+            self.zivi_cena.config(
+                text="SKUPAJ: ni obračunano (cene so PRIMER)", fg="#8a6d3b")
+        elif znesek["delno"]:
+            self.zivi_cena.config(
+                text=f"SKUPAJ (delno, brez DDV): {znesek['skupaj']:.2f} EUR",
+                fg="#b26a00")
+        else:
+            self.zivi_cena.config(
+                text=f"SKUPAJ (brez DDV): {znesek['skupaj']:.2f} EUR",
+                fg="#1b5e20")
+        if znesek["manjkajoce_cene"]:
+            self.zivi_status.config(
+                text="Manjka cena (ni vštetih v seštevek): "
+                     + ", ".join(znesek["manjkajoce_cene"]), fg="#b26a00")
+        else:
+            self.zivi_status.config(
+                text="Povzetek se osveži samodejno ob vnosu.", fg="#555555")
+        self._zivi_narisi(cfg)
+
+    def _zivi_narisi(self, cfg):
+        """Shematski prikaz ograje (NI tehnična risba — ta je gumb NARIŠI)."""
+        c = self.zivi_platno
+        c.delete("all")
+        try:
+            m = cfg["mere"]
+            sir = float(m["sirina"] or 0)
+            vis = float(m["visina"] or 0)
+        except Exception:
+            return
+        if sir <= 0 or vis <= 0:
+            return
+        W, H, x0, y0 = 300, 170, 12, 16
+        c.create_rectangle(x0, y0, x0 + W, y0 + H, outline="#666666",
+                           fill="#fafafa")
+        n = max(int(m.get("lamele") or 0), 1)
+        for i in range(1, n):
+            y = y0 + H - i * H / n
+            c.create_line(x0, y, x0 + W, y, fill="#9a9a9a")
+        razmak = float(m.get("razmak_nosilcev") or 0)
+        if razmak > 0:
+            st = int(sir // razmak)
+            for i in range(st + 1):
+                x = x0 + min(W, W * i * razmak / sir)
+                c.create_line(x, y0, x, y0 + H, fill="#2e5d9f", width=2)
+        try:
+            vp = proizvodnja.vrata_podatki(cfg)
+            for od in vp["odprtine"]:
+                xa = x0 + W * float(od[0]) / sir
+                xb = x0 + W * float(od[1]) / sir
+                c.create_rectangle(xa, y0, xb, y0 + H, fill="#e3f2fd",
+                                   outline="#1565c0", dash=(3, 2))
+        except Exception:
+            pass
+        c.create_text(x0 + W / 2, y0 + H + 12, text=f"{sir:g} mm",
+                      font=("Segoe UI", 8))
+        c.create_text(x0 - 4, y0 + H / 2, text=f"{vis:g} mm",
+                      font=("Segoe UI", 8), angle=90)
 
     def _privzeti(self):
         p = risba.PRIVZETO
@@ -671,6 +813,7 @@ class App(tk.Tk):
                 i, v.get("tip", ""), v.get("x", ""), v.get("sirina", ""),
                 v.get("visina", ""), v.get("smer", "—")))
         self._vrata_preveri()
+        self._zivi_sprememba()
 
     def _vrata_dialog(self, vnos=None):
         """Modalni dialog za vnos/urejanje vrat ali prehoda."""

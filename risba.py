@@ -43,6 +43,7 @@ from jedro import (odsteni, barva_hex, fmt, traki_nabava,
                    BARVA_LAMEL,
                    WPC_BARVE, BARVA_OKOVJA)
 from proizvodnja import (vrata_vrstice_kolicin,
+                         izracunaj_kolicine, predracun_znesek,
                          vrata_vrstice_potrebscine,
                          proizvodni_model)
 from matplotlib.patches import Circle, Polygon, Rectangle
@@ -1299,61 +1300,7 @@ def narisi_montazni_list(ax, c):
             f"({odp_m / por_m * 100:.0f} %) • alu palice {palice} kos = "
             f"{palice * dl_palice / 1000:.1f} m", fontsize=6.5,
             color="#555555", ha="left", va="center")
-    por_m = sum(B for B, _ in traki) / 1000
-    por_alu = palice * dl_palice / 1000
-    datum = c.get("datum") or datetime.date.today().strftime("%d.%m.%Y")
-    nar = [
-        f"NAROČILO — WPC material "
-        f"({c.get('dobavitelj') or 'WoodCore'})",
-        f"Naloga: {c['risba_st']} • Datum: {datum}",
-        f"Stranka: {c.get('stranka') or '—'} • Objekt: "
-        f"{c.get('objekt') or '—'}",
-        "",
-        "DESKE:",
-        f"- {profil}, barva {barva}"
-        + "".join(f" — {t} kos × {fmt(B)} mm" for B, t in traki_nabava(traki))
-        + (f" + {kos_iz_ost} kos iz ostankov" if kos_iz_ost else ""),
-        "",
-        "PROFILI (aluminij) — vsaka sekcija svoja zaloga:",
-        f"- {dim_zg} (zgornji) — {palice_zg} kos × {fmt(dl_palice)} mm "
-        f"(razrez: 1 × {fmt(sir)} mm)",
-        f"- {dim_sp} (spodnji) — {palice_sp} kos × {fmt(dl_palice)} mm "
-        f"(razrez: 1 × {fmt(sir)} mm)",
-        "",
-        "PRITRDILNI MATERIAL:",
-        f"- {vijak_lamela_naziv} — {vijaki} kos",
-        f"- {vijak_nosilec_naziv} — {n_nos * 2} kos",
-        f"- Nosilni nosilec {dim_nos} — {n_nos} kos",
-    ]
-    kosovnica = rp["kosovnica"]
-    for enota in vp["vrata"] + vp["prehodi"]:
-        for ozn_k, dol, _sir_k, kol, _op, _kl in enota["kosovnica"]["izdelani"]:
-            for _ in range(int(kol)):
-                kosovnica.append((f"{enota['oznaka']}-{ozn_k}", dol, "vrata",
-                                  barva))
-    wpc_postavke = [f"{B / 1000:.1f} m ({t} kos)"
-                    for B, t in traki_nabava(traki)]
-    kolicine = {"postavke": [
-        (f"WPC deske {profil} (nabava: " + " + ".join(wpc_postavke) + ")",
-         f"{fmt(por_m)} m", "m", "wpc_deska_m", por_m),
-        ("Alu profili (nabava)", f"{palice} kos = {fmt(por_alu)} m", "m",
-         "alu_m", por_alu),
-        (f"Nosilni nosilci {dim_nos}", f"{n_nos}", "kos", "nosilec_kos", n_nos),
-        (vijak_lamela_naziv, f"{vijaki}", "kos", "vijak_kos", vijaki),
-        (vijak_nosilec_naziv, f"{n_nos * 2}", "kos", "fasadni_kos",
-         n_nos * 2),
-    ],
-    "narocilo": "\n".join(nar),
-    "ostanki_posodobitev": rp["ostanki_posodobitev"],
-    "kosovnica": kosovnica,
-    }
-    if vp["vrata"] or vp["prehodi"]:
-        kolicine["postavke"] += vrata_vrstice_kolicin(vp)
-        kolicine["narocilo"] += "\n\nVRATA/PREHODI:\n" + "\n".join(
-            f"- {vr[0]}: {vr[1]} {vr[2]}" for vr in vrata_vrstice_potrebscine(vp))
-    return {"postavke": kolicine["postavke"], "narocilo": kolicine["narocilo"],
-            "ostanki_posodobitev": kolicine["ostanki_posodobitev"],
-            "kosovnica": kolicine["kosovnica"]}
+    return izracunaj_kolicine(c, rp=rp)
 
 
 def narisi_montazni_pokoncna(ax, c):
@@ -1493,32 +1440,7 @@ def narisi_montazni_pokoncna(ax, c):
             f"({odp_s / por_s * 100:.0f} %) • alu palice {palice_s} kos = "
             f"{palice_s * dl_palice / 1000:.1f} m", fontsize=6.5,
             color="#555555", ha="left", va="center")
-    por_s = sum(B for B, _ in traki) / 1000
-    por_st = palice_s * dl_palice / 1000
-    kosovnica = rp["kosovnica"]
-    wpc_postavke = [f"{B / 1000:.1f} m ({t} kos)"
-                    for B, t in traki_nabava(traki)]
-    v_vrst = vrata_vrstice_kolicin(vp)
-    for enota in vp["vrata"] + vp["prehodi"]:
-        for ozn_k, dol, _sir_k, kol, _op, _kl in enota["kosovnica"]["izdelani"]:
-            for _ in range(int(kol)):
-                kosovnica.append((f"{enota['oznaka']}-{ozn_k}", dol, "vrata",
-                                  barva))
-    return {"postavke": [
-        (f"WPC deske {profil} (nabava: " + " + ".join(wpc_postavke) + ")",
-         f"{fmt(por_s)} m", "m", "wpc_deska_m", por_s),
-        ("Alu stebri (nabava)", f"{palice_s} kos = {fmt(por_st)} m", "m",
-         "alu_m", por_st),
-        ("Ročaj", "1", "kos", "rocaj_kos", 1),
-        ("Osnove za steber", f"{n_s}", "kos", "osnova_kos", n_s),
-        (vijak_lamela_naziv, f"{vijaki}", "kos", "vijak_kos", vijaki),
-        (vijak_nosilec_naziv, f"{n_s * 2}", "kos", "anker_kos", n_s * 2),
-    ] + v_vrst,
-    "narocilo": "\n".join(nar) + (("\n\nVRATA/PREHODI:\n" + "\n".join(
-        f"- {vr[0]}: {vr[1]} {vr[2]}" for vr in vrata_vrstice_potrebscine(vp)))
-        if vp["vrata"] or vp["prehodi"] else ""),
-    "ostanki_posodobitev": rp["ostanki_posodobitev"],
-    "kosovnica": kosovnica}
+    return izracunaj_kolicine(c, rp=rp)
 
 
 def narisi_nalepke(ax, c, kosovnica):
@@ -1580,37 +1502,13 @@ def narisi_predracun(ax, c, postavke):
     ax.text(20, 272, f"Stranka: {c.get('stranka') or '—'}   •   Objekt: "
             f"{c.get('objekt') or '—'}", fontsize=9, ha="left", va="center")
 
-    skup = 0.0
-    vrste = [["POSTAVKA", "KOLIČINA", "CENA ENOTE", "SKUPAJ"]]
-    manjkajoce_cene = []
-    for (naziv, kol_str, enota, kljuc, num) in postavke:
-        cena = cene.get(kljuc)
-        if cena is None:
-            if num:
-                # F1 (issue #5): manjkajoče cene se NE izpustijo tiho!
-                manjkajoce_cene.append(kljuc)
-                vrste.append([naziv, f"{kol_str} {enota}",
-                              "CENA MANJKA (ni upoštevano)", "—"])
-            continue
-        if not num:
-            continue
-        sk = num * cena
-        if abs(cena) < 1e-9:
-            vrste.append([naziv, f"{kol_str} {enota}",
-                          "PRIMER (ni obračunano)", "ni obračunano"])
-        else:
-            vrste.append([naziv, f"{kol_str} {enota}",
-                          f"{cena:.2f} EUR/{enota}", f"{sk:.2f} EUR"])
-            skup += sk
-    ur, ur_c = cene.get("dela_ure"), cene.get("dela_ur_cena")
-    if ur and ur_c is not None:
-        if abs(float(ur_c or 0)) < 1e-9:
-            vrste.append(["Delo (izdelava + montaža)", f"{fmt(ur)} h",
-                          "PRIMER (ni obračunano)", "ni obračunano"])
-        else:
-            vrste.append(["Delo (izdelava + montaža)", f"{fmt(ur)} h",
-                          f"{ur_c:.2f} EUR/h", f"{ur * ur_c:.2f} EUR"])
-            skup += ur * ur_c
+    # Plan A: EN algoristem za seštevek (živi povzetek v vmesniku ga deli)
+    znesek = predracun_znesek(cene, postavke)
+    vse_nic = znesek["vse_nic"]
+    delno = znesek["delno"]
+    manjkajoce_cene = znesek["manjkajoce_cene"]
+    skup = znesek["skupaj"]
+    vrste = [["POSTAVKA", "KOLIČINA", "CENA ENOTE", "SKUPAJ"]]         + znesek["vrstice"]
     if vse_nic:
         vrste.append(["SKUPAJ (brez DDV)", "", "", "ni obračunano"])
     elif delno:
