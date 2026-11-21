@@ -78,6 +78,8 @@ class Urejevalnik(tk.Tk):
         tk.Label(pas2, text="Barva:").pack(side="left")
         ttk.Combobox(pas2, textvariable=self.barva, values=list(tl.BARVE),
                      width=8, state="readonly").pack(side="left")
+        tk.Button(pas2, text="Vstavi sliko…", command=self._vstavi_sliko)\
+            .pack(side="left", padx=2)
         tk.Button(pas2, text="Razveljavi", command=self._razveljavi).pack(side="left", padx=2)
         tk.Button(pas2, text="Ponovi", command=self._ponovi).pack(side="left")
         tk.Button(pas2, text="Podvoji", command=self._podvoji).pack(side="left", padx=2)
@@ -147,7 +149,43 @@ class Urejevalnik(tk.Tk):
 
     def _zamenjaj_orodje(self):
         self.izbran = None
+        if self.orodje.get() == "slika":
+            # uporabnik pričakuje: kliknem 'Slika' -> IZBEREM datoteko ->
+            # slika je na listu. NE: izberi orodje in nato ugani, da moraš
+            # še klikniti na platno (stara pot je ostala kot alternativa).
+            self._vstavi_sliko()
         self._narisi()
+
+    def _vstavi_sliko(self, x=None, y=None):
+        """Izberi slikovno datoteko in jo vstavi na list.
+
+        Brez koordinat -> na sredino strani; s koordinatami (klik na
+        platno) -> sredina slike pod točko klika. Deluje tudi, če klik
+        na platno ni bil čisto natančen (tresljaj miške).
+        """
+        pot = filedialog.askopenfilename(
+            parent=self, title="Izberi sliko",
+            filetypes=[("Slike",
+                        "*.jpg *.jpeg *.png *.bmp *.webp *.tif *.tiff"),
+                       ("Vse datoteke", "*.*")])
+        if not pot:
+            self._narisi()
+            return
+        try:
+            if x is None or y is None:
+                s, v = tl.dimenzije_strani(self.dok["nastavitve"]["stran"],
+                                           self.dok["nastavitve"]["orientacija"])
+                x, y = s / 2.0, v / 2.0
+            el = tl.slika_iz_datoteke(pot, x, y, sirina=60.0)
+        except ValueError as e:
+            messagebox.showerror("Slika", str(e), parent=self)
+            return
+        # sredina slike naj bo na ciljni točki
+        el = tl.premakni(el, -el["sirina"] / 2.0, -el["visina"] / 2.0)
+        self.dok["elementi"].append(el)
+        self.izbran = len(self.dok["elementi"]) - 1
+        self.orodje.set("izberi")      # takoj lahko premikaš
+        self._zapomni()
 
     # ------------------------------------------------------------ koordinate
     def _v_svet(self, sx, sy):
@@ -348,32 +386,22 @@ class Urejevalnik(tk.Tk):
             return
         if zacetek is None:
             return
-        if abs(x - zacetek[0]) < 0.5 and abs(y - zacetek[1]) < 0.5:
-            if orodje == "besedilo":
+        if orodje in ("slika", "besedilo"):
+            # KLIK (ne risanje) — prenaša tudi tresljaj miške; prejšnja
+            # meja 0,5 mm je TIHO požrla vsak pravi klik (odziv uporabnika:
+            # 'se vedno ne morem slik naložiti').
+            if orodje == "slika":
+                self._vstavi_sliko(x, y)
+            else:
                 vsebina = simpledialog.askstring("Besedilo", "Vsebina:",
                                                  parent=self)
                 if vsebina:
                     self.dok["elementi"].append(
                         tl.besedilo(x, y, vsebina, barva=self.barva.get()))
                     self._zapomni()
-            if orodje == "slika":
-                pot = filedialog.askopenfilename(
-                    parent=self, title="Izberi sliko",
-                    filetypes=[("Slike",
-                                "*.jpg *.jpeg *.png *.bmp *.webp *.tif *.tiff"),
-                               ("Vse datoteke", "*.*")])
-                if pot:
-                    try:
-                        el = tl.slika_iz_datoteke(pot, x, y, sirina=60.0)
-                    except ValueError as e:
-                        messagebox.showerror("Slika", str(e), parent=self)
-                        return
-                    # sredina slike naj bo pod točko klika
-                    el = tl.premakni(el, -el["sirina"] / 2.0, -el["visina"] / 2.0)
-                    self.dok["elementi"].append(el)
-                    self.izbran = len(self.dok["elementi"]) - 1
-                    self._zapomni()
             return
+        if abs(x - zacetek[0]) < 0.5 and abs(y - zacetek[1]) < 0.5:
+            return                      # premajhen premik za lik — brez izjeme
         try:
             if orodje == "crta":
                 self.dok["elementi"].append(

@@ -139,3 +139,86 @@ def test_slika_v_urejevalniku(slika_pot):
         assert u._tk_slike
     finally:
         u.destroy()
+
+
+def test_vstavljanje_klik_s_tresljajem(tmp_path):
+    """Pravi klik miške ima 2–3 px tresljaja — prej je bil TIHO zavrgel
+    (odziv uporabnika: 'se vedno ne morem slik naložiti')."""
+    import tkinter as tk
+    import tkinter.filedialog as fd
+    try:
+        import terenski_gui as tg
+        u = tg.Urejevalnik()
+    except tk.TclError:
+        pytest.skip("Tk okolje ni na voljo")
+    from PIL import Image
+    pot = str(tmp_path / "s.jpg")
+    Image.new("RGB", (100, 80), (10, 10, 10)).save(pot, format="JPEG")
+    stara = fd.askopenfilename
+    fd.askopenfilename = lambda *a, **k: pot
+    try:
+        u.update_idletasks()          # okno mora biti izrisano, sicer se
+        u.update()                    # vezani dogodki ne sprožijo
+        u.orodje.set("slika")
+        cx, cy = u._v_platno(100.0, 200.0)
+        u.platno.event_generate("<ButtonPress-1>", x=int(cx), y=int(cy))
+        u.platno.event_generate("<ButtonRelease-1>", x=int(cx) + 3, y=int(cy) + 2)
+        u.update()
+        assert len(u.dok["elementi"]) == 1, "klik s tresljajem mora vstaviti sliko"
+    finally:
+        fd.askopenfilename = stara
+        u.destroy()
+
+
+def test_orodje_slika_takoj_odpre_dialog(tmp_path):
+    """Izbira orodja 'Slika' takoj ponudi izbiro datoteke (ne ugibanje klika)."""
+    import tkinter as tk
+    import tkinter.filedialog as fd
+    try:
+        import terenski_gui as tg
+        u = tg.Urejevalnik()
+    except tk.TclError:
+        pytest.skip("Tk okolje ni na voljo")
+    from PIL import Image
+    pot = str(tmp_path / "s.jpg")
+    Image.new("RGB", (60, 40), (10, 10, 10)).save(pot, format="JPEG")
+    stara = fd.askopenfilename
+    fd.askopenfilename = lambda *a, **k: pot
+    try:
+        u.orodje.set("slika")
+        u._zamenjaj_orodje()
+        u.update()
+        assert len(u.dok["elementi"]) == 1
+        assert u.orodje.get() == "izberi", "po vstavitvi takoj v načinu premikanja"
+    finally:
+        fd.askopenfilename = stara
+        u.destroy()
+
+
+def test_gumb_vstavi_sliko(tmp_path):
+    """Gumb 'Vstavi sliko…' deluje neodvisno od izbranega orodja."""
+    import tkinter as tk
+    import tkinter.filedialog as fd
+    try:
+        import terenski_gui as tg
+        u = tg.Urejevalnik()
+    except tk.TclError:
+        pytest.skip("Tk okolje ni na voljo")
+    from PIL import Image
+    pot = str(tmp_path / "s.jpg")
+    Image.new("RGB", (60, 40), (10, 10, 10)).save(pot, format="JPEG")
+    stara = fd.askopenfilename
+    fd.askopenfilename = lambda *a, **k: pot
+    try:
+        u._vstavi_sliko()          # brez koordinat -> sredina strani
+        u.update()
+        assert len(u.dok["elementi"]) == 1
+        import terenski_list as tl2
+        s, v = tl2.dimenzije_strani(u.dok["nastavitve"]["stran"],
+                                    u.dok["nastavitve"]["orientacija"])
+        el = u.dok["elementi"][0]
+        sredina_x = el["x"] + el["sirina"] / 2.0
+        assert abs(sredina_x - s / 2.0) < 1.0, "slika naj bo sredinjena na strani"
+    finally:
+        fd.askopenfilename = stara
+        u.destroy()
