@@ -232,6 +232,116 @@ class CelZaslon(tk.Toplevel):
             self._narisi()
 
 
+class PredogledCanvas(tk.Canvas):
+    """Interaktivni predogled risbe (UI/UX Plan H).
+
+    Kolešček = povečava (0,05×–5×) • vlečenje = premik pogleda •
+    dvoklik = prilagodi oknu • desni klik = ponastavi •
+    klik (brez premika) = povratni klic `na_klik` (npr. cel zaslon).
+
+    Vleci-za-premik premika POGLED, NE geometrije risbe — urejanje
+    geometrije bi potrebovalo CAD urejevalnik (izven obsega).
+    """
+
+    def __init__(self, master, **kw):
+        kw.setdefault("bg", "#f5f5f5")
+        super().__init__(master, **kw)
+        self.na_klik = None
+        self._izvirna = None
+        self._photo = None
+        self._sporocilo = ""
+        self.faktor = 1.0
+        self.ox = 0.0
+        self.oy = 0.0
+        self._zacetek = None
+        self._premik = False
+        self.bind("<MouseWheel>", self._kolesce)
+        self.bind("<Button-4>", lambda e: self._kolesce_smer(-1))
+        self.bind("<Button-5>", lambda e: self._kolesce_smer(1))
+        self.bind("<ButtonPress-1>", self._dol)
+        self.bind("<B1-Motion>", self._vleci)
+        self.bind("<ButtonRelease-1>", self._gor)
+        self.bind("<Double-Button-1>", lambda e: self._prilagodi())
+        self.bind("<Button-3>", lambda e: self._ponastavi())
+        self.bind("<Configure>", lambda e: self._narisi())
+
+    def sporocilo(self, besedilo):
+        self._izvirna = None
+        self._sporocilo = besedilo
+        self._narisi()
+
+    def nastavi(self, png_pot):
+        if not IMA_PIL:
+            self._izvirna = None
+            self._sporocilo = "(predogled brez PIL — odpri PDF)"
+            self._narisi()
+            return
+        self._izvirna = Image.open(png_pot).convert("RGB")
+        self._sporocilo = None
+        self.faktor = 1.0
+        self._prilagodi()
+
+    def _prilagodi(self, _e=None):
+        if self._izvirna is None:
+            return
+        cw = max(self.winfo_width(), 40)
+        ch = max(self.winfo_height(), 40)
+        self.faktor = max(0.05, min(cw / self._izvirna.width,
+                                    ch / self._izvirna.height, 1.0))
+        self.ox = self.oy = 0.0
+        self._narisi()
+
+    def _ponastavi(self, _e=None):
+        self.faktor = 1.0
+        self.ox = self.oy = 0.0
+        self._narisi()
+
+    def _kolesce(self, e):
+        self._kolesce_smer(-1 if e.delta > 0 else 1)
+
+    def _kolesce_smer(self, smer):
+        if self._izvirna is None:
+            return
+        self.faktor = max(0.05, min(self.faktor * (1.12 ** -smer), 5.0))
+        self._narisi()
+
+    def _dol(self, e):
+        self._zacetek = (e.x, e.y, self.ox, self.oy)
+        self._premik = False
+
+    def _vleci(self, e):
+        if self._zacetek is None:
+            return
+        x0, y0, ox0, oy0 = self._zacetek
+        self.ox = ox0 + (e.x - x0)
+        self.oy = oy0 + (e.y - y0)
+        if abs(e.x - x0) > 4 or abs(e.y - y0) > 4:
+            self._premik = True
+        self._narisi()
+
+    def _gor(self, e):
+        zacetek = self._zacetek
+        self._zacetek = None
+        if zacetek is not None and not self._premik and self.na_klik:
+            self.na_klik(e)
+
+    def _narisi(self):
+        self.delete("all")
+        cw = max(self.winfo_width(), 40)
+        ch = max(self.winfo_height(), 40)
+        if self._izvirna is None:
+            self.create_text(cw // 2, ch // 2, text=self._sporocilo or "",
+                             fill="#999999", font=("Segoe UI", 10),
+                             justify="center")
+            return
+        W = max(int(self._izvirna.width * self.faktor), 1)
+        H = max(int(self._izvirna.height * self.faktor), 1)
+        slika = self._izvirna.resize((W, H), Image.LANCZOS)
+        self._photo = ImageTk.PhotoImage(slika)
+        self.create_image(cw // 2 + self.ox, ch // 2 + self.oy,
+                          image=self._photo)
+
+
 class Carovnik(tk.Toplevel):
     """Voden vnos po korakih (UI/UX Plan E).
 
@@ -615,12 +725,12 @@ class App(tk.Tk):
         ttk.Checkbutton(self.fp, text="Klik na risbo odpre cel zaslon",
                         variable=self.st_klik).pack(side="top", anchor="e",
                                                     padx=6)
-        self.predogled = tk.Label(self.fp, fg="#999999",
-                                  text="\n\nKlikni »NARIŠI RISBO« — tukaj se prikaže risba.\n"
-                                       "(cel zaslon: gumb »CEL ZASLON« ali kljukica zgoraj)",
-                                  font=("Segoe UI", 10))
+        self.predogled = PredogledCanvas(self.fp)
         self.predogled.pack(fill="both", expand=True)
-        self.predogled.bind("<Button-1>", self._klik_predogled)
+        self.predogled.sporocilo(
+            "Klikni »NARIŠI RISBO« — tukaj se prikaže risba.\n"
+            "(kolešček = povečava • vleci = premik • dvoklik = prilagodi)")
+        self.predogled.na_klik = self._klik_predogled
 
         # živo osveževanje: ob vsaki spremembi polja (debounce 600 ms)
         for _var in self.v.values():
@@ -1396,18 +1506,7 @@ class App(tk.Tk):
             nast("cene_" + ck, (cfg.get("cene") or {}).get(ck))
 
     def _pokazi_predogled(self, png):
-        if IMA_PIL:
-            img = Image.open(png)
-            okvir_w = max(self.fp.winfo_width() - 20, 400)
-            okvir_h = max(self.fp.winfo_height() - 20, 300)
-            merilo = min(okvir_w / img.width, okvir_h / img.height, 1.0)
-            img = img.resize((max(1, int(img.width * merilo)),
-                              max(1, int(img.height * merilo))),
-                             Image.LANCZOS)
-            self._slika = ImageTk.PhotoImage(img)
-        else:
-            self._slika = tk.PhotoImage(file=png, subsample=4)
-        self.predogled.config(image=self._slika, text="", fg="#999999")
+        self.predogled.nastavi(png)
 
     def _narocilo_kopiraj(self):
         if not (self.kolicine and self.kolicine.get("narocilo")):
