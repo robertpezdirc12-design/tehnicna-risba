@@ -1,0 +1,256 @@
+{
+ "ograja": {
+  "kolicine": [],
+  "model": {
+   "dolzina_elementa": 2500,
+   "n_brez_odprtin": 11,
+   "n_kosov": 11,
+   "n_nosilcev": 4,
+   "n_stikov": 44,
+   "opis_elementa": "lamela",
+   "pritrdila_nosilec": 8,
+   "razmak_dejanski": 766.6666666666666,
+   "tip": "ograja",
+   "vijaki_element": 88
+  },
+  "potrebscine": []
+ },
+ "pokoncna": {
+  "kolicine": [
+   [
+    "VRATA V1 — tečaj (TEČ-STD)",
+    "3",
+    "kos",
+    "tecaj_kos",
+    3.0
+   ],
+   [
+    "VRATA V1 — vijak M8x40 (M8x40)",
+    "18",
+    "kos",
+    "vijak_vrata_kos",
+    18.0
+   ],
+   [
+    "VRATA V1 — matica M8 (MAT-M8)",
+    "18",
+    "kos",
+    "matica_kos",
+    18.0
+   ],
+   [
+    "VRATA V1 — podložka M8 (POD-M8)",
+    "18",
+    "kos",
+    "podlozka_kos",
+    18.0
+   ],
+   [
+    "VRATA V1 — ključavnica (KLJ-1)",
+    "1",
+    "kos",
+    "kljucavnica_kos",
+    1.0
+   ],
+   [
+    "VRATA V1 — cilinder (CIL-1)",
+    "1",
+    "kos",
+    "cilinder_kos",
+    1.0
+   ],
+   [
+    "VRATA V1 — ročaj (ROČ-STD)",
+    "1",
+    "par",
+    "rocaj_vrata_par",
+    1.0
+   ],
+   [
+    "VRATA V1 — talni zatič (TAL-ZAT)",
+    "1",
+    "kos",
+    "talni_zatic_kos",
+    1.0
+   ],
+   [
+    "VRATA V1 — stojalo okvirja (V1-1)",
+    "2 × 1325 mm",
+    "kos",
+    null,
+    2.0
+   ],
+   [
+    "VRATA V1 — prečka okvirja (V1-2)",
+    "2 × 880 mm",
+    "kos",
+    null,
+    2.0
+   ],
+   [
+    "VRATA V1 — stojalo krila 1 (V1-3)",
+    "2 × 1275 mm",
+    "kos",
+    null,
+    2.0
+   ],
+   [
+    "VRATA V1 — vodoravna letev krila 1 (V1-4)",
+    "2 × 790 mm",
+    "kos",
+    null,
+    2.0
+   ],
+   [
+    "VRATA V1 — prečka krila 1 (V1-P1)",
+    "2 × 790 mm",
+    "kos",
+    null,
+    2.0
+   ],
+   [
+    "VRATA P1 — zaključni steber prehoda (ZAK-STE)",
+    "2",
+    "kos",
+    "zakljucni_steber_kos",
+    2.0
+   ],
+   [
+    "VRATA P1 — zaključni profil prehoda (ZAK-PRO)",
+    "2",
+    "kos",
+    "zakljucni_profil_kos",
+    2.0
+   ],
+   [
+    "VRATA P1 — sidro M10 (SID-M10)",
+    "4",
+    "kos",
+    "sidro_m10_kos",
+    4.0
+   ]
+  ],
+  "model": {
+   "dolzina_elementa": 1510,
+   "montazne_letve": 4,
+   "n_brez_odprtin": 13,
+   "n_kosov": 5,
+   "n_nosilcev": 3,
+   "n_stikov": 8,
+   "opis_elementa": "deska",
+   "pritrdila_nosilec": 6,
+   "tip": "pokoncna",
+   "vijaki_element": 16
+  },
+  "potrebscine": [
+   [
+    "V1 (enokrilna)",
+    "1000 × 1330 mm",
+    "1 kompletno",
+    "x = 430 mm"
+   ],
+   [
+    "  stojalo okvirja (V1-1)",
+    "1325 mm",
+    "2 kos",
+    "profil 60 mm"
+   ],
+   [
+    "  prečka okvirja (V1-2)",
+    "880 mm",
+    "2 kos",
+    "profil 60 mm"
+   ],
+   [
+    "  stojalo krila 1 (V1-3)",
+    "1275 mm",
+    "2 kos",
+    "profil 40 mm"
+   ],
+   [
+    "  vodoravna letev krila 1 (V1-4)",
+    "790 mm",
+    "2 kos",
+    "profil 40 mm"
+   ],
+   [
+    "  prečka krila 1 (V1-P1)",
+    "790 mm",
+    "2 kos",
+    "profil 40 mm"
+   ],
+   [
+    "  tečaj (TEČ-STD)",
+    "—",
+    "3 kos",
+    "kupljeno"
+   ],
+   [
+    "  vijak M8x40 (M8x40)",
+    "—",
+    "18 kos",
+    "kupljeno"
+   ],
+   [
+    "  matica M8 (MAT-M8)",
+    "—",
+    "18 kos",
+    "kupljeno"
+   ],
+   [
+    "  podložka M8 (POD-M8)",
+    "—",
+    "18 kos",
+    "kupljeno"
+   ],
+   [
+    "  ključavnica (KLJ-1)",
+    "—",
+    "1 kos",
+    "kupljeno"
+   ],
+   [
+    "  cilinder (CIL-1)",
+    "—",
+    "1 kos",
+    "kupljeno"
+   ],
+   [
+    "  ročaj (ROČ-STD)",
+    "—",
+    "1 par",
+    "kupljeno"
+   ],
+   [
+    "  talni zatič (TAL-ZAT)",
+    "—",
+    "1 kos",
+    "kupljeno"
+   ],
+   [
+    "P1 (prehod)",
+    "400 × 600 mm",
+    "1 kompletno",
+    "x = 1800 mm"
+   ],
+   [
+    "  zaključni steber prehoda (ZAK-STE)",
+    "—",
+    "2 kos",
+    "kupljeno"
+   ],
+   [
+    "  zaključni profil prehoda (ZAK-PRO)",
+    "—",
+    "2 kos",
+    "kupljeno"
+   ],
+   [
+    "  sidro M10 (SID-M10)",
+    "—",
+    "4 kos",
+    "kupljeno"
+   ]
+  ]
+ }
+}
