@@ -47,8 +47,15 @@ python -m pytest testi_pfp.py -q
   je (n−1)×razmak iz istih zaznanih središč stebrov; zato je pravi preizkus
   napake **navzkrižna kalibracija** na višino → napaka dolžine **0,2–3,9 %**),
   višina **0,2–3,8 %** (merjena iz središč zunanjih letvi; glej `testi_pfp.py`,
-  izpis `NAPAKA MER`). Sintetični prizori **niso** nadomestilo za terenske
-  fotografije — testiranje na resničnih fotografijah ostaja odprto.
+  izpis `NAPAKA MER`).
+- **Faza 4 — realne fotografije** (`testni_primeri_realni/`, 5 fotografij starih
+  ograj z Wikimedie, viri in licence v `VIRA.txt`): **prekomerna zaznava**
+  (12–22 "stebrov" namesto dejanskih — deske, drevesa, robovi), opozorilo
+  »razmaki neenakomerni / zaznava negotova« se sproži na vseh; absurdne
+  kalibrirane vrednosti so **javno zavrnjene** (npr. višina 11760 mm →
+  `neznano`). **Sklep: prototip na realnih fotografijah NI zanesljiv vir
+  mer** — uporaben kot vizualna pomoč in priprava osnutka, vse mere
+  zahtevajo potrditev/merjenje na objektu.
 - Parametri nove ograje (širina lamele, razmak) so `ocenjeno`, dokler jih
   uporabnik ne potrdi.
 - Razrez je informativna hevristika (standardne 6000 mm palice, kerf 3 mm).
