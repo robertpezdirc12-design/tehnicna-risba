@@ -195,6 +195,33 @@ def opozorilo_zaznave(info):
     return ""
 
 
+# ------------------------------------------- barvni statusi mer (UI/UX Plan C)
+BARVE_STATUSOV = {
+    "izmerjeno": ("#1b5e20", "†", "izmerjeno (kalibrirano)"),
+    "izracunano": ("#0d47a1", "‡", "izračunano"),
+    "ocenjeno": ("#b26a00", "≈", "ocenjeno (NI potrjeno)"),
+    "neznano": ("#b00020", "??", "neznano — potrdi"),
+}
+
+
+def status_meritve(status):
+    """(barva, znak, opis) za status meritve (Plan C)."""
+    return BARVE_STATUSOV.get(status, BARVE_STATUSOV["neznano"])
+
+
+def barva_zaupanja(z):
+    """(barva, oznaka) za zaupanje zaznave 0..1 (Plan C).
+
+    Zeleno ≥ 0,75 ZANESLJIVO • oranžno ≥ PRAG_ZAUPANJA PREVERI •
+    rdeče sicer NEGOTOVO.
+    """
+    if z is not None and z >= 0.75:
+        return "#1b5e20", "ZANESLJIVO"
+    if z is not None and z >= PRAG_ZAUPANJA:
+        return "#b26a00", "PREVERI"
+    return "#b00020", "NEGOTOVO"
+
+
 def zaznaj_vijake(pot, roi=None, y_range=None):
     """Zazna okrogle pike (vijaki/luknje) — temne in svetle (znotraj območja,
     po možnosti samo na višinskem območju ograje).
@@ -324,6 +351,10 @@ class App(tk.Tk):
         self.btn_meri.pack(fill="x", pady=2)
         self.lst = tk.Listbox(f2, height=8, font=("Segoe UI", 8))
         self.lst.pack(fill="x", pady=2)
+        tk.Label(f2, text="Statusi: † izmerjeno (zeleno) • ?? brez merila "
+                         "(rdeče) — podrobno v legendi spodaj.",
+                 fg="#555555", font=("Segoe UI", 7), wraplength=220,
+                 justify="left").pack(anchor="w")
         ttk.Button(f2, text="POBRIŠI MERITVE",
                    command=self._pobrisi_meritve).pack(fill="x")
 
@@ -357,7 +388,12 @@ class App(tk.Tk):
                                "»ODPRI SLIKO…«).", fg="#555555",
                                wraplength=220, font=("Segoe UI", 8),
                                justify="left")
-        self.status.pack(anchor="w", pady=8)
+        self.status.pack(anchor="w", pady=(8, 2))
+        tk.Label(levi, text="LEGENDA STATUSOV: † izmerjeno (kalibrirano) "
+                 "• ‡ izračunano • ≈ ocenjeno (NI potrjeno) • ?? neznano "
+                 "— potrdi; barve: zeleno zanesljivo, oranžno preveri, "
+                 "rdeče negotovo.", fg="#888888", wraplength=220,
+                 font=("Segoe UI", 7), justify="left").pack(anchor="w")
 
         desni = ttk.Frame(self)
         desni.pack(side="left", fill="both", expand=True)
@@ -511,9 +547,7 @@ class App(tk.Tk):
                 ime = self.v_ime.get().strip() or f"M{len(self.meritve) + 1}"
                 mm = d_px / self.scale if self.scale else None
                 self.meritve.append((ime, mm, (p1, p2)))
-                self.lst.insert("end",
-                                f"{ime}: {mm:.0f} mm" if mm
-                                else f"{ime}: {d_px:.0f} px (brez merila)")
+                self._vstavi_meritev(ime, mm, d_px)
                 self.v_ime.set("")
             self.klik = []
         self.prev_premik = None
@@ -562,6 +596,17 @@ class App(tk.Tk):
         self.roi = None
         self._narisi()
 
+    def _vstavi_meritev(self, ime, mm, d_px):
+        """Vnos meritve v seznam z BARVNYM statusom (Plan C)."""
+        if mm:
+            barva, znak, _op = status_meritve("izmerjeno")
+            self.lst.insert("end", f"{ime}: {mm:.0f} mm [{znak}]")
+        else:
+            barva, znak, _op = status_meritve("neznano")
+            self.lst.insert("end",
+                            f"{ime}: {d_px:.0f} px [{znak} — brez merila]")
+        self.lst.itemconfig("end", fg=barva)
+
     def _zaznaj_lam(self):
         if not IMA_CV:
             messagebox.showwarning(
@@ -579,6 +624,9 @@ class App(tk.Tk):
         self.det_pasovi = pasovi
         self.det_info = info
         opoz = opozorilo_zaznave(info)      # F3: prag zanesljivosti
+        z = zaupanje_zaznave(info)
+        barva, oznaka = barva_zaupanja(z)
+        z_nap = f"[zaupanje {z:.2f} — {oznaka}]" if z is not None else ""
         if self.scale and info["pitch_px"]:
             pitch = info["pitch_px"] / self.scale
             deb = (info["debelina_px"] or 0) / self.scale
@@ -586,11 +634,12 @@ class App(tk.Tk):
             self.status.config(
                 text=f"Zaznanih pasov: {info['stevilo']} • pitch ≈ {pitch:.0f}"
                      f" mm • lamela ≈ {deb:.0f} mm • vrzel ≈ {vr:.0f} mm "
-                     f"(preveri z merilom!) {opoz}")
+                     f"(preveri z merilom!) {z_nap} {opoz}", fg=barva)
             self.v_ime.set("razmak_lamel")
         else:
             self.status.config(text=f"Zaznanih pasov: {info['stevilo']} "
-                                    f"(brez merila — najprej kalibracija). {opoz}")
+                                    f"(brez merila — najprej kalibracija). "
+                                    f"{z_nap} {opoz}", fg=barva)
         self._narisi()
 
     def _zaznaj_vij(self):
@@ -617,14 +666,18 @@ class App(tk.Tk):
             return
         self.det_pike = pike
         opoz = opozorilo_zaznave(info)      # F3: prag zanesljivosti
+        z = zaupanje_zaznave(info)
+        barva, oznaka = barva_zaupanja(z)
+        z_nap = f"[zaupanje {z:.2f} — {oznaka}]" if z is not None else ""
         if self.scale and info["razmak_px"]:
             self.status.config(
                 text=f"Zaznanih pik (vijaki/luknje): {info['stevilo']} • "
                      f"tipičen razmak ≈ {info['razmak_px'] / self.scale:.0f} "
-                     f"mm (preveri z merilom!) {opoz}")
+                     f"mm (preveri z merilom!) {z_nap} {opoz}", fg=barva)
         else:
             self.status.config(text=f"Zaznanih pik: {info['stevilo']} "
-                                    f"(brez merila — najprej kalibracija). {opoz}")
+                                    f"(brez merila — najprej kalibracija). "
+                                    f"{z_nap} {opoz}", fg=barva)
         self._narisi()
 
     def _shrani(self):
