@@ -153,8 +153,6 @@ def narisi_skico(pod, pot_pdf):
         deb_mm = (mere.get("visina_lamele").vrednost_mm
                   if mere.get("visina_lamele") and mere.get("visina_lamele").vrednost_mm
                   else 67.0)
-        vrz_mm = (mere.get("vrzel").vrednost_mm
-                  if mere.get("vrzel") and mere.get("vrzel").vrednost_mm else 20.0)
         korak = h_mm / n_lam
         vis_lam = min(deb_mm, korak * 0.85)
         for i in range(n_lam):

@@ -14,7 +14,6 @@ vrata.geometrija_vrat) — isti vir resnice kot risba in količine.
 """
 from __future__ import annotations
 
-import math
 import os
 
 import ezdxf
@@ -131,7 +130,6 @@ def _elementi_segmenta(mere, tip, vrata_sez=None, prehodi_sez=None):
         for z0, z1 in lamele:
             el.append(("kvadrat", (0.0, z0, sirina, z1 - z0), "OUTLINE"))
         poz, _raz = risba.pozicije_nosilcev(sirina, mere.get("razmak_nosilcev", 2500.0))
-        ss = mere.get("globina", 1200.0)
         for x in poz:
             el.append(("kvadrat", (x - 40.0, odcep, 80.0, visina - odcep), "POSTS"))
     else:  # pokončna

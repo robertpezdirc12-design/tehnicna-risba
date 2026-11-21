@@ -5,6 +5,7 @@ F2 (issue #5): izločeno iz monolita risba.py BREZ spremembe vedenja;
 risba.py javno API ohranja prek re-exportov. Brez risanja (matplotlib).
 """
 import math
+import os
 import re
 import sys
 
@@ -269,7 +270,6 @@ def vrata_podatki(c):
     odcep = m.get("odcep", 0) or 0
     sir = m.get("sirina", 0) or 0
     vis = m.get("visina", 0) or 0
-    H_o = vis - odcep
     izhod = {"vrata": [], "prehodi": [], "odprtine": [], "elementi": [],
              "napake": [], "opozorila": []}
     if not (c.get("vrata") or c.get("prehodi")):

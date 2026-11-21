@@ -1,0 +1,42 @@
+# Konfiguracija orodij (UI/UX raziskava — Plan 1: quality gates)
+# Viri: Modern Python standard (TS3: coverage merjen samo v CI),
+# Python Tooling Stack 2026 (ruff + mypy postopno), SQRBOK (ratchet prag).
+
+[tool.ruff]
+# Pravila: sintaktične/varnostne napake in neuporabljeni uvozi (F),
+# očitne napake (E9). Stilnih pravil NE vsiljujemo (ni ruff format).
+line-length = 88
+target-version = "py311"
+extend-exclude = ["build", "dist"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "W6"]
+# Slogovna pravila, ki ne odkrivajo napak — namerno izključena:
+# E741 (ime `l`), E702 (več stavkov v vrstici), E731 (lambda) —
+# preimenovanja v risarski kodi bi bila tvegana brez funkcionalne koristi.
+ignore = ["E741", "E702", "E731"]
+
+[tool.ruff.lint.per-file-ignores]
+# Testi: uvozi po skip-stražarjih (tkinter okolje) so namerni.
+"tests/*" = ["E402"]
+"photo_fence_proposal/testi_pfp.py" = ["E402"]
+
+[tool.mypy]
+# Postopna tipizacija (SQRBOK vzor): preveri definicije brez tipov,
+# ne zahteva tipov povsod. --strict je ločen večji projekt.
+python_version = "3.11"
+check_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+exclude = ["build/", "dist/"]
+
+[tool.coverage.run]
+source = ["."]
+omit = ["tests/*", "build/*", "dist/*", "test_*", "_*"]
+
+[tool.coverage.report]
+# RATCHET (SQRBOK): prag = trenutna pokritost (70 %) zaokrožena NAVZDOL na 5,
+# minus rezerva za okoljsko nihanje (Tk testi občasno preskočeni → 61–70 %).
+# Dviguje se ročno, ko pokritost zraste — nikoli ne blokira PR-ja,
+# ki ne spremeni ničesar.
+fail_under = 65

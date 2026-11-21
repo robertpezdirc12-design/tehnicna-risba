@@ -14,7 +14,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-from model import Rezultat, NEZNANO
+from model import Rezultat
 
 MERILO_RISBE = 0.06  # px/mm risalne enote (za A3 stran)
 
@@ -58,7 +58,6 @@ def narisi_tehnisko_risbo(rezultat: Rezultat, pot: str) -> str:
                                    edgecolor="#222222", lw=1.4))
         # lamele
         param = rezultat.parametri
-        korak = param.sirina_lamele_mm + param.razmak_mm
         y = 0.0
         while y < H:
             y += param.sirina_lamele_mm

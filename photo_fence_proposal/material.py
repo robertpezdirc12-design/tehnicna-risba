@@ -12,8 +12,7 @@ from __future__ import annotations
 
 import math
 
-from model import (ParametriNove, PostavkaKosovnice, Rezultat, Mera,
-                   NEZNANO, OCENJENO, IZMERJENO, IZRACUNANO, POTRJENI_STATUSI)
+from model import (PostavkaKosovnice, Rezultat, NEZNANO, OCENJENO, IZMERJENO, IZRACUNANO)
 
 DOLZINA_PALICE_MM = 6000.0   # standardna nakupna dolžina WPC/alu palice
 KERF_MM = 3.0                # širina reza (ocena)

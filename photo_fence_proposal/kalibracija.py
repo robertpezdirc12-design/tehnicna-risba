@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from model import (Kalibracija, Mera, Zaznava, Rezultat, ParametriNove,
+from model import (Kalibracija, Mera, Zaznava, ParametriNove,
                    NEZNANO, OCENJENO, IZMERJENO, IZRACUNANO)
 
 # Fizično verodostojne meje za mere ograje (klasični QC, brez AI). Če

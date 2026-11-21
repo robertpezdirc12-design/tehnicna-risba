@@ -327,7 +327,7 @@ def test_celoten_tok(testni_prizori, tmp_path):
     import zazeni
     ime, pot, resni = testni_prizori[0]
     izhod = str(tmp_path / "izhod")
-    rez = zazeni.pozeni(pot, izhod, ParametriNove(),
+    zazeni.pozeni(pot, izhod, ParametriNove(),
                         referenca=("razmak_stebrov",
                                    resni["dolzina_ograje"] / resni["stevilo_polj"]))
     for ime_datoteke in ("01-zaznava.png", "02-vizualni-predlog.png",

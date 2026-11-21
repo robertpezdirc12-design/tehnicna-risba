@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import tempfile
 import tkinter as tk
-from tkinter import colorchooser, filedialog, messagebox, simpledialog
+from tkinter import filedialog, messagebox, simpledialog
 from tkinter import ttk
 
 import terenski_list as tl

@@ -6,9 +6,8 @@ stara formula n_d × n_s × 2 je preštevala (20 desk × 3 stebri → 120 namest
 """
 import pytest
 
-from conftest import cfg_pokoncna, osnovni_cfg
+from conftest import cfg_pokoncna
 
-import razrez
 import risba
 from razrez import stevilo_palic
 
@@ -94,7 +93,6 @@ def test_montazni_pokoncna_palice_in_stebri(tmp_path):
                         "odcep": 50, "rocaj_v": 40, "vrzel": 20,
                         "lamele": 8, "deska_sirina": 100})
     izhod, png, dodatni, kolicine = risba.generiraj(cfg)
-    n_s = 9                          # ceil((3000-60)/400)+1 = 9
     stebri = [p for p in kolicine["postavke"] if p[3] == "alu_m"]
     assert stebri, kolicine["postavke"]
     # palice = ceil(9 / 3) = 3 (NE ceil(9×1203/6000) = 2)

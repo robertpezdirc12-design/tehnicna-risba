@@ -4,7 +4,6 @@
 POŠTENOST: brez cenika variante NI izmišljene številke — znesek je
 „cena po dogovoru“. Testi to izrecno preverjajo.
 """
-import pytest
 
 from conftest import osnovni_cfg
 

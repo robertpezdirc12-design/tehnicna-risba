@@ -167,6 +167,10 @@ def pokazi_3d(c, master=None):
     orodna = NavigationToolbar2Tk(canvas, okno)
     orodna.update()
     canvas.draw()
-    okno.protocol("WM_DELETE_WINDOW", lambda: (plt.close(fig),
-                                               okno.destroy()))
+
+    def _zapri():
+        plt.close(fig)
+        okno.destroy()
+
+    okno.protocol("WM_DELETE_WINDOW", _zapri)
     return okno

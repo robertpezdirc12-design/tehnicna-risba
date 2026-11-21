@@ -16,7 +16,6 @@ import argparse
 import datetime
 import math
 import os
-import re
 import sys
 import textwrap
 
@@ -25,27 +24,28 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
-import yaml
 
-from razrez import (nalozi_ostanke,
-                     shrani_ostanke,
-                     pot_ostanki,
+from razrez import (shrani_ostanke,
                      razrez_podatki,
                      razrez_kosov_podatki,
                      stevilo_palic,
-                     kos_iz_vira)
-import vrata as vrat
+                     # F2 fasada — javni re-exporti (as zapis = namerni):
+                     nalozi_ostanke as nalozi_ostanke,
+                     pot_ostanki as pot_ostanki,
+                     kos_iz_vira as kos_iz_vira)
 from jedro import (odsteni, barva_hex, fmt, traki_nabava,
                    pritrdilo_material, vijak_dim, razpored,
                    pozicije_nosilcev, razdeli_po_odprtinah,
                    razpored_pokoncna, vrata_podatki, zdruzi,
                    nalozi_konf, preveri_cfg, PRIVZETO,
-                   BARVA_LAMEL,
-                   WPC_BARVE, BARVA_OKOVJA)
-from proizvodnja import (vrata_vrstice_kolicin,
-                         izracunaj_kolicine, predracun_znesek,
+                   BARVA_OKOVJA,
+                   BARVA_LAMEL as BARVA_LAMEL,
+                   WPC_BARVE as WPC_BARVE)
+from proizvodnja import (izracunaj_kolicine, predracun_znesek,
                          vrata_vrstice_potrebscine,
+                         vrata_vrstice_kolicin as vrata_vrstice_kolicin,
                          proizvodni_model)
+import vrata as vrata
 from matplotlib.patches import Circle, Polygon, Rectangle
 
 # ---------------------------------------------------------------- konstante
@@ -627,7 +627,6 @@ def narisi_pokoncna(ax, c):
         oznaka(ax, 256, 200, "IZOMETRIČNI POGLLED")
         D = skupna_d
         f = min(148 / ((sir + D) * C30), 58 / ((sir + D) * 0.5 + vis))
-        gap_iso = 4.0 / f
         xs = [izo_tocka(x, y, 0, f)[0] for x, y in ((0, D), (sir, 0))]
         ys = [izo_tocka(x, y, z, f)[1] for x, y, z in
               ((0, 0, 0), (sir, D, vis))]
@@ -1199,9 +1198,7 @@ def narisi_montazni_list(ax, c):
     dl_deske = c.get("dolzina_deske", 5800)
     dl_palice = c.get("dolzina_palice", 6000)
     kerf = c.get("kerf", 3.0)
-    barva = c.get("barva") or "Antracit"
     podlaga = c.get("podlaga") or ""
-    pritrditev = c.get("pritrditev") or "bočno"
     vijak_lamela_naziv = c.get("vijak_lamela") or "RF vijak M8×70 (lamela↔profil)"
     vijak_nosilec_naziv = c.get("vijak_nosilec") or         f"Pritrdilni vijaki za {podlaga or 'podlago'}"
 
@@ -1312,9 +1309,6 @@ def narisi_montazni_pokoncna(ax, c):
     n_d, n_s = p["n_desk"], p["n_stebrov"]
     deska_h = p["deske_h"]
     profil = c.get("profil") or "POLNA DESKA 100"
-    barva = c.get("barva") or "Antracit"
-    podlaga = c.get("podlaga") or ""
-    pritrditev = c.get("pritrditev") or "vrh"
     vijak_lamela_naziv = c.get("vijak_lamela") or "Vijak M8×70 (deska↔steber)"
     vijak_nosilec_naziv = c.get("vijak_nosilec") or "Anker M10"
     dl_deske = c.get("dolzina_deske", 5800)
@@ -1370,9 +1364,9 @@ def narisi_montazni_pokoncna(ax, c):
          f"{n_s} kos",
          f"{vijak_nosilec_naziv} × 2 na osnovo"],
         [vijak_lamela_naziv, "—", f"{vijaki} kos",
-         f"2 na stik, 4 na desko (levo + desno) • Ø+1 mm"],
+         "2 na stik, 4 na desko (levo + desno) • Ø+1 mm"],
         [vijak_nosilec_naziv, "—", f"{n_s * 2} kos",
-         f"2 na osnovo • sidranje ≥ 60 mm (beton C20/25)"],
+         "2 na osnovo • sidranje ≥ 60 mm (beton C20/25)"],
     ]
     pot += vrata_vrstice_potrebscine(vp)   # VRATA/PREHODI (issue #3)
     if kos_iz_ost:
@@ -1392,29 +1386,6 @@ def narisi_montazni_pokoncna(ax, c):
         "stranke.",
     ]
 
-    datum = c.get("datum") or datetime.date.today().strftime("%d.%m.%Y")
-    nar = [
-        f"NAROČILO — WPC material "
-        f"({c.get('dobavitelj') or 'WoodCore'})",
-        f"Naloga: {c['risba_st']} • Datum: {datum}",
-        f"Stranka: {c.get('stranka') or '—'} • Objekt: "
-        f"{c.get('objekt') or '—'}",
-        "",
-        "DESKE:",
-        f"- {profil}, barva {barva}"
-        + "".join(f" — {t} kos × {fmt(B)} mm" for B, t in traki_nabava(traki))
-        + (f" + {kos_iz_ost} kos iz ostankov" if kos_iz_ost else ""),
-        "",
-        "PROFILI (aluminij):",
-        f"- {steber_dim} — {palice_s} kos × {fmt(dl_palice)} mm "
-        f"(razrez: {n_s} × {fmt(vis)} mm — stebri)",
-        "",
-        "OSTALA PRITRDITVA:",
-        f"- Ročaj — 1 kos × {fmt(sir)} mm",
-        f"- Osnove za steber — {n_s} kos",
-        f"- {vijak_lamela_naziv} — {vijaki} kos",
-        f"- {vijak_nosilec_naziv} — {n_s * 2} kos",
-    ]
     sestava = [
         ("Ročaj (WPC/alu)", f"L = {fmt(sir)} mm"),
         (f"WPC deska {profil}",
@@ -1425,7 +1396,6 @@ def narisi_montazni_pokoncna(ax, c):
     ]
     montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki, sestava=sestava)
 
-    cona_z = p["deske_z"][1] - p["deske_z"][0]
     n_vrst_r = min(len(rez_rows) - 1, 11) if rez_rows else 0
     y_iz = 197 - (8.5 + 7 + n_vrst_r * 7) - 5.5
     ax.text(20, y_iz, f"IZRAČUN VIŠINE: {fmt(vis)} = {fmt(m['rocaj_v'])} "

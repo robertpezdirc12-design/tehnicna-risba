@@ -9,7 +9,6 @@ vijaki = 37 × 2 × 2 = 148; sidra = 4 × 2 = 8.
 """
 import os
 
-import pytest
 
 import nova_vrsta
 

@@ -4,7 +4,6 @@
 Ročno izračunani primer: kosi [A=1000, B=800, C=500], zaloga [2000],
 kerf 3. Po modelu B: 1000+800+500 + 2·3 = 2306 > 2000 -> dva trakova.
 """
-import os
 
 import pytest
 

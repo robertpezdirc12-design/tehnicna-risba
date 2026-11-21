@@ -10,8 +10,7 @@ import yaml
 
 import razrez
 from razrez import (nalozi_ostanke, shrani_ostanke, porazdeli_z_ostanki,
-                    razrez_podatki, ostanek_po_rezih, kos_iz_vira,
-                    MIN_OSTANKA)
+                    razrez_podatki, MIN_OSTANKA)
 
 
 def _skladisce(ostanki):

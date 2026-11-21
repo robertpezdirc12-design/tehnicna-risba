@@ -4,7 +4,6 @@ import sys
 os.environ["MPLCONFIGDIR"] = "/tmp/mplconfig"   # Vercel: pisanje samo v /tmp
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import datetime
 import os
 import sys
 import tempfile

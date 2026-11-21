@@ -2,3 +2,7 @@
 pytest
 pypdf
 ezdxf==1.4.5
+# quality gates (Plan 1) — ruff, mypy baseline ratchet, coverage prag
+ruff
+mypy
+pytest-cov

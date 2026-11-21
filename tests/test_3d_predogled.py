@@ -6,7 +6,6 @@ konstrukcijski model — shematski prikaz iz istega cfg kot risba.
 """
 import os
 
-import pytest
 
 from conftest import osnovni_cfg, cfg_pokoncna
 

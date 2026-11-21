@@ -174,7 +174,7 @@ def narisi_ponudbo(pot_pdf, c, moznosti=None):
         yy -= 1.2
 
     # ---- podpisna vrstica ----
-    ax.text(12, 28, f"Kraj in datum: ______________________",
+    ax.text(12, 28, "Kraj in datum: ______________________",
             fontsize=9)
     ax.text(12, 18, "Podpis naročnika: ______________________",
             fontsize=9)

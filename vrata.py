@@ -64,7 +64,7 @@ VRSTE_VRAT = ("enokrilna", "dvokrilna", "pasja", "prehodna")
 SMERI = ("levo-navzven", "desno-navzven", "levo-navznoter", "desno-navznoter")
 
 # Privzete reže (mm) — odločitev O-4/O-7 iz poročila pod-agenta.
-PRIVZETE_REZE = {"tla": 50.0, "bok": 5.0, "med": 10.0, "zgoraj": 5.0}
+PRIVZETE_REZE: dict[str, float] = {"tla": 50.0, "bok": 5.0, "med": 10.0, "zgoraj": 5.0}
 
 # Profilne dimenzije (mm) — okvir vrat in krilo (issue #6, uskladitev
 # kosovnice z geometrijo). Model: okvirna stojala stojijo ZNOTRAJ odprtine
@@ -544,7 +544,6 @@ def elementi_vrat(g):
         el.append(("kvadrat", (0.0, 0.0, sirina, H_o), "DIMENSIONS"))
         return el
 
-    w = g["sirine_kril"][0]
     ok = g.get("sirina_okvirja", 60.0)
     # Okvir: levo in desno stojalo (znotraj odprtine) — F1 (issue #5, O2):
     # stojalo sega od TAL do H_o − zgoraj (kot pravi kosovnica: h_k + tla).
