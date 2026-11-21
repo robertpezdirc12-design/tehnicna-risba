@@ -71,6 +71,88 @@ CENE_NAPISI = {
 DAT_ZADNJE = os.path.join(_AP_DIR, "zadnje_nastavitve.yaml")
 
 
+# namigi ob prehodu miške (UI/UX Plan F)
+NAMIGI = {
+    "sirina": "Skupna širina ograje v mm (vodoravna dolžina). "
+              "Vpliva na število polj, nosilcev in dolžino ročaja.",
+    "visina": "Višina ograje od tal do vrha v mm. V višino so všteti "
+              "odcep, lamele/deske in profili (preveri izračun na "
+              "montažnem listu).",
+    "globina": "Globina oz. stranska dolžina ograje v mm (za 3D/DXF).",
+    "odcep": "Razmik od tal do spodnjega roba ograje v mm.",
+    "lamele": "Število lamel/desk v polju (prečna predloga) oz. desk "
+              "(pokončna).",
+    "lamela_v": "Višina lamel (prečna) oz. širina deske (pokončna) v mm.",
+    "debelina": "Debelina lamele/deske v mm (npr. WPC 21 mm).",
+    "vrzel": "Razmik med sosednjima deskama v mm — vpliva na porabo in "
+             "videz.",
+    "razmak_nosilcev": "Največji dovoljen razmak nosilcev/stebrov v mm; "
+                       "dejanski razmak se porazdeli enakomerno (glej "
+                       "montažni list).",
+    "kerf": "Širina reza (žaginega lista) v mm — upoštevana pri razrezu "
+            "in izračunu ostankov.",
+    "dolzine_deske": "Razpoložljive tovarniške dolžine desk v mm, "
+                     "ločene z ; (npr. 5800; 4200). Optimizer izbere "
+                     "najboljšo kombinacijo.",
+    "dolzina_palice": "Tovarniška dolžina alu palice v mm (npr. 6000).",
+    "vijak_lamela": "Opis vijaka za pritrditev lamele/deske — pride v "
+                    "kosovnico in naročilo.",
+    "vijak_nosilec": "Opis vijaka/ankerja za pritrditev nosilca na "
+                     "podlago.",
+    "pritrditev_nacin": "Način pritrditve (bočno/vrh) — prikazan na "
+                        "detajlu pritrjevanja.",
+    "material_lamel": "Material lamel/desk (npr. WPC) — opisno.",
+    "profil": "Profil/model deske (npr. ROMB 67) — vpliva na opise v "
+              "kosovnici.",
+    "uporabi_ostanke": "Če je vklopljeno, razrez uporabi ostanke iz "
+                       "skladišča (zmanjša odpad).",
+}
+
+
+class Namig:
+    """Namig ob prehodu miške čez widget (UI/UX Plan F)."""
+
+    def __init__(self, widget, besedilo, zamik=500):
+        self.widget = widget
+        self.besedilo = besedilo
+        self.zamik = zamik
+        self._id = None
+        self._okno = None
+        widget.bind("<Enter>", self._zacetek)
+        widget.bind("<Leave>", self._konec)
+        widget.bind("<ButtonPress>", self._konec)
+
+    def _zacetek(self, _e=None):
+        self._konec()
+        self._id = self.widget.after(self.zamik, self._prikazi)
+
+    def _konec(self, _e=None):
+        if self._id is not None:
+            try:
+                self.widget.after_cancel(self._id)
+            except Exception:
+                pass
+            self._id = None
+        if self._okno is not None:
+            try:
+                self._okno.destroy()
+            except Exception:
+                pass
+            self._okno = None
+
+    def _prikazi(self):
+        if self._okno is not None:
+            return
+        x = self.widget.winfo_rootx() + 12
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 4
+        self._okno = tk.Toplevel(self.widget)
+        self._okno.wm_overrideredirect(True)
+        self._okno.wm_geometry(f"+{x}+{y}")
+        tk.Label(self._okno, text=self.besedilo, bg="#fff8c4", fg="#333333",
+                 relief="solid", borderwidth=1, wraplength=300,
+                 font=("Segoe UI", 8), justify="left").pack(ipadx=4, ipady=2)
+
+
 class CelZaslon(tk.Toplevel):
     """Celozaslonski predogled: kolešček miške = povečava, vlečenje = premik."""
 
@@ -297,6 +379,7 @@ class App(tk.Tk):
         self._slika = None            # referenca (sicer GC uniči sliko)
         self.v = {}
         self.polja = {}               # referenca polj za skrivanje/prikaz
+        self.namigi = {}              # Plan F: namigi ob prehodu miške
         self.vrata_sez = []           # vrata/prehodi (issue #3)
         self.st_preprost = tk.BooleanVar(value=True)   # preprosti način
         # UI/UX Plan A: živi povzetek (debounce osveževanje)
@@ -396,6 +479,7 @@ class App(tk.Tk):
             f2, text=f"Uporabi skladišče ostankov ({risba.pot_ostanki()})",
             variable=self.st_ost, command=self._zivi_sprememba)
         cb_ost.grid(row=4, column=2, columnspan=2, sticky="w")
+        self.namigi["uporabi_ostanke"] = Namig(cb_ost, NAMIGI["uporabi_ostanke"])
         self.polja.setdefault("uporabi_ostanke", []).append(cb_ost)
         tk.Label(f2, text="(višina zgornjega/spodnjega profila je 40 mm; "
                          "razmak nosilcev se samodejno izračuna)",
@@ -545,6 +629,12 @@ class App(tk.Tk):
         self.bind_all("<Control-z>", self._razveljavi)
         self.bind_all("<Control-y>", self._ponovi)
         self.bind_all("<Control-Shift-Z>", self._ponovi)
+        # Plan F: bližnjice
+        self.bind_all("<Control-n>", lambda e: self._narisi())
+        self.bind_all("<Control-p>", lambda e: self._odpri_pdf())
+        self.bind_all("<Control-s>", lambda e: self._shrani_projekt())
+        self.bind_all("<Control-e>", lambda e: self._izvozi_dxf())
+        self.bind_all("<F1>", lambda e: self._pomoc())
 
     def _polje(self, star, vrsta, stolpec, kljuc, sirina, napis=None):
         if kljuc not in self.v:
@@ -558,11 +648,28 @@ class App(tk.Tk):
         ent.grid(row=vrsta, column=stolpec * 2 + 1, sticky="w",
                  padx=(0, 12), pady=2)
         self.polja.setdefault(kljuc, []).extend([lbl, ent])
+        if kljuc in NAMIGI:                       # Plan F: namig
+            self.namigi[kljuc] = Namig(ent, NAMIGI[kljuc])
+            Namig(lbl, NAMIGI[kljuc])
 
     # --------------------------------------------- živi povzetek (Plan A)
     def _carovnik(self):
         """Odpri voden vnos po korakih (Plan E)."""
         Carovnik(self)
+
+    def _pomoc(self):
+        """F1: pomoč z bližnjicami in legendo (Plan F)."""
+        messagebox.showinfo(
+            "Pomoč — bližnjice",
+            "Bližnjice:\n"
+            "  Ctrl+N — NARIŠI RISBO\n"
+            "  Ctrl+P — ODPRI PDF\n"
+            "  Ctrl+S — SHRANI PROJEKT (.yaml)\n"
+            "  Ctrl+E — IZVOZI DXF\n"
+            "  Ctrl+Z — razveljavi • Ctrl+Y / Ctrl+Shift+Z — ponovi\n"
+            "  F1 — to sporočilo\n\n"
+            "Namigi: postavi miško na polje za razlago.\n"
+            "Merjenje s slike: vedno preveri mere na objektu!")
 
     def _zivi_sprememba(self, *_):
         """Sproži osvežitev živega povzetka z debounce (600 ms)."""
