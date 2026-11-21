@@ -171,10 +171,16 @@ class App(tk.Tk):
         # UI/UX Plan A: živi povzetek (debounce osveževanje)
         self.st_zivo = tk.BooleanVar(value=True)
         self._zivi_id = None
+        # UI/UX Plan D: zgodovina (undo/redo)
+        self._zgodovina = []
+        self._zgodovina_i = -1
+        self._zgodovina_id = None
+        self._obnavljam = False
         self._zgradi()
         self._preklopi_nacin()
         self._nalozi_zadnje()
         self._izpolni_privzete()
+        self._zgodovina_zabelezi()   # začetno stanje (po nalaganju!)
 
     # ------------------------------------------------------------- gradnja
     def _zgradi(self):
@@ -197,6 +203,13 @@ class App(tk.Tk):
                         "(mere, fotografija, NARIŠI)",
                         variable=self.st_preprost,
                         command=self._preklopi_nacin).pack(side="right")
+        # Plan D: undo/redo
+        self.btn_ponovi = ttk.Button(fr_p, text="↪ Ponovi",
+                                     command=self._ponovi, width=9)
+        self.btn_ponovi.pack(side="right", padx=(0, 6))
+        self.btn_razveljavi = ttk.Button(fr_p, text="↩ Razveljavi",
+                                         command=self._razveljavi, width=11)
+        self.btn_razveljavi.pack(side="right", padx=(0, 2))
 
         zg = ttk.Frame(self, padding=(14, 4))
         zg.pack(fill="x")
@@ -248,7 +261,7 @@ class App(tk.Tk):
         self.st_ost = tk.BooleanVar(value=False)
         cb_ost = ttk.Checkbutton(
             f2, text=f"Uporabi skladišče ostankov ({risba.pot_ostanki()})",
-            variable=self.st_ost)
+            variable=self.st_ost, command=self._zivi_sprememba)
         cb_ost.grid(row=4, column=2, columnspan=2, sticky="w")
         self.polja.setdefault("uporabi_ostanke", []).append(cb_ost)
         tk.Label(f2, text="(višina zgornjega/spodnjega profila je 40 mm; "
@@ -395,6 +408,11 @@ class App(tk.Tk):
             _var.trace_add("write", self._zivi_sprememba)
         self.after(300, self._zivi_osvezi)
 
+        # Plan D: bližnjici undo/redo (delujeta tudi iz vnosnih polj)
+        self.bind_all("<Control-z>", self._razveljavi)
+        self.bind_all("<Control-y>", self._ponovi)
+        self.bind_all("<Control-Shift-Z>", self._ponovi)
+
     def _polje(self, star, vrsta, stolpec, kljuc, sirina, napis=None):
         if kljuc not in self.v:
             self.v[kljuc] = tk.StringVar()
@@ -411,6 +429,7 @@ class App(tk.Tk):
     # --------------------------------------------- živi povzetek (Plan A)
     def _zivi_sprememba(self, *_):
         """Sproži osvežitev živega povzetka z debounce (600 ms)."""
+        self._zgodovina_odlozi()          # Plan D: zgodovina sprememb
         if not self.st_zivo.get():
             return
         if self._zivi_id is not None:
@@ -510,6 +529,89 @@ class App(tk.Tk):
                       font=("Segoe UI", 8))
         c.create_text(x0 - 4, y0 + H / 2, text=f"{vis:g} mm",
                       font=("Segoe UI", 8), angle=90)
+
+    # --------------------------------------------- zgodovina: undo/redo (Plan D)
+    MAX_ZGODOVINA = 50
+
+    def _zgodovina_stanje(self):
+        return {
+            "v": {k: var.get() for k, var in self.v.items()},
+            "vrata": [dict(v) for v in self.vrata_sez],
+            "ost": bool(self.st_ost.get()),
+            "preprost": bool(self.st_preprost.get()),
+        }
+
+    def _zgodovina_odlozi(self):
+        """Zabeleži stanje zamaknjeno (700 ms) — en vnos na vnosni cikel."""
+        if self._obnavljam:
+            return
+        if self._zgodovina_id is not None:
+            try:
+                self.after_cancel(self._zgodovina_id)
+            except Exception:
+                pass
+        self._zgodovina_id = self.after(700, self._zgodovina_zabelezi)
+
+    def _zgodovina_zabelezi(self, *_):
+        self._zgodovina_id = None
+        if self._obnavljam:
+            return
+        stanje = self._zgodovina_stanje()
+        if (self._zgodovina
+                and self._zgodovina[self._zgodovina_i] == stanje):
+            return
+        del self._zgodovina[self._zgodovina_i + 1:]   # odreži vejo naprej
+        self._zgodovina.append(stanje)
+        if len(self._zgodovina) > self.MAX_ZGODOVINA:
+            self._zgodovina.pop(0)
+        self._zgodovina_i = len(self._zgodovina) - 1
+        self._zgodovina_gumbi()
+
+    def _zgodovina_obnovi(self, i):
+        self._zgodovina_zabelezi_hitro_ali_pobrisi()
+        self._obnavljam = True
+        try:
+            stanje = self._zgodovina[i]
+            for k, var in self.v.items():
+                var.set(stanje["v"].get(k, var.get()))
+            self.vrata_sez[:] = [dict(v) for v in stanje["vrata"]]
+            self.st_ost.set(stanje["ost"])
+            self.st_preprost.set(stanje["preprost"])
+            self._vrata_osvezi()
+            self._preklopi_nacin()
+            self._zivi_osvezi()
+        finally:
+            self._obnavljam = False
+        self._zgodovina_i = i
+        self._zgodovina_gumbi()
+
+    def _zgodovina_zabelezi_hitro_ali_pobrisi(self):
+        """Pred preskokom v zgodovini zaključi čakajoči debounce vnos."""
+        if self._zgodovina_id is not None:
+            try:
+                self.after_cancel(self._zgodovina_id)
+            except Exception:
+                pass
+            self._zgodovina_id = None
+
+    def _zgodovina_gumbi(self):
+        if not hasattr(self, "btn_razveljavi"):
+            return
+        self.btn_razveljavi.config(
+            state="normal" if self._zgodovina_i > 0 else "disabled")
+        self.btn_ponovi.config(
+            state="normal" if self._zgodovina_i < len(self._zgodovina) - 1
+            else "disabled")
+
+    def _razveljavi(self, _ev=None):
+        if self._zgodovina_i > 0:
+            self._zgodovina_obnovi(self._zgodovina_i - 1)
+        return "break"
+
+    def _ponovi(self, _ev=None):
+        if self._zgodovina_i < len(self._zgodovina) - 1:
+            self._zgodovina_obnovi(self._zgodovina_i + 1)
+        return "break"
 
     def _privzeti(self):
         p = risba.PRIVZETO
@@ -762,6 +864,7 @@ class App(tk.Tk):
         if preprost:
             self.status.config(text="Preprosti način — kljukica zgoraj "
                                     "prikaže napredne možnosti.")
+        self._zgodovina_odlozi()          # Plan D
 
     # ------------------------------------------------- vrata in prehodi (issue #3)
     def _vrata_mere(self):
