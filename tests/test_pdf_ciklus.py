@@ -113,3 +113,15 @@ def test_status_dokumenta_privzeto_v_delu(tmp_path):
     cfg = osnovni_cfg(tmp_path / "status2.pdf")
     izhod, _png, _dod, _k = risba.generiraj(cfg)
     assert "STATUS: V DELU" in besedilo_strani(izhod, 0)
+
+
+def test_primerjava_z_rocnim_rezanjem_v_montaznem_listu(tmp_path):
+    """Plan 3: ob mešanih dolžinah (lamele okoli vrat) je v montažnem
+    listu prikazana primerjava optimizatorja z ročnim rezanjem."""
+    cfg = osnovni_cfg(tmp_path / "plan3.pdf")
+    cfg["vrata"] = [{"tip": "enokrilna", "x": 200, "sirina": 900,
+                     "visina": 1500, "smer": "desno-navzven"}]
+    izhod, _png, _dod, _k = risba.generiraj(cfg)
+    txt = besedilo_strani(izhod, 1)
+    assert "primerjava brez ostankov" in txt
+    assert "prihranek" in txt

@@ -6,6 +6,7 @@ je 3 palice (po 3 kose), NE 2 (ceil(9 × 1203 / 6000) = 2 je podcenitev).
 """
 import pytest
 
+import razrez
 from razrez import (optimiziraj_zalogo, razrez_podatki, stevilo_palic,
                     kos_iz_vira, ostanek_po_rezih)
 
@@ -116,3 +117,51 @@ def test_rez_in_kosovnica_se_skladata():
     # oznake kosov so povezane in neprekinjene
     oznake = [k[0] for k in rp["kosovnica"]]
     assert oznake == [str(i + 1) for i in range(6)]
+
+# ---------------------------------------------------------------- Plan 3
+def test_naivni_rez_brez_sortiranja_in_pogleda_naprej():
+    """Ročni rez (NestingCalc bazna linija): kosi po vrstnem redu seznama.
+
+    [500, 1000, 1000] v zalogi 2000: ročno 500+1000 v prvi trak (500 ostane),
+    1000 ne gre več vanj -> nov trak = 4000 mm nabave. Optimizator (FFD +
+    konsolidacija) ju spravi v 2 traka prav tako 4000, a pri [1500, 900]
+    iz [2000, 3000] je ročno 2×2000 = 4000, optimizator 1×3000 = 3000.
+    """
+    r = razrez.naivni_rez([("A", 500), ("B", 1000), ("C", 1000)], [2000], 0)
+    assert [B for B, _ in r["traki"]] == [2000, 2000]
+    assert r["st_kosov"] == 3
+
+    r2 = razrez.naivni_rez([("A", 1500), ("B", 900)], [2000, 3000], 0)
+    assert [B for B, _ in r2["traki"]] == [2000, 2000]   # brez konsolidacije
+
+
+def test_metrika_reza_primerjava_z_rocnim():
+    """Ročno 2×2000 = 4000 (odpad 1600), optimizator 3000 (odpad 600)."""
+    m = razrez.metrika_reza([("A", 1500), ("B", 900)], [2000, 3000], 0)
+    assert m["uporabno_mm"] == 2400
+    assert m["rocno_poraba_mm"] == 4000
+    assert m["rocno_odpad_mm"] == 1600
+    assert m["opt_poraba_mm"] == 3000
+    assert m["opt_odpad_mm"] == 600
+    assert m["prihranek_mm"] == 1000
+    assert abs(m["prihranek_delez"] - 1000 / 4000) < 1e-9
+    assert abs(m["opt_odpad_delez"] - 600 / 3000) < 1e-9
+
+
+def test_metrika_reza_kerf_stejem_enako():
+    """kerf velja za obe poti — primerljivost ostane."""
+    m = razrez.metrika_reza([("A", 985), ("B", 985)], [2000], 3.0)
+    # uporabno 1970; 2 kosa v traku = 1 rez vmes (model B): poraba 2000
+    assert m["uporabno_mm"] == 1970
+    assert m["opt_poraba_mm"] == 2000
+    assert m["rocno_poraba_mm"] == 2000
+    assert m["prihranek_mm"] == 0
+
+
+def test_naivni_rez_napake():
+    with pytest.raises(ValueError):
+        razrez.naivni_rez([("A", 5000)], [2000], 0)     # predolg kos
+    with pytest.raises(ValueError):
+        razrez.naivni_rez([("A", -5)], [2000], 0)
+    with pytest.raises(ValueError):
+        razrez.metrika_reza([], [2000], 0)              # brez kosov

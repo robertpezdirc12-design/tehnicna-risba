@@ -501,6 +501,77 @@ def razrez_kosov(kosi, dolzine_zaloge, kerf, barva="", profil=""):
             "st_kosov": len(vnosi)}
 
 
+def naivni_rez(kosi, dolzine_zaloge, kerf):
+    """Ročni rez BREZ optimizacije — bazna linija (NestingCalc vzor).
+
+    Kosi gredo v trak PO VRSTNEM REDU seznama (kakor jih delavec prebere s
+    seznama): trenutni trak se polni, dokler naslednji kos ne gre vanj;
+    BREZ sortiranja, BREZ pogleda naprej, BREZ konsolidacije trakov.
+    Nova vrstica = najkrajša zaloga, ki kos še sprejme (model B).
+
+    Vrne dict: traki [(B, [(oznaka, dolzina), ...]), ...], st_kosov.
+    """
+    kerf = max(float(kerf or 0.0), 0.0)
+    dolzine = sorted({float(d) for d in (dolzine_zaloge or [])
+                      if isinstance(d, (int, float)) and d > 0}, reverse=True)
+    if not dolzine:
+        raise ValueError("Ni dovoljenih dolžin zaloge za razrez.")
+    traki = []  # [B, [kosi], preostanek_prostora]
+    for oznaka, dol in kosi:
+        dol = float(dol)
+        if dol <= 0:
+            raise ValueError(f"Kos {oznaka} ima neveljavno dolžino {dol}.")
+        if kos_iz_vira(max(dolzine), dol, kerf) < 1:
+            raise ValueError(
+                f"Kos {oznaka} ({fmt(dol)} mm) je daljši od najdaljše "
+                f"nabavne dolžine {fmt(max(dolzine))} mm (kerf {fmt(kerf)}).")
+        if traki and dol <= traki[-1][2] + 1e-9:
+            t = traki[-1]                 # polnjenje TRENUTNEGA traku
+            t[1].append((oznaka, dol))
+            t[2] -= dol + kerf
+        else:
+            B = min((d for d in dolzine if kos_iz_vira(d, dol, kerf) >= 1),
+                    default=None)
+            if B is None:
+                raise ValueError(f"Kos {oznaka} ({fmt(dol)} mm) ne gre v noben trak.")
+            traki.append([B, [(oznaka, dol)], B - dol - kerf])
+    return {"traki": [(B, kosi_t) for B, kosi_t, _ in traki],
+            "st_kosov": sum(len(kosi_t) for _B, kosi_t, _ in traki)}
+
+
+def metrika_reza(kosi, dolzine_zaloge, kerf):
+    """Primerjava optimiziranega in ročnega reza (Plan 3 — NestingCalc vzor).
+
+    Odpad = nabavljena dolžina − Σ dolžin kosov (vključuje reze/kerf in
+    ostanke — ISTA definicija za obe poti, zato sta številki primerljivi).
+
+    Vrne dict: uporabno_mm, opt_*, rocno_* (poraba/odpad/delez/traki),
+    prihranek_mm (koliko MANJ materiala porabi optimizator) in
+    prihranek_delez (delek ročne porabe).
+    """
+    kosi = [(o, float(d)) for o, d in kosi]
+    if not kosi:
+        raise ValueError("Metrika reza potrebuje vsaj en kos.")
+    opt = razrez_kosov(kosi, dolzine_zaloge, kerf)
+    roc = naivni_rez(kosi, dolzine_zaloge, kerf)
+    uporabno = sum(d for _o, d in kosi)
+    por_o = sum(B for B, _t in opt["traki"])
+    por_r = sum(B for B, _t in roc["traki"])
+    return {
+        "uporabno_mm": uporabno,
+        "opt_poraba_mm": por_o,
+        "opt_odpad_mm": por_o - uporabno,
+        "opt_odpad_delez": (por_o - uporabno) / por_o if por_o else 0.0,
+        "opt_traki": len(opt["traki"]),
+        "rocno_poraba_mm": por_r,
+        "rocno_odpad_mm": por_r - uporabno,
+        "rocno_odpad_delez": (por_r - uporabno) / por_r if por_r else 0.0,
+        "rocno_traki": len(roc["traki"]),
+        "prihranek_mm": por_r - por_o,
+        "prihranek_delez": (por_r - por_o) / por_r if por_r else 0.0,
+    }
+
+
 def razrez_kosov_podatki(kosi, c, oznaka="KOS", glava="KOSI ŠT."):
     """Kot razrez_podatki, a za kose RAZLIČNIH dolžin (vrata, razrezane lamele).
 

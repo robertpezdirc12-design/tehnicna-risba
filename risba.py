@@ -29,6 +29,7 @@ from razrez import (shrani_ostanke,
                      razrez_podatki,
                      razrez_kosov_podatki,
                      stevilo_palic,
+                     metrika_reza,
                      # F2 fasada — javni re-exporti (as zapis = namerni):
                      nalozi_ostanke as nalozi_ostanke,
                      pot_ostanki as pot_ostanki,
@@ -1131,10 +1132,26 @@ def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki,
         skup_k = sum(ln for _, kosi in viz_traki for _, ln in kosi)
         skup_d = sum(dl for dl, _ in viz_traki)
         izk = skup_k / skup_d * 100 if skup_d else 0
+        # Plan 3: metrika odpada + primerjava z ročnim rezanjem (NestingCalc
+        # vzor) — ISTI kosi kot vizualni rez, a scenarij BREZ skladišča
+        # ostankov (jasno označeno — drugače številki nista primerljivi).
+        primerjava = ""
+        try:
+            m = metrika_reza(
+                [(o, ln) for _, kosi in viz_traki for o, ln in kosi],
+                c.get("dolzine_deske") or [c.get("dolzina_deske", 5800)], kerf)
+            if m["prihranek_mm"] > 1e-6:
+                primerjava = (f" • primerjava brez ostankov: ročno "
+                              f"{m['rocno_poraba_mm'] / 1000:.2f} m "
+                              f"(odpad {m['rocno_odpad_delez'] * 100:.0f} %) "
+                              f"→ prihranek {m['prihranek_mm'] / 1000:.2f} m")
+        except ValueError:
+            pass
         ax.text(20, y + 2, f"VIZUALNI REZ • kerf {fmt(kerf)} mm • "
                 f"izkoristek {izk:.0f} % • ostanek = trak − kosi − rez"
                 + (f" • prikazanih {prikaz_b} od {len(viz_traki)} trakov"
-                   if len(viz_traki) > prikaz_b else ""),
+                   if len(viz_traki) > prikaz_b else "")
+                + primerjava,
                 fontsize=7, color="#555555", ha="left", va="center")
         for ti, (dl, kosi) in enumerate(viz_traki[:prikaz_b]):
             y -= 10
