@@ -962,7 +962,9 @@ if __name__ == "__main__":
         try:
             import terenski_list
             _i = _args.index("--terenski-smoke")
-            _pot = _args[_i + 1] if _i + 1 < len(_args) else "terenski-smoke.pdf"
+            _kandidat = _args[_i + 1] if _i + 1 < len(_args) else ""
+            _pot = (_kandidat if _kandidat and not _kandidat.startswith("--")
+                    else "terenski-smoke.pdf")
             _st = terenski_list.izvozi_pdf(terenski_list._demo_dokument(), _pot)
             print(f"OK: {_pot} ({_st} strani)")
             sys.exit(0)

@@ -1,5 +1,5 @@
 flask
-matplotlib>=3.5
+matplotlib>=3.6   # rotation_point="center" (terenski_list) zahteva >= 3.6
 PyYAML
 numpy
 ezdxf==1.4.5

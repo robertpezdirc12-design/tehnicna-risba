@@ -88,16 +88,25 @@ class Urejevalnik(tk.Tk):
         pas3.pack(side="top", fill="x", padx=4, pady=2)
         tk.Label(pas3, text="Stran:").pack(side="left")
         self.stran = tk.StringVar(value=self.dok["nastavitve"]["stran"])
-        ttk.Combobox(pas3, textvariable=self.stran, values=list(tl.STRANI),
-                     width=5, state="readonly").pack(side="left")
+        self._stran = ttk.Combobox(pas3, textvariable=self.stran, values=list(tl.STRANI),
+                                   width=5, state="readonly")
+        self._stran.pack(side="left")
         tk.Label(pas3, text="Orientacija:").pack(side="left")
         self.orientacija = tk.StringVar(value=self.dok["nastavitve"]["orientacija"])
-        ttk.Combobox(pas3, textvariable=self.orientacija, values=list(tl.ORIENTACIJE),
-                     width=10, state="readonly").pack(side="left")
+        self._orientacija = ttk.Combobox(pas3, textvariable=self.orientacija,
+                                         values=list(tl.ORIENTACIJE),
+                                         width=10, state="readonly")
+        self._orientacija.pack(side="left")
         tk.Label(pas3, text="Merilo:").pack(side="left")
         self.merilo = tk.StringVar(value=self.dok["nastavitve"]["merilo"])
-        ttk.Combobox(pas3, textvariable=self.merilo, values=list(tl.MERILA),
-                     width=10, state="readonly").pack(side="left")
+        self._merilo = ttk.Combobox(pas3, textvariable=self.merilo, values=list(tl.MERILA),
+                                    width=10, state="readonly")
+        self._merilo.pack(side="left")
+        # sprememba izbire → takoj v dokument (ttk.Combobox v tem okolju nima
+        # možnosti -command; <<ComboboxSelected>> se ne sproži pri programskem
+        # set(), zato _sinhroniziraj_nastavitve ne povzroča povratnih zank)
+        for kombi in (self._stran, self._orientacija, self._merilo):
+            kombi.bind("<<ComboboxSelected>>", self._nastavitve)
         self.mreza = tk.BooleanVar(value=False)
         self.vodila = tk.BooleanVar(value=False)
         self.okvir = tk.BooleanVar(value=False)
@@ -208,13 +217,24 @@ class Urejevalnik(tk.Tk):
                           text=f"{el['vsebina']} {tl.OZNAKA_ROCNO}",
                           fill=barva, font=("TkDefaultFont", 9))
         elif tip == "pravokotnik":
-            ax, ay = self._v_platno(el["x"], el["y"] + el["visina"])
-            bx, by = self._v_platno(el["x"] + el["sirina"], el["y"])
-            p.create_rectangle(ax, ay, bx, by, outline=barva)
+            if el.get("rotacija"):
+                # zasukan lik narišemo kot poligon (canvas nima zasukanih pravokotnikov)
+                tocke = [t for pt in tl._tocke_elementa(el)
+                         for t in self._v_platno(*pt)]
+                p.create_polygon(*tocke, outline=barva, fill="")
+            else:
+                ax, ay = self._v_platno(el["x"], el["y"] + el["visina"])
+                bx, by = self._v_platno(el["x"] + el["sirina"], el["y"])
+                p.create_rectangle(ax, ay, bx, by, outline=barva)
         elif tip == "elipsa":
-            ax, ay = self._v_platno(el["x"], el["y"] + el["visina"])
-            bx, by = self._v_platno(el["x"] + el["sirina"], el["y"])
-            p.create_oval(ax, ay, bx, by, outline=barva)
+            if el.get("rotacija"):
+                tocke = [t for pt in tl.tocke_elipse(el)
+                         for t in self._v_platno(*pt)]
+                p.create_polygon(*tocke, outline=barva, fill="", smooth=True)
+            else:
+                ax, ay = self._v_platno(el["x"], el["y"] + el["visina"])
+                bx, by = self._v_platno(el["x"] + el["sirina"], el["y"])
+                p.create_oval(ax, ay, bx, by, outline=barva)
         elif tip == "besedilo":
             ax, ay = self._v_platno(el["x"], el["y"])
             p.create_text(ax, ay, text=el["vsebina"], fill=barva, anchor="sw",
@@ -377,6 +397,7 @@ class Urejevalnik(tk.Tk):
             self.dok = stanje
             self.izbran = None
             self.umazano = True
+            self._sinhroniziraj_nastavitve()
             self._narisi()
 
     def _ponovi(self):
@@ -385,6 +406,7 @@ class Urejevalnik(tk.Tk):
             self.dok = stanje
             self.izbran = None
             self.umazano = True
+            self._sinhroniziraj_nastavitve()
             self._narisi()
 
     def _izbrani(self):
@@ -419,16 +441,23 @@ class Urejevalnik(tk.Tk):
             self.dok["elementi"][self.izbran] = tl.povecaj(el, faktor)
             self._zapomni()
 
-    def _nastavitve(self):
+    def _nastavitve(self, _dogodek=None):
+        """Kontrolniki → dokument (callback comboboxa dobi vrednost kot argument). Sprememba se zabeleži v zgodovini (undo/redo)
+        in označi dokument neshranjenim; če se ni nič spremenilo, le osveži."""
         nast = self.dok["nastavitve"]
-        nast["stran"] = self.stran.get()
-        nast["orientacija"] = self.orientacija.get()
-        nast["merilo"] = self.merilo.get()
-        nast["mreza"] = self.mreza.get()
-        nast["vodila"] = self.vodila.get()
-        nast["okvir"] = self.okvir.get()
-        self.umazano = True
-        self._narisi()
+        novo = {
+            "stran": self.stran.get(),
+            "orientacija": self.orientacija.get(),
+            "merilo": self.merilo.get(),
+            "mreza": self.mreza.get(),
+            "vodila": self.vodila.get(),
+            "okvir": self.okvir.get(),
+        }
+        if all(nast.get(k) == v for k, v in novo.items()):
+            self._narisi()
+            return
+        nast.update(novo)
+        self._zapomni()
 
     # -------------------------------------------------------------- datoteke
     def _preveri_neshranjeno(self):
@@ -450,6 +479,7 @@ class Urejevalnik(tk.Tk):
         self.pot = None
         self.umazano = False
         self.izbran = None
+        self._sinhroniziraj_nastavitve()
         self._narisi()
 
     def _odpri(self):

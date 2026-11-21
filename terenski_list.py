@@ -32,6 +32,9 @@ STRANI = {"A4": (210.0, 297.0), "A3": (297.0, 420.0)}  # mm (pokončno)
 ORIENTACIJE = ("pokoncno", "lezece")
 MERILA = ("prilagodi", "dejansko")
 ROB_MM = 10.0          # tiskovni rob
+NOTRANJI_ROB_MM = 0.25  # varnostni rob znotraj tiskovnega polja: poteza na
+                        # skrajnem robu skice (npr. tlorisna črta pri ymin)
+                        # sicer ob rezanju na rob ostane prepolovljena
 MREZA_MM = 10.0        # korak mreže
 BARVE = ("crna", "siva", "rdeca", "modra", "zelena")
 TOLERANCA_ZADETKA = 6.0  # mm — občutljivost izbire v urejevalniku
@@ -235,16 +238,38 @@ def migriraj(dok):
     if verzija > TRENUTNA_VERZIJA:
         raise ValueError(f"Dokument je verzije {verzija}, program podpira do "
                          f"{TRENUTNA_VERZIJA} — posodobi program")
-    for el in dok.get("elementi", []):
+    for i, el in enumerate(dok.get("elementi", [])):
         if not isinstance(el, dict):
             continue
-        if "a" in el:
-            el["a"] = (float(el["a"][0]), float(el["a"][1]))
-        if "b" in el:
-            el["b"] = (float(el["b"][0]), float(el["b"][1]))
-        if "tocke" in el:
-            el["tocke"] = [(float(t[0]), float(t[1])) for t in el["tocke"]]
+        tip = el.get("tip")
+        # Normalizacija PO VRSTI elementa in ne po ključih: pri crta/puscica/mera
+        # sta "a"/"b" koordinatni par, pri kocka/kvader pa sta "a"/"b" SKALARNE
+        # mere (rob/širina) — po ključih bi round-trip kocke/kvadra padel.
+        if tip in ("crta", "puscica", "mera"):
+            for k in ("a", "b"):
+                if k in el:
+                    el[k] = _par_tocek(el[k], f"Element {i} ({tip}).{k}")
+        elif tip == "poteza" and "tocke" in el:
+            try:
+                el["tocke"] = [_par_tocek(t, f"Element {i} (poteza).tocke[{j}]")
+                               for j, t in enumerate(el["tocke"])]
+            except TypeError:   # "tocke" ni ponovljiv (npr. število)
+                raise ValueError(f"Element {i} (poteza): tocke morajo biti seznam parov")
     return dok  # verzija 1 je trenutna
+
+
+def _par_tocek(vrednost, kje):
+    """Normaliziraj koordinatni par v (float, float) — sicer jasna ValueError.
+
+    Pri okrnjenem/poškodovanem dokumentu mora biti napaka razumljiva
+    (ValueError), ne surovi TypeError/IndexError iz notranjosti.
+    """
+    try:
+        x, y = vrednost
+        return (float(x), float(y))
+    except (TypeError, ValueError) as e:
+        raise ValueError(
+            f"{kje}: koordinati morata biti par števil (prejeli: {vrednost!r})") from e
 
 
 # ---------------------------------------------------------------------------
@@ -291,6 +316,25 @@ def _tocke_elementa(el):
     if tip == "kvader":
         return [(el["x"], el["y"])]
     raise ValueError(f"Neznana vrsta elementa {tip!r}")
+
+
+def tocke_elipse(el, koraki=64):
+    """Točke obrobe elipse (upošteva rotacijo) — za izris kot zasukan poligon.
+
+    Tkinter canvas nima zasukanih ovalov, zato urejevalnik riše elipso prek
+    teh točk; matplotlib elipso nariše neposredno. Točke so v mm sveta skice.
+    """
+    cx = el["x"] + el["sirina"] / 2.0
+    cy = el["y"] + el["visina"] / 2.0
+    kot = math.radians(el.get("rotacija", 0.0))
+    rx, ry = el["sirina"] / 2.0, el["visina"] / 2.0
+    tocke = []
+    for i in range(koraki):
+        t = 2.0 * math.pi * i / koraki
+        px, py = rx * math.cos(t), ry * math.sin(t)
+        tocke.append((cx + px * math.cos(kot) - py * math.sin(kot),
+                      cy + px * math.sin(kot) + py * math.cos(kot)))
+    return tocke
 
 
 def _visina_elementa(el):
@@ -549,13 +593,16 @@ def _narisi_element(ax, el, merilo_osa):
                 rotation=el.get("rotacija", 0.0),
                 ha="left", va="bottom")
     elif tip == "mera":
+        # visina je v mm SVETA — na strani velja visina * merilo_osa (kot pri
+        # besedilu); sicer napis pri merilu < 1 odstopa od črte in lahko
+        # seže čez rob tiskovnega polja.
         ax.plot([el["a"][0], el["b"][0]], [el["a"][1], el["b"][1]],
-                color=barva, linewidth=max(0.3, el["visina"] / 8.0))
+                color=barva, linewidth=max(0.15, el["visina"] * merilo_osa / 8.0))
         _glava_puscice(ax, el["b"], el["a"], barva, 0.4)
         _glava_puscice(ax, el["a"], el["b"], barva, 0.4)
         mx = (el["a"][0] + el["b"][0]) / 2.0
         my = (el["a"][1] + el["b"][1]) / 2.0
-        ax.text(mx, my + el["visina"] * 0.8,
+        ax.text(mx, my + el["visina"] * merilo_osa * 0.8,
                 f"{el['vsebina']} {OZNAKA_ROCNO}", color=barva,
                 fontsize=el["visina"] * merilo_osa * 72.0 / 25.4,
                 ha="center", va="bottom")
@@ -625,7 +672,9 @@ def _sheme_strani(dok):
     """
     nast = dok["nastavitve"]
     s, v = _sredisce_strani(nast)
-    uporabno = (s - 2 * ROB_MM, v - 2 * ROB_MM)
+    uporabno = (s - 2 * ROB_MM - 2 * NOTRANJI_ROB_MM,
+                v - 2 * ROB_MM - 2 * NOTRANJI_ROB_MM)
+    zacetek = ROB_MM + NOTRANJI_ROB_MM
     obseg = meje(dok)
     if obseg is None:
         return [(0.0, 0.0, s, v, 1.0)]
@@ -636,8 +685,8 @@ def _sheme_strani(dok):
     if nast["merilo"] == "prilagodi":
         merilo = min(uporabno[0] / sirina_vsebine, uporabno[1] / visina_vsebine)
         # postavi središče vsebine v središče uporabnega polja
-        odmik_x = ROB_MM + uporabno[0] / 2.0 - (xmin + xmax) / 2.0 * merilo
-        odmik_y = ROB_MM + uporabno[1] / 2.0 - (ymin + ymax) / 2.0 * merilo
+        odmik_x = zacetek + uporabno[0] / 2.0 - (xmin + xmax) / 2.0 * merilo
+        odmik_y = zacetek + uporabno[1] / 2.0 - (ymin + ymax) / 2.0 * merilo
         return [(odmik_x, odmik_y, s, v, merilo)]
 
     # dejansko: 1:1, ploščice čez obseg
@@ -646,10 +695,23 @@ def _sheme_strani(dok):
     sheme = []
     for j in range(vrstice):
         for i in range(stolpci):
-            odmik_x = ROB_MM - xmin - i * uporabno[0]
-            odmik_y = ROB_MM - ymin - j * uporabno[1]
+            odmik_x = zacetek - xmin - i * uporabno[0]
+            odmik_y = zacetek - ymin - j * uporabno[1]
             sheme.append((odmik_x, odmik_y, s, v, 1.0))
     return sheme
+
+
+def _seka_okno(el, okno_x, okno_y):
+    """Ali element seka tiskovno polje strani (svetovne meje okna)?"""
+    xmn, ymn, xmx, ymx = element_meje(el)
+    if el["tip"] == "besedilo":
+        # groba ocena širine niza — da besedila po pomoti ne izpustimo,
+        # če je sidro zunaj okna, niz pa sega vanj
+        w = max(2 * el["visina"], 0.8 * el["visina"] * len(el["vsebina"]))
+        xmn, xmx = xmn - w, xmx + w
+        ymn, ymx = ymn - w, ymx + w
+    return not (xmx < okno_x[0] or xmn > okno_x[1]
+                or ymx < okno_y[0] or ymn > okno_y[1])
 
 
 def narisi_stran(dok, ax, shema):
@@ -678,10 +740,27 @@ def narisi_stran(dok, ax, shema):
         ax.plot([0, s], [v / 2, v / 2], color="#99bbdd", linewidth=0.3,
                 linestyle="--")
 
-    # vsebina: svetovne koordinate → stran prek odmika in merila
+    # vsebina: svetovne koordinate → stran prek odmika in merila.
+    # Tiskovno polje (rob ROB_MM) je MEJA risanja: brez rezanja pri merilu
+    # "dejansko" vsebina sosednjih ploščic uhaja v 10 mm rob in se med
+    # stranmi podvaja. Elementi, ki polja sploh ne sekajo, se ne rišejo.
+    # okno preskoka je za 1 mm večje od tiskovnega polja: element, ki le
+    # rahlo seka rob, naj bo vseeno narisani (prerez naredi rob_izreza)
+    okno_x = ((ROB_MM - 1.0 - odmik_x) / merilo_osa,
+              (s - ROB_MM + 1.0 - odmik_x) / merilo_osa)
+    okno_y = ((ROB_MM - 1.0 - odmik_y) / merilo_osa,
+              (v - ROB_MM + 1.0 - odmik_y) / merilo_osa)
+    rob_izreza = Rectangle((ROB_MM, ROB_MM), s - 2 * ROB_MM, v - 2 * ROB_MM,
+                           transform=ax.transData, fill=False)
     for el in dok["elementi"]:
+        if not _seka_okno(el, okno_x, okno_y):
+            continue
         preslikan = _preslikaj(el, odmik_x, odmik_y, merilo_osa)
+        prej = set(ax.get_children())
         _narisi_element(ax, preslikan, merilo_osa)
+        for umetnik in ax.get_children():
+            if umetnik not in prej:
+                umetnik.set_clip_path(rob_izreza)
 
 
 def frange(zacetek, konec, korak):
