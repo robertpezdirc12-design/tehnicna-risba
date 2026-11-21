@@ -951,6 +951,26 @@ if __name__ == "__main__":
     #   TEHNICNA_RISBA_HEADLESS=1 TehnicnaRisba.exe <config.yaml>
     # izvede generiranje PDF brez odpiranja GUI in konča z izhodno kodo.
     _args = [a for a in sys.argv[1:]]
+    # Terenski list (issue #9/#10) — ločen urejevalnik skice v istem paketu:
+    #   TehnicnaRisba.exe --terenski            (odpre urejevalnik)
+    #   TehnicnaRisba.exe --terenski-smoke X.pdf (headless demo izpis)
+    if "--terenski" in _args:
+        import terenski_gui
+        terenski_gui.zazeni()
+        sys.exit(0)
+    if "--terenski-smoke" in _args:
+        try:
+            import terenski_list
+            _i = _args.index("--terenski-smoke")
+            _kandidat = _args[_i + 1] if _i + 1 < len(_args) else ""
+            _pot = (_kandidat if _kandidat and not _kandidat.startswith("--")
+                    else "terenski-smoke.pdf")
+            _st = terenski_list.izvozi_pdf(terenski_list._demo_dokument(), _pot)
+            print(f"OK: {_pot} ({_st} strani)")
+            sys.exit(0)
+        except Exception as _e:
+            print(f"NAPAKA: {_e}", file=sys.stderr)
+            sys.exit(1)
     _headless = (os.environ.get("TEHNICNA_RISBA_HEADLESS") == "1"
                  or "--brez-zaslona" in _args)
     if _headless:

@@ -123,8 +123,18 @@ def smoke():
     # privzeta konfiguracija (brez 'cene') daje 3 strani: risba, montažni, nalepke
     if strani != 3:
         sys.exit(f"Smoke: PDF ima {strani} strani (pričakovano 3).")
+    # 3) terenski list (issue #9/#10) — isti paket mora izvoziti tudi skico
+    tl_pdf = os.path.join(delo, "terenski.pdf")
+    koda = subprocess.run([EXE, "--terenski-smoke", tl_pdf], env=env, cwd=delo,
+                          capture_output=True, text=True, timeout=300).returncode
+    if koda != 0:
+        sys.exit(f"Smoke (terenski list) ni uspel, izhodna koda {koda}.")
+    if not os.path.isfile(tl_pdf) or len(PdfReader(tl_pdf).pages) < 1:
+        sys.exit("Smoke (terenski list): PDF ni nastal ali je prazen.")
     return {"pdf": pdf, "strani": strani, "velikost_b": os.path.getsize(pdf),
-            "nacini": ["TEHNICNA_RISBA_HEADLESS=1", "--brez-zaslona"]}
+            "terenski_pdf": tl_pdf,
+            "nacini": ["TEHNICNA_RISBA_HEADLESS=1", "--brez-zaslona",
+                       "--terenski-smoke"]}
 
 
 if __name__ == "__main__":
