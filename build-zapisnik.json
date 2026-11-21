@@ -1,6 +1,6 @@
 {
   "zapisnik_verzija": 1,
-  "zacetek": "2026-11-20 22:24:44 UTC",
+  "zacetek": "2026-11-21 01:02:52 UTC",
   "razlicice": {
     "python": "3.11.9",
     "pyinstaller": "6.22.3",
@@ -8,25 +8,27 @@
     "upx": false
   },
   "git": {
-    "commit": "26441315017e33b045d35efaaa4f82fd828b4041",
-    "veja": "fix/issue-6-p0-revizija",
+    "commit": "42eb5a4950a23e8f1584c1e6572826a0b355d9cc",
+    "veja": "feature/issue-9-10-terenski-list",
     "dirty": false
   },
-  "spec_sha256": "420364d32584a23c05490a13caa1e0e2b1c9c638a2145d951ecc8ee4c16c7186",
+  "spec_sha256": "8f9f45db0e61b042cfb316208af9d095b65a7a4f6986b3f296006bf38f9cf3ac",
   "ukaz": "python build_windows.py --smoke",
   "build": {
     "exe": "C:\\Users\\admin\\Downloads\\tehnicna-risba\\dist\\TehnicnaRisba.exe",
-    "velikost_b": 102763995,
-    "sha256": "2ab1ebb641189cebea4b06b2bad95205b01567a7e84fd8921b92d55b7f742c96"
+    "velikost_b": 102806290,
+    "sha256": "a350800879962101d3e34607a6b7bc3d8c23cc07c055229ecde6884d82314b7e"
   },
   "smoke": {
-    "pdf": "C:\\Users\\admin\\AppData\\Local\\Temp\\tr_smoke_coi1y2as\\smoke.pdf",
+    "pdf": "C:\\Users\\admin\\AppData\\Local\\Temp\\tr_smoke_tg_iqh9m\\smoke.pdf",
     "strani": 3,
-    "velikost_b": 84816,
+    "velikost_b": 84815,
+    "terenski_pdf": "C:\\Users\\admin\\AppData\\Local\\Temp\\tr_smoke_tg_iqh9m\\terenski.pdf",
     "nacini": [
       "TEHNICNA_RISBA_HEADLESS=1",
-      "--brez-zaslona"
+      "--brez-zaslona",
+      "--terenski-smoke"
     ]
   },
-  "trajanje_s": 782.1
+  "trajanje_s": 333.6
 }
