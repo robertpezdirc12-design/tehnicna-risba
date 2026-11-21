@@ -13,8 +13,6 @@ Uporaba:
     t3.narisi_3d_png(cfg, "3d.png")
     t3.pokazi_3d(cfg, master)         # interaktivno okno (vrtenje)
 """
-import math
-
 from jedro import razpored, razpored_pokoncna, pozicije_nosilcev, vrata_podatki
 
 BARVA_DESKE = "#8d6e63"

@@ -17,7 +17,7 @@ import math
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle, Polygon
+from matplotlib.patches import Rectangle
 from matplotlib.backends.backend_pdf import PdfPages
 
 import cv2
@@ -327,9 +327,7 @@ def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None, vogali=None):
     klikne vogale ograje (P1). S klikanimi vogali + referenco so mere
     IZRAČUNANO iz trdne geometrije (ne več le ocena).
     """
-    import numpy as np
     import zaznavanje
-    from model import ParametriNove
 
     slika = cv2.imread(slika_pot)
     if slika is None:

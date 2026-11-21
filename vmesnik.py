@@ -486,7 +486,6 @@ class App(tk.Tk):
         self.pdf_pot = None
         self.png_pot = None
         self.kolicine = None
-        self._slika = None            # referenca (sicer GC uniči sliko)
         self.v = {}
         self.polja = {}               # referenca polj za skrivanje/prikaz
         self.namigi = {}              # Plan F: namigi ob prehodu miške
