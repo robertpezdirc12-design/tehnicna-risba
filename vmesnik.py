@@ -150,6 +150,137 @@ class CelZaslon(tk.Toplevel):
             self._narisi()
 
 
+class Carovnik(tk.Toplevel):
+    """Voden vnos po korakih (UI/UX Plan E).
+
+    Ureja ISTE spremenljivke kot glavni obrazec — živi povzetek (Plan A)
+    in undo/redo (Plan D) zato delujeta samodejno.
+    """
+
+    KORAKI = (
+        ("Vrsta in ime", ("predloga", "ime")),
+        ("Mere ograje (mm)", ("sirina", "visina", "globina", "odcep")),
+        ("Lamele / deske (mm)", ("lamele", "lamela_v", "debelina", "vrzel")),
+        ("Vrata in prehodi (neobvezno)", None),
+        ("Pregled in zaključek", ()),
+    )
+
+    def __init__(self, app):
+        super().__init__(app)
+        self.app = app
+        self.title("Čarovnik za vnos — korak za korakom")
+        self.resizable(False, False)
+        self.i = 0
+        tk.Label(self, text="ČAROVNIK — voden vnos",
+                 font=("Segoe UI", 12, "bold")).pack(pady=(10, 2))
+        self.lbl_korak = tk.Label(self, text="", font=("Segoe UI", 10))
+        self.lbl_korak.pack(anchor="w", padx=14)
+        self.pb = ttk.Progressbar(self, maximum=100, length=400)
+        self.pb.pack(fill="x", padx=14, pady=4)
+        self.vsebina = ttk.Frame(self, padding=(14, 6))
+        self.vsebina.pack(fill="both", expand=True)
+        self.lbl_opozorilo = tk.Label(self, text="", fg="#b00020",
+                                      wraplength=400, justify="left")
+        self.lbl_opozorilo.pack(anchor="w", padx=14)
+        dno = ttk.Frame(self, padding=12)
+        dno.pack(fill="x")
+        ttk.Button(dno, text="✕ Prekliči", command=self.destroy).pack(side="left")
+        self.btn_naprej = ttk.Button(dno, text="Naprej →", command=self._naprej)
+        self.btn_naprej.pack(side="right")
+        self.btn_nazaj = ttk.Button(dno, text="← Nazaj", command=self._nazaj)
+        self.btn_nazaj.pack(side="right", padx=(0, 6))
+        self._pokazi()
+
+    def _pokazi(self):
+        for w in self.vsebina.winfo_children():
+            w.destroy()
+        self.lbl_opozorilo.config(text="")
+        naslov, polja = self.KORAKI[self.i]
+        n = len(self.KORAKI)
+        self.lbl_korak.config(text=f"Korak {self.i + 1}/{n}: {naslov}")
+        self.pb["value"] = (self.i + 1) / n * 100
+        if polja:
+            for j, k in enumerate(polja):
+                ttk.Label(self.vsebina,
+                          text=NAPISI.get(k, "Predloga:") .rstrip(":") + ":"
+                          ).grid(row=j, column=0, sticky="e", padx=(0, 6),
+                                 pady=3)
+                if k == "predloga":
+                    ttk.Combobox(
+                        self.vsebina, width=14, state="readonly",
+                        textvariable=self.app.v[k],
+                        values=["ograda", "pokončna"]).grid(
+                            row=j, column=1, sticky="w", pady=3)
+                else:
+                    ttk.Entry(self.vsebina, width=16,
+                              textvariable=self.app.v[k]).grid(
+                                  row=j, column=1, sticky="w", pady=3)
+        elif self.i == 3:
+            ttk.Label(
+                self.vsebina,
+                text="Dodaj vrata/prehode ali preskoči ta korak.",
+                wraplength=380, justify="left").grid(
+                    row=0, column=0, columnspan=2, sticky="w")
+            ttk.Button(self.vsebina, text="Dodaj vrata/prehod …",
+                       command=self.app._vrata_dodaj).grid(
+                           row=1, column=0, sticky="w", pady=4)
+            ttk.Button(self.vsebina, text="Odstrani zadnja",
+                       command=self.app._vrata_odstrani).grid(
+                           row=1, column=1, sticky="w", padx=6)
+            tk.Label(
+                self.vsebina,
+                text=f"Trenutno: {len(self.app.vrata_sez)} vrat/prehodov",
+                fg="#555555").grid(row=2, column=0, columnspan=2, sticky="w")
+        else:
+            ttk.Label(self.vsebina, text=self._pregled(), justify="left",
+                      wraplength=400).grid(row=0, column=0, sticky="w")
+        self.btn_nazaj.config(
+            state="normal" if self.i > 0 else "disabled")
+        self.btn_naprej.config(
+            text="Dokončaj ✓" if self.i == n - 1 else "Naprej →")
+
+    def _pregled(self):
+        try:
+            cfg = self.app._zberi_cfg()
+        except ValueError as e:
+            return f"Pregled ni na voljo — {e}"
+        m = cfg["mere"]
+        return (f"Projekt: {cfg['ime']}  ({cfg['risba_st']})\n"
+                f"Predloga: {cfg['predloga']}\n"
+                f"Ograja: {m['sirina']:g} × {m['visina']:g} mm\n"
+                f"Lamele/deske: {m['lamele']:g} × {m['lamela_v']:g} mm, "
+                f"debelina {m['debelina']:g} mm\n"
+                f"Vrata/prehodi: {len(cfg['vrata'])}\n"
+                f"Izhod: {cfg['izhod']}\n\n"
+                "Dokončaj — vnos ostane v obrazcu "
+                "(živi povzetek, undo/redo delujeta naprej).")
+
+    def _veljavno(self):
+        polja = self.KORAKI[self.i][1]
+        if polja is None or polja == ():
+            return True
+        try:
+            self.app._preberi_mere()
+            return True
+        except ValueError as e:
+            self.lbl_opozorilo.config(text=str(e))
+            return False
+
+    def _naprej(self):
+        if not self._veljavno():
+            return
+        if self.i >= len(self.KORAKI) - 1:
+            self.destroy()
+            return
+        self.i += 1
+        self._pokazi()
+
+    def _nazaj(self):
+        if self.i > 0:
+            self.i -= 1
+            self._pokazi()
+
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -210,6 +341,8 @@ class App(tk.Tk):
         self.btn_razveljavi = ttk.Button(fr_p, text="↩ Razveljavi",
                                          command=self._razveljavi, width=11)
         self.btn_razveljavi.pack(side="right", padx=(0, 2))
+        ttk.Button(fr_p, text="✦ ČAROVNIK",
+                   command=self._carovnik).pack(side="right", padx=(0, 8))
 
         zg = ttk.Frame(self, padding=(14, 4))
         zg.pack(fill="x")
@@ -427,6 +560,10 @@ class App(tk.Tk):
         self.polja.setdefault(kljuc, []).extend([lbl, ent])
 
     # --------------------------------------------- živi povzetek (Plan A)
+    def _carovnik(self):
+        """Odpri voden vnos po korakih (Plan E)."""
+        Carovnik(self)
+
     def _zivi_sprememba(self, *_):
         """Sproži osvežitev živega povzetka z debounce (600 ms)."""
         self._zgodovina_odlozi()          # Plan D: zgodovina sprememb
