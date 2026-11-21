@@ -18,3 +18,21 @@ osnova_kos: 15.00       # osnova za steber, EUR na kos
 # delo (neobvezno — če je prazno, predračun ne vsebuje postavke "delo")
 dela_ur_cena: 35.00     # EUR / ura
 dela_ure: 12            # ocena ur (sicer oceni montažer)
+
+# --- okovje vrat (issue #5 F1: ključi morajo obstajati, sicer so postavke
+#     vrat TIHO izpuščene iz predračuna). Vrednosti so PRIMER — uredi po ceniku.
+tecaj_kos: 8.00               # tečaj za vrata, EUR/kos
+zapah_kos: 12.00              # zapah, EUR/kos
+kljucavnica_kos: 45.00        # ključavnica, EUR/kos
+cilinder_kos: 25.00           # cilinder, EUR/kos
+rocaj_vrata_par: 55.00        # ročaj za vrata (par), EUR/par
+talni_zatic_kos: 10.00        # talni zatič, EUR/kos
+zapiralo_kos: 60.00           # zapiralo, EUR/kos
+povezovalna_plosca_kos: 6.00  # povezovalna plošča, EUR/kos
+kotnik_kos: 4.00              # kotnik, EUR/kos
+vijak_vrata_kos: 0.80         # vijak za vrata, EUR/kos
+matica_kos: 0.30              # matica, EUR/kos
+podlozka_kos: 0.20            # podložka, EUR/kos
+zakljucni_steber_kos: 22.00   # zaključni steber, EUR/kos
+zakljucni_profil_kos: 9.00    # zaključni profil, EUR/kos
+sidro_m10_kos: 1.50           # sidro M10, EUR/kos

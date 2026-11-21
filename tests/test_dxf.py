@@ -137,8 +137,10 @@ def test_vrata_v_dxf_so_pravih_mer(cfg_z_vrati):
     g = vrata.geometrija_vrat(cfg_z_vrati["vrata"][0], 1000, 2000)
     w_k = g["sirine_kril"][0]                        # 870 mm
     assert w_k == 870.0
-    # Kontura krila (OUTLINE): w_k x (h_k - 40) — glej vrata.elementi_vrat.
-    h_konture = g["h_k"] - 40.0
+    # Kontura krila (OUTLINE): w_k × h_k — F1 (issue #5, O2): krilo sega od
+    # tal do tla + h_k (kot kosovnica: stojalo krila = h_k); prej h_k − 40
+    # (risba neusklajena s kosovnico).
+    h_konture = g["h_k"]
     najdeno = False
     for e in doc.modelspace().query("LWPOLYLINE"):
         tocke = list(e.get_points("xy"))
@@ -226,3 +228,23 @@ def test_naslovni_blok_in_layout(cfg_osnovni):
     besedila = " ".join(e.plain_text() for e in layout.query("MTEXT"))
     assert "MERILO: 1:1" in besedila
     assert "RISBA ŠT." in besedila
+
+def test_skupna_dolzina_je_vsota_sirin_brez_risalnih_razmikov(tmp_path):
+    # F1 (issue #5, O1): skupna dolžina = 2400 + 2000 = 4400 mm;
+    # risalni razmak 1000 mm med segmentoma NI del ograje (prej 5400).
+    cfg = {
+        "ime": "Dolzina", "izhod": str(tmp_path / "D-001.pdf"),
+        "segmenti": [
+            {"ime": "S1", "tip": "ograja",
+             "mere": {"sirina": 2400, "visina": 2300, "odcep": 60}},
+            {"ime": "S2", "tip": "ograja",
+             "mere": {"sirina": 2000, "visina": 2300, "odcep": 60}},
+        ],
+    }
+    pot, _ = dxf_izvoz.izvozi_dxf(cfg)
+    doc = ezdxf.readfile(pot)
+    besedila = [e.plain_text() for layout in doc.layouts
+                for e in layout.query("MTEXT")]
+    zadetki = [b for b in besedila if "Skupna dolžina" in b]
+    assert zadetki, "naslovni blok nima skupne dolžine"
+    assert any("4400" in b for b in zadetki), zadetki

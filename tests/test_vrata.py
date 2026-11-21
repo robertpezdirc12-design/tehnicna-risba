@@ -218,3 +218,62 @@ def test_razrezne_skupine_vsebujejo_izdelane_kose():
     assert skupine
     skupaj = sum(len(kosi) for _v, kosi in skupine)
     assert skupaj == sum(int(kol) for _o, _d, _s, kol, _op, _kl in k["izdelani"])
+
+# ---------------------------------------------------------------------------
+# F1 (issue #5): zavrnitev negativnih rež/prečk, uskladitev elementov s
+# kosovnico, enoten profil prečke in ključi cenika
+# ---------------------------------------------------------------------------
+
+def test_negativne_reze_zavrnjene():
+    with pytest.raises(ValueError, match="negativna"):
+        vrata.normaliziraj_vrata({"tip": "enokrilna", "sirina": 1000,
+                                  "visina": 2000, "reze": {"tla": -100}})
+
+
+def test_negativne_precke_zavrnjene():
+    with pytest.raises(ValueError, match="negativno"):
+        vrata.normaliziraj_vrata({"tip": "enokrilna", "sirina": 1000,
+                                  "visina": 2000, "precke": -2})
+
+
+def test_elementi_vrat_krilo_visoce_kot_kosovnica():
+    g = vrata.geometrija_vrat({"tip": "dvokrilna", "sirina": 3000,
+                               "visina": 2100}, 3000, 2155)
+    el = vrata.elementi_vrat(g)
+    krila = [(p, pl) for t, p, pl in el if t == "kvadrat" and pl == "OUTLINE"]
+    assert len(krila) == 2
+    for (x, y, w, h), _plast in krila:
+        assert y == g["reze"]["tla"]           # krilo od tal (kot kosovnica)
+        assert h == g["h_k"]                   # višina h_k (kot stojalo krila)
+
+
+def test_tecaji_na_obeh_krilih_pri_dvokrilnih():
+    g = vrata.geometrija_vrat({"tip": "dvokrilna", "sirina": 3000,
+                               "visina": 2100}, 3000, 2155)
+    el = vrata.elementi_vrat(g)
+    krogi = [p for t, p, _plast in el if t == "krog"]
+    assert len(krogi) == 2 * g["st_tecajev"]    # tečaji na OBEH krilih
+    xs = {round(p[0]) for p in krogi}
+    assert len(xs) >= 2                        # ločeni x za levo/desno krilo
+
+
+def test_precka_in_diagonala_enoten_profil_40():
+    g = vrata.geometrija_vrat({"tip": "enokrilna", "sirina": 1000, "visina": 2000,
+                               "precke": 2, "diagonala": True}, 1000, 2100)
+    k = vrata.kosovnica_vrat(g)
+    precke = [r for r in k["izdelani"] if "prečka krila" in r[4]]
+    diag = [r for r in k["izdelani"] if "diagonala" in r[4]]
+    assert precke and all(r[2] == vrata.VISINA_LETE for r in precke)
+    assert diag and all(r[2] == vrata.VISINA_LETE for r in diag)
+
+
+def test_cenik_vsebuje_vse_kljuce_okovja_vrat():
+    # F1: ključi vrata.CENE_KLJUCI morajo obstajati v cene.yaml, sicer so
+    # postavke vrat TIHO izpuščene iz predračuna.
+    import os
+    import yaml
+    pot = os.path.join(os.path.dirname(__file__), "..", "cene.yaml")
+    with open(pot, encoding="utf-8") as f:
+        cene = yaml.safe_load(f)
+    for kljuc in vrata.CENE_KLJUCI.values():
+        assert kljuc in cene, f"v cene.yaml manjka ključ {kljuc!r}"

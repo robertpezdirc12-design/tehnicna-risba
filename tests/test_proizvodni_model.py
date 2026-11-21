@@ -113,3 +113,13 @@ def test_narocilo_prečne_vsebuje_obe_sekciji_profila_in_nosilce(tmp_path):
     assert "Nosilni nosilec" in nar
     # vsaka sekcija profila ima svojo nabavo (1 kos × 2500 mm)
     assert nar.count("2500 mm") >= 2
+
+def test_montazne_letve_pokoncne_v_modelu(tmp_path):
+    # F1 (issue #5, O3): montažne letve za deskami (2 na polje) so del
+    # proizvodnega modela — prej sploh niso bile v modelu/BOM.
+    cfg = osnovni_cfg(tmp_path / "ml.pdf", predloga="pokončna")
+    m = risba.proizvodni_model(cfg)
+    assert m["tip"] == "pokoncna"
+    assert m["montazne_letve"] == 2 * len(
+        risba.razpored_pokoncna(cfg["mere"])["polja"])
+    assert m["montazne_letve"] > 0

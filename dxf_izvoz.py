@@ -262,7 +262,9 @@ def izvozi_dxf(cfg, pot=None):
               f"{s['ime']} — {s['tip']} {vrata.fmt_mm(sirina)}x{vrata.fmt_mm(visina)}")
         x0 += sirina + MED_RAZMAK
 
-    skupna_dolzina = x0 - MED_RAZMAK if len(segmenti) > 1 else segmenti[0]["mere"]["sirina"]
+    # F1 (issue #5, O1): skupna dolžina = vsota ŠIRIN segmentov — risalni
+    # razmiki (MED_RAZMAK) so samo postavitev na listu in se NE štejejo.
+    skupna_dolzina = sum(s["mere"]["sirina"] for s in segmenti)
     if len(segmenti) > 1:
         kota_h(msp, 0.0, skupna_dolzina, -300.0, -300.0, skupna_dolzina)
 

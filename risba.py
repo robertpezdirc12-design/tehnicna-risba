@@ -679,11 +679,12 @@ def proizvodni_model(c):
     količine, kosovnica in naročilo smejo šteti SAMO iz tega modela —
     noben izpis ne izvaja lastnih vzporednih formul (issue #6, §3).
 
-    Konstrukcijska pravila pritrjevanja (dokumentirana):
-    - pokončna (B2): deska v polju se pritrdi na OBА sosednja stebra,
-      2 vijaka na stik => 4 vijake na celotno desko. Deska, ki jo
-      odprtina razreže, ohrani oba robova (stika) => prav tako 4;
-      deska znotraj odprtine odpade => 0. Štejejo se ROBOVI kosov.
+    Konstrukcijska pravila pritrjevanja (dokumentirana; F1/issue #5, O3):
+    - pokončna (B2): deska v polju se prek MONTAŽNIH LETVI (za deskami)
+      pritrdi na nosilno konstrukcijo — 2 vijaka na rob deske => 4 na
+      desko. Deska, ki jo odprtina razreže, ohrani oba robova (stika) =>
+      prav tako 4; deska znotraj odprtine odpade => 0. Štejejo se ROBOVI
+      kosov (vijaki na risbi so na robovih desk — kot štetje).
     - prečna: vsaka lamele se pritrdi na vsak nosilec, ki ga prečka,
       z 2 vijakoma => 2 × Σ (prisotnost materiala na legi nosilca).
     - ankerji/pritrdila nosilca: 2 na nosilec/steber.
@@ -717,6 +718,9 @@ def proizvodni_model(c):
                 "n_stikov": n_stikov,
                 "vijaki_element": n_stikov * 2,
                 "pritrdila_nosilec": n_s * 2,
+                # F1 (O3): montažne letve za deskami (2 na polje) — prej
+                # sploh niso bile v modelu/BOM, čeprav so fizični nosilec.
+                "montazne_letve": 2 * len(p["polja"]),
                 "dolzina_elementa": p["deske_h"], "opis_elementa": "deska"}
     zg, sp, lamele, vrzel, n = razpored(m)
     xs_nos, razmak_dejanski = pozicije_nosilcev(
@@ -739,10 +743,11 @@ def proizvodni_model(c):
 
 
 # ---------------------------------------------------------------- predloga: pokončna
-# KONSTRUKCIJSKA GEOMETRIJA (dokumentirana odločitev — B2):
+# KONSTRUKCIJSKA GEOMETRIJA (dokumentirana odločitev — B2; F1/issue #5, O3):
 #   - stebri stojijo v enakomernih legah (prvi/zadnji ob robovih ograje),
 #   - deske potekajo po POLJIH med stebri (se NE prekrivajo s stebri) in so
-#     pritrjene na oba sosednja stebra (2 vijaka na stik = 4 na desko),
+#     pritrjene na MONTAŽNE LETVE za deskami (2 na polje), ki so na koncih
+#     prišraufane na stebre (2 vijaka na rob deske = 4 na desko),
 #   - `vrzel` je uporabnikova zahtevana mera in se uporabi NATANČNO;
 #     če se deske s to vrzeljo ne prilegajo v polje, funkcija vrne jasno
 #     napako (brez tihega prilagajanja proizvodnega podatka).
@@ -846,15 +851,17 @@ def narisi_pokoncna(ax, c):
     v.kocka(0, vis - rv, sir, vis, fill=b_pro)  # ročaj
     narisi_odprtine_in_vrata(ax, v, vp, b_lam, b_pro, s)
     tla(ax, v.X(-3), v.X(sir + 3), v.Y(0))
-    # vijaki (pika = priključek deska↔steber; 2 vijaka na stik — deska v
-    # polju se pritrdi na OBА sosednja stebra = 4 vijake na desko)
+    # vijaki (pika = priključek deska↔nosilna konstrukcija; 2 vijaka na stik).
+    # F1 (issue #5, O3) — konstrukcijska odločitev A1/C: deske so v poljih
+    # (ne prekrivajo stebrov) in so pritrjene na MONTAŽNE LETVE za deskami,
+    # ki so na koncih prišraufane na stebre. Zato so vijaki na ROBOVIH desk
+    # (kot jih šteje model stikov), NE na sredini stebrov.
     for polje in p["polja"]:
-        xc_l, xc_d = polje["stebri"]
         for xr in polje["deske_x"]:
-            for xc in (xc_l, xc_d):
+            for xk in (xr + 8.0, xr + ds - 8.0):
                 for fz in (0.25, 0.75):
                     z = p["deske_z"][0] + cona_z * fz
-                    ax.add_patch(Circle((v.X(xc), v.Y(z)), 0.55,
+                    ax.add_patch(Circle((v.X(xk), v.Y(z)), 0.55,
                                         facecolor="#e8e8e8", edgecolor="none",
                                         zorder=4))
     dim_h(ax, v.X(0), v.X(sir), v.Y(vis) + 8, v.Y(vis), v.Y(vis),
@@ -1046,6 +1053,11 @@ def narisi_pokoncna(ax, c):
             [vijak_nosilec_naziv, pritrdilo_material(vijak_nosilec_naziv),
              anker_dim, f"{model['pritrdila_nosilec']} kos"],
         ]
+        # F1 (issue #5, O3): montažne letve (pokončna) — fizični nosilec desk,
+        # prej manjkajoč v kosovnici.
+        if (c.get("predloga") or "ograja") == "pokončna" and model.get("montazne_letve"):
+            deli.append(["Montažna letev (za deskami)", "Aluminij", "40×30",
+                         f"{model['montazne_letve']} kos"])
     vrste = [["Št.", "Naziv dela", "Material", "Dimenzije (mm)", "Količina"]]
     vrste += [[i] + list(d) for i, d in enumerate(deli, 1)]
     tabela(ax, 246, 131, [10, 58, 44, 30, 20], 6.5, vrste,
@@ -1056,7 +1068,8 @@ def narisi_pokoncna(ax, c):
         "Vse mere v mm (tolerance ISO 2768-m); pred izdelavo preveri "
         "dejanske mere na objektu.",
         f"Deske: {profil} — WPC (bambus + HDPE), pritrditev z 2 vijaki na "
-        "desko na vsak steber; predrtje Ø + 1 mm.",
+        "rob deske na nosilno konstrukcijo (pokončna: montažne letve za "
+        "deskami); predrtje Ø + 1 mm.",
         f"Stebri: aluminij, na osnove z {vijak_nosilec_naziv} "
         f"(vrh v ploščo). Pritrditev: {pritrditev} — pritrdilni material "
         "prilagodi podlagi.",
@@ -2141,9 +2154,17 @@ def narisi_predracun(ax, c, postavke):
 
     skup = 0.0
     vrste = [["POSTAVKA", "KOLIČINA", "CENA ENOTE", "SKUPAJ"]]
+    manjkajoce_cene = []
     for (naziv, kol_str, enota, kljuc, num) in postavke:
         cena = cene.get(kljuc)
-        if cena is None or not num:
+        if cena is None:
+            if num:
+                # F1 (issue #5): manjkajoče cene se NE izpustijo tiho!
+                manjkajoce_cene.append(kljuc)
+                vrste.append([naziv, f"{kol_str} {enota}",
+                              "CENA MANJKA (ni upoštevano)", "—"])
+            continue
+        if not num:
             continue
         sk = num * cena
         if abs(cena) < 1e-9:
@@ -2178,6 +2199,12 @@ def narisi_predracun(ax, c, postavke):
     elif delno:
         opombe.append("Cenik ni popoln — postavke brez cene niso "
                       "obračunane.")
+    if manjkajoce_cene:
+        opombe.append("Manjkajoče cene (dodaj jih v 'cene'): "
+                      + ", ".join(manjkajoce_cene)
+                      + " — te postavke NISO vštevete v seštevek!")
+        _opozori("Predračun: manjkajo cene za " + ", ".join(manjkajoce_cene)
+                 + " — postavke brez cene niso vštete v seštevek.")
     opombe += [
         "Predračun je ORIENTACIJSKI in brez DDV; veljavnost 30 dni.",
         "Cene materialov so nastavljene v konfiguraciji ('cene'); "

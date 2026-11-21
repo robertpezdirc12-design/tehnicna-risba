@@ -50,3 +50,14 @@ def test_brez_cenikacni_strani_ni(tmp_path):
     cfg = osnovni_cfg(tmp_path / "bb.pdf")
     izhod, png, dodatni, kolicine = risba.generiraj(cfg)
     assert stevilo_strani(izhod) == 3
+
+def test_predracun_manjkajoca_cena_opozorjena_ne_tiha(tmp_path):
+    # F1 (issue #5): manjkajoč ključ cene NE sme tiho izpustiti postavke.
+    risba.ZADNJA_OPOZORILA.clear()
+    cfg = osnovni_cfg(tmp_path / "pm.pdf",
+                      cene={"wpc_deska_m": 24.5,
+                            "dela_ure": 12, "dela_ur_cena": 35.0})
+    izhod, png, dodatni, kolicine = risba.generiraj(cfg)
+    t = besedilo_strani(izhod, 2).upper()
+    assert "CENA MANJKA" in t                  # vrstica NI izpuščena
+    assert any("manjkajo cene" in o.lower() for o in risba.ZADNJA_OPOZORILA)

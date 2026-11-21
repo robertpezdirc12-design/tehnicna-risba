@@ -1,0 +1,43 @@
+predloga: "pokončna"
+ime: "POKONČNA OGRAJA — TEST MONTER"
+risba_st: "MON-P01"
+izdelal: "Monter Test"
+stranka: "Maja Kovač"
+objekt: "Terasa, Celovška 5"
+datum: "20.11.2026"
+foto: "slike/BO-001-risba.png"
+
+barva: "Antracit"
+profil: "WPC POLNA DESKA 20×100, Alu steber 60×40"
+pritrditev: "vrh"
+vijak_lamela: "Vijak M8×70 (deska↔steber)"
+vijak_nosilec: "Anker M10×120"
+
+dolzina_deske: 5800
+dolzina_palice: 6000
+kerf: 3
+
+mere:
+  sirina: 4200
+  visina: 1200
+  od_tal: 40
+  odcep: 50
+  rocaj_v: 40
+  razmak_stebrov: 1400
+  steber_sirina: 60
+  steber_debelina: 40
+  deska_sirina: 100
+  deska_debelina: 20
+  vrzel: 18
+  lamele: 22
+
+cene:
+  deska_m: 14.00
+  palica_m: 9.50
+  vijak_lamela_kos: 0.40
+  vijak_nosilec_kos: 1.50
+  podlozka_kos: 0.10
+  anker_kos: 2.00
+  osnova_kos: 18.00
+  dela_ur_cena: 38.00
+  dela_ure: 10

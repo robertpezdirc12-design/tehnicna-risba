@@ -1,0 +1,26 @@
+catalog:
+  profil: "iso"
+  standard: "ISO 4032"
+  designation: "M10"
+  description: "Hexagon nut, style 1, product grades A and B"
+
+dimensions:
+  thread_pitch_P_mm: 1.5
+  width_across_flats_s_mm:
+    nominal: 16
+    min: 15.73
+    max: 16.00
+  height_m_mm:
+    nominal: 8.40
+    min: 8.04
+    max: 8.40
+  width_across_corners_e_mm:
+    min: 17.77
+
+provenance:
+  source: "wermac.org — ISO 4032 hexagon nuts (style 1) dimensions table (public reference)"
+  source_url: "https://www.wermac.org/fasteners/nuts/hexagon-nuts-iso-4032-dimensions.html"
+  accessed: "2026-04-11"
+  note: "Vrednosti povzete po javno dostopni tabeli; namen: referenčni podatki za F1 resolver (profil iso)."
+
+status: "reference"

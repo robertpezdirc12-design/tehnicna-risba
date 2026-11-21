@@ -1,0 +1,120 @@
+1296: def narisi_montazni_list(ax, c):
+1297:     """Stran 2 za predlogo "ograda" (prečna)."""
+1298:     m = c["mere"]
+1299:     sir = m["sirina"]
+1300:     zg, sp, lamele, vrzel, n = razpored(m)
+1301:     raz = m.get("razmak_nosilcev", 1000)
+1302:     n_nos = max(2, math.ceil(sir / raz) + 1)
+1303:     vijaki = n * n_nos * 2
+1304:     profil = c.get("profil") or "ROMB 67"
+1305:     dl_deske = c.get("dolzina_deske", 5800)
+1306:     dl_palice = c.get("dolzina_palice", 6000)
+1307:     kerf = c.get("kerf", 3.0)
+1308:     barva = c.get("barva") or "Antracit"
+1309:     podlaga = c.get("podlaga") or ""
+1310:     pritrditev = c.get("pritrditev") or "bočno"
+1311:     vijak_lamela_naziv = c.get("vijak_lamela") or "RF vijak M8×70 (lamela↔profil)"
+1312:     vijak_nosilec_naziv = c.get("vijak_nosilec") or         f"Pritrdilni vijaki za {podlaga or 'podlago'}"
+1313: 
+1314:     # ostanki iz skladišča (ostanki.yaml) — najprej se porabijo
+1315:     ostanki = nalozi_ostanke() if c.get("uporabi_ostanke", True) else []
+1316:     iz_ost, preost_kosov, ostanki_novi = porazdeli_z_ostanki(
+1317:         sir, n, ostanki, kerf, barva, profil)
+1318:     kos_iz_ost = sum(k for _, k in iz_ost)
+1319: 
+1320:     traki = optimiziraj_zalogo(sir, preost_kosov,
+1321:                                c.get("dolzine_deske") or [dl_deske], kerf)
+1322:     palice = math.ceil((2 * sir + 2 * kerf) / dl_palice)
+1323:     pot = [
+1324:         [f"WPC deska {profil}",
+1325:          " + ".join(f"{t} × {fmt(B)} mm" for B, t in traki_nabava(traki))
+1326:          or f"{fmt(dl_deske)} mm", f"{len(traki)} kos",
+1327:          (f"za {fmt(preost_kosov / 1000)} m lamel; {kos_iz_ost} kos iz "
+1328:           f"ostankov" if kos_iz_ost else
+1329:           f"skupaj {fmt(n * sir / 1000)} m lamel")],
+1330:         ["Alu profili 80×40 (zg.) + 60×40 (sp.)", f"{fmt(dl_palice)} mm",
+1331:          f"{palice} kos", f"obe sta dolgi {fmt(sir)} mm"],
+1332:         ["Nosilni nosilec 50×50×5", "—", f"{n_nos} kos",
+1333:          f"razmak ≤ {fmt(raz)} mm"],
+1334:         [vijak_lamela_naziv, "—", f"{vijaki} kos",
+1335:          f"2 na priključek ({n * n_nos}) • Ø+1 mm"],
+1336:         [vijak_nosilec_naziv, "—", f"{n_nos * 2} kos", "2 na nosilec"],
+1337:     ]
+1338:     if kos_iz_ost:
+1339:         pot.insert(1, ["Uporabljeni ostanki (iz skladišča)", "—",
+1340:                        f"{kos_iz_ost} kos", "ni nabave"])
+1341: 
+1342:     rez_rows = [["VIR", "KOSOV", "LAMELE ŠT.", "OSTANEK PO REZU (mm)"]]
+1343:     viz_traki = []
+1344:     pc = 1
+1345:     for (oi, kol) in iz_ost:
+1346:         o = ostanki[oi]
+1347:         p1, p2 = pc, pc + kol - 1
+1348:         pc += kol
+1349:         ost_nov = max(0, o["dolzina"] - kol * (sir + kerf))
+1350:         rez_rows.append([f"OSTANEK #{oi + 1} ({fmt(o['dolzina'])} mm)",
+1351:                          str(kol), f"{p1}–{p2}", fmt(ost_nov)])
+1352:         viz_traki.append((o["dolzina"],
+1353:                           [(f"L{p1 + j}", sir) for j in range(kol)]))
+1354:     for ti, (B, zac_k) in enumerate(traki):
+1355:         zac = min(zac_k, preost_kosov)
+1356:         p1, p2 = pc, pc + zac - 1
+1357:         pc += zac
+1358:         ost = max(0, B - zac * sir - zac * kerf)
+1359:         rez_rows.append([f"DESKA {ti + 1} (nabava, {fmt(B)} mm)", str(zac),
+1360:                          f"{p1}–{p2}", fmt(ost)])
+1361:         viz_traki.append((B, [(f"L{p1 + j}", sir) for j in range(zac)]))
+1362:     koraki = [
+1363:         "Preveri dejanske mere objekta in primerjaj z risbo.",
+1364:         f"Označi lego nosilcev (razmak največ {fmt(raz)} mm); "
+1365:         "preveri razvod inštalacij pred vrtanjem.",
+1366:         "Pritrdi nosilce (bočno/vrh po dogovoru — glej DETAJL "
+1367:         "PRITRJEVANJA); za WPC vedno predrtje Ø + 1 mm.",
+1368:         "Vgradi zgornji in spodnji alu profil; kontroliraj višino "
+1369:         "in ravnost.",
+1370:         f"Vgradi lamele ({vijak_lamela_naziv} skozi notranjo alu cev; "
+1371:         "brez predrtja ne vrtaj!).",
+1372:         "Kontrola ravni in višine, slika izvedbo, pridobi podpis "
+1373:         "stranke.",
+1374:     ]
+1375:     montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki)
+1376: 
+1377:     # izračun višine + poraba/odpad (viden na montažnem listu)
+1378:     cona_z = zg[0] - sp[1]
+1379:     n_vrst_r = min(len(rez_rows) - 1, 11) if rez_rows else 0
+1380:     y_iz = 197 - (8.5 + 7 + n_vrst_r * 7) - 5.5
+1381:     ax.text(20, y_iz, f"IZRAČUN VIŠINE: {fmt(m['visina'])} = "
+1382:             f"{fmt(m['profil_v'])} (zgornji profil) + {fmt(cona_z)} "
+1383:             f"(lamele: {n} × {fmt(m['lamela_v'])} + {n - 1} × vrzel "
+1384:             f"{vrzel:.1f} mm) + {fmt(m['profil_v'])} (spodnji profil) + "
+1385:             f"{fmt(m['odcep'])} (odcep)", fontsize=6.5, color="#555555",
+1386:             ha="left", va="center")
+1387:     por_m = sum(B for B, _ in traki) / 1000
+1388:     odp_m = por_m - n * sir / 1000
+1389:     ax.text(20, y_iz - 5, f"PORABA: nabavne deske {len(traki)} kos = "
+1390:             f"{por_m:.2f} m • odpad {odp_m:.2f} m "
+1391:             f"({odp_m / por_m * 100:.0f} %) • alu palice {palice} kos = "
+1392:             f"{palice * dl_palice / 1000:.1f} m", fontsize=6.5,
+1393:             color="#555555", ha="left", va="center")
+1394:     por_m = sum(B for B, _ in traki) / 1000
+1395:     por_alu = palice * dl_palice / 1000
+1396:     datum = c.get("datum") or datetime.date.today().strftime("%d.%m.%Y")
+1397:     nar = [
+1398:         f"NAROČILO — WPC material "
+1399:         f"({c.get('dobavitelj') or 'WoodCore'})",
+1400:         f"Naloga: {c['risba_st']} • Datum: {datum}",
+1401:         f"Stranka: {c.get('stranka') or '—'} • Objekt: "
+1402:         f"{c.get('objekt') or '—'}",
+1403:         "",
+1404:         "DESKE:",
+1405:         f"- {profil}, barva {barva}"
+1406:         + "".join(f" — {t} kos × {fmt(B)} mm" for B, t in traki_nabava(traki))
+1407:         + (f" + {kos_iz_ost} kos iz ostankov" if kos_iz_ost else ""),
+1408:         "",
+1409:         "PROFILI (aluminij):",
+1410:         f"- 80×40×3 — {palice} kos × {fmt(dl_palice)} mm "
+1411:         f"(razrez: 2 × {fmt(sir)} mm)",
+1412:         "",
+1413:         "PRITRDILNI MATERIAL:",
+1414:         f"- {vijak_lamela_naziv} — {vijaki} kos",
+1415:         f"- {vijak_nosilec_naziv} — {n_nos * 2} kos",

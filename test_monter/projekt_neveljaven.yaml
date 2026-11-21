@@ -1,0 +1,20 @@
+predloga: ograja
+ime: "NEVELJAVEN"
+risba_st: "BAD-001"
+izdelal: "Test"
+merilo: "1:20"
+format: "A3"
+orientacija: "landscape"
+dolzina_deske: 500
+dolzina_palice: 500
+kerf: 3
+mere:
+  sirina: 3000
+  visina: 1100
+  od_tal: 50
+  odcep: 50
+  profil_v: 40
+  lamela_v: 67
+  lamela_s: 20
+  vrzel: 15
+  razmak_nosilcev: 1000
