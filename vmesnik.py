@@ -695,6 +695,8 @@ class App(tk.Tk):
                    command=self._ponudba_pdf).pack(side="right", padx=(0, 4))
         ttk.Button(fb, text="3D PREDGLED",
                    command=self._3d_predogled).pack(side="right", padx=(0, 4))
+        ttk.Button(fb, text="STATIČNI PREGLED",
+                   command=self._statika_pregled).pack(side="right", padx=(0, 4))
         self.btn_ost = ttk.Button(fb, text="ODPIŠI OSTANKE", state="disabled",
                                   command=self._odpisi_ostanke)
         self.btn_ost.pack(side="right")
@@ -901,6 +903,28 @@ class App(tk.Tk):
             t3.pokazi_3d(cfg, master=self)
         except Exception as e:
             messagebox.showerror("Napaka", f"3D prikaz ni uspel: {e}")
+
+    def _statika_pregled(self):
+        """Plan 6: informativni statični pregled (NI izračun!)."""
+        try:
+            import statika
+        except ImportError:
+            messagebox.showerror("Manjka modul", "Modul statika.py ni najden.")
+            return
+        try:
+            cfg = self._zberi_cfg()
+        except ValueError as e:
+            messagebox.showerror("Napaka pri vnosu", str(e))
+            return
+        m = cfg.get("mere", {})
+        razmak = (m.get("razmak_stebrov") or m.get("razmak_nosilcev")
+                  or 1500.0)
+        visina = float(m.get("visina", 1100.0))
+        odcep = float(m.get("odcep", 0.0) or 0.0)
+        h_rocaja = max(visina - odcep, 1.0)
+        messagebox.showinfo(
+            "Statični pregled (informativno)",
+            statika.povzetek(float(razmak), h_rocaja))
 
     def _zivi_sprememba(self, *_):
         """Sproži osvežitev živega povzetka z debounce (600 ms)."""

@@ -111,3 +111,25 @@ def test_preklop_teme():
             assert app._tema == "svetla"
     finally:
         app.destroy()
+
+
+def test_statika_pregled_gumb():
+    """Plan 6: gumb STATIČNI PREGLED pripravi povzetek brez napake
+    (dialog se odpre le z interakcijo — tu preverimo izračun)."""
+    import statika
+    import tkinter as tk
+    try:
+        app = vmesnik.App()
+    except tk.TclError:
+        pytest.skip("Tk okolje ni na voljo")
+    try:
+        cfg = app._zberi_cfg()
+        m = cfg.get("mere", {})
+        razmak = (m.get("razmak_stebrov") or m.get("razmak_nosilcev")
+                  or 1500.0)
+        t = statika.povzetek(float(razmak),
+                             max(float(m.get("visina", 1100.0))
+                                 - float(m.get("odcep", 0) or 0), 1.0))
+        assert "NI STATIČNI IZRAČUN" in t
+    finally:
+        app.destroy()
