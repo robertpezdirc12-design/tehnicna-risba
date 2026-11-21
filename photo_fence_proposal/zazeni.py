@@ -121,6 +121,12 @@ def main(argv=None):
                    help="ročno potrjena dolžina ograje v mm")
     args = p.parse_args(argv)
 
+    for ime_mere, vrednost in (("--visina", args.visina),
+                              ("--dolzina", args.dolzina)):
+        if vrednost is not None and vrednost <= 0:
+            print(f"NAPAKA: {ime_mere} mora biti pozitivna vrednost v mm "
+                  f"(prejeto: {vrednost})", file=sys.stderr)
+            return 2
     referenca = None
     if args.referenca:
         try:

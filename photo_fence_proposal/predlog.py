@@ -19,6 +19,20 @@ def _barva_rgb(barva: str) -> tuple:
     return (bgr[2], bgr[1], bgr[0])  # RGB
 
 
+def _korak_px(rezultat: Rezultat, kljuc_mere: str, dolzina_px: float,
+              korak_mm: float) -> float:
+    """Korak risanja lamel/desk v slikovnih pikah.
+
+    Če je ustrezna mera kalibrirana, korak sledi razmerju mm/pika (prikaz
+    ustreza kosovnici); sicer informativni prikaz px ≈ mm — vizualizacija
+    ni dokaz mer.
+    """
+    mera = (rezultat.mere or {}).get(kljuc_mere)
+    if mera is not None and mera.vrednost_mm and dolzina_px > 0:
+        return max(3.0, korak_mm * dolzina_px / mera.vrednost_mm)
+    return max(4.0, korak_mm)
+
+
 def narisi_predlog(rezultat: Rezultat, pot_slike: str, pot_izhoda: str,
                    original_bgr=None) -> str:
     """Vizualni predlog: fotografija + nova ograja + oznaka.
@@ -50,10 +64,10 @@ def narisi_predlog(rezultat: Rezultat, pot_slike: str, pot_izhoda: str,
     # polosnovna maska območja (75 % preglednost)
     narisi.rectangle([x0, y0, x1, y1], fill=barva + (190,))
 
+    korak_mm = (rezultat.parametri.sirina_lamele_mm
+                + rezultat.parametri.razmak_mm)
     if rezultat.parametri.tip == "wpc_vodoravne_lamele":
-        korak = max(4.0, visina / max(1.0, visina
-                   / max(3.0, rezultat.parametri.sirina_lamele_mm
-                         + rezultat.parametri.razmak_mm)))
+        korak = _korak_px(rezultat, "visina_ograje", visina, korak_mm)
         y = y0
         while y < y1:
             narisi.line([x0, y, x1, y], fill=(255, 255, 255, 90), width=1)
@@ -65,10 +79,7 @@ def narisi_predlog(rezultat: Rezultat, pot_slike: str, pot_izhoda: str,
                 narisi.rectangle([x - 3, y0, x + 3, y1],
                                  fill=(30, 30, 30, 230))
     else:  # pokončne deske
-        korak = max(3.0, rezultat.parametri.sirina_lamele_mm
-                    / max(1.0, sirina / max(1.0, (sirina
-                       / (rezultat.parametri.sirina_lamele_mm
-                          + rezultat.parametri.razmak_mm)))))
+        korak = _korak_px(rezultat, "dolzina_ograje", sirina, korak_mm)
         x = x0
         while x < x1:
             narisi.line([x, y0, x, y1], fill=(255, 255, 255, 90), width=1)

@@ -81,6 +81,12 @@ def izracunaj_material(rezultat: Rezultat) -> Rezultat:
             n_stebrov = max(2, int(math.ceil(dolzina_mm / 2000.0)) + 1)
             status_stebrov = _status_skupaj(dolzina.status, OCENJENO)
         vis_stebra = (visina_mm + 200.0) if visina_mm else None
+        # najšibkejši status: višina stebra je izpeljana iz višine ograje —
+        # če višina ni znana, je tudi dimenzija stebra NEZNANA
+        status_stebrov = _status_skupaj(
+            status_stebrov,
+            visina.status if (visina and vis_stebra is not None) else NEZNANO,
+            OCENJENO)  # +200 mm betoniranje = ocena
         rezultat.kosovnica.append(PostavkaKosovnice(
             naziv="Steber", material="aluminij 60×40",
             dimenzija=f"{vis_stebra:.0f} mm" if vis_stebra else "??",
@@ -95,13 +101,27 @@ def izracunaj_material(rezultat: Rezultat) -> Rezultat:
 
     # --- pritrdila (preprosto pravilo: 2 vijaka na stik lamele s stebrom) ---
     if dolzina_mm and n_polj:
-        vijaki = n_polj * 2 * (len([p for p in rezultat.kosovnica
-                                   if p.naziv == "WPC lamela/deska"]) or 0)
+        # število stikov = število lamel × število polj (NE število vrstic
+        # kosovnice — to je bil hrošč: množilo se je z 1)
+        st_lamel_vijaki = int(next((p.kolicina for p in rezultat.kosovnica
+                                    if p.naziv == "WPC lamela/deska"), 0))
+        if st_lamel_vijaki > 0:
+            vijaki = st_lamel_vijaki * n_polj * 2
+            status_vijakov = _status_skupaj(
+                dolzina.status,
+                visina.status if (visina and visina.vrednost_mm) else NEZNANO,
+                st_polj.status if st_polj else NEZNANO, OCENJENO)
+            opomba_vijakov = ("2 vijaka na stik lamele s stebrom — "
+                              "informativno pravilo")
+        else:
+            vijaki = 0
+            status_vijakov = NEZNANO
+            opomba_vijakov = ("število lamel ni znano (višina ograje) — "
+                              "števila vijakov ni mogoče izračunati")
         rezultat.kosovnica.append(PostavkaKosovnice(
             naziv="Vijaki M8×70", material="inox", dimenzija="M8×70",
             kolicina=float(vijaki), enota="kos",
-            status_mer=_status_skupaj(dolzina.status, OCENJENO),
-            opomba="2 vijaka na stik lamele s stebrom — informativno pravilo"))
+            status_mer=status_vijakov, opomba=opomba_vijakov))
 
     # --- razrez lamel na standardne palice (preprost FFD) ---
     if dolzina_mm and visina_mm:
@@ -111,14 +131,22 @@ def izracunaj_material(rezultat: Rezultat) -> Rezultat:
             dolz_kosa = visina_mm
         st_lamel = next((int(p.kolicina) for p in rezultat.kosovnica
                          if p.naziv == "WPC lamela/deska"), 0)
-        palice, odpad = _razrez_palic(st_lamel, dolz_kosa)
-        rezultat.razrez = [{"palica_mm": DOLZINA_PALICE_MM,
-                            "kosov": n, "dolzina_kosa_mm": dolz_kosa}
-                           for n in palice]
-        rezultat.odpad_mm = odpad
-        rezultat.opozorila.append(
-            f"Razrez je informativen (model reza: {dolz_kosa:.0f} mm + "
-            f"{KERF_MM:.0f} mm kerf); dejanski razrez potrdi v proizvodnji.")
+        if dolz_kosa > DOLZINA_PALICE_MM:
+            # kos ne gre v eno palico — enostavni model razreza ni veljaven;
+            # NE izračunamo negativnega odpada, ampak pošteno opozorimo
+            rezultat.opozorila.append(
+                f"Kos {dolz_kosa:.0f} mm je daljši od standardne palice "
+                f"{DOLZINA_PALICE_MM:.0f} mm — potrebno spajanje palic; "
+                "informativni razrez in odpad nista izračunana.")
+        elif st_lamel > 0:
+            palice, odpad = _razrez_palic(st_lamel, dolz_kosa)
+            rezultat.razrez = [{"palica_mm": DOLZINA_PALICE_MM,
+                                "kosov": n, "dolzina_kosa_mm": dolz_kosa}
+                               for n in palice]
+            rezultat.odpad_mm = odpad
+            rezultat.opozorila.append(
+                f"Razrez je informativen (model reza: {dolz_kosa:.0f} mm + "
+                f"{KERF_MM:.0f} mm kerf); dejanski razrez potrdi v proizvodnji.")
 
     if not rezultat.vse_kljucne_mere_potrjene:
         rezultat.opozorila.append(
@@ -132,10 +160,16 @@ def _razrez_palic(st_kosov: int, dolzina_kosa: float
     """Koliko kosov gre v vsako palico (enake dolžine) + skupni odpad.
 
     Enostaven model: n kosov zasede n·dolžina + (n−1)·kerf; zadnji rez je na
-    koncu palice in ne porabi materiala. Ostanek < MIN_OSTANKA šteje odpad.
+    koncu palice in ne porabi materiala. Ves ostanek palic se šteje v odpad
+    (informativno — del ostankov je lahko še uporaben).
     """
     if st_kosov <= 0:
         return [], 0.0
+    if dolzina_kosa > DOLZINA_PALICE_MM:
+        # kos daljši od palice: enostavni model bi dal NEGATIVEN odpad
+        raise ValueError(
+            f"Kos {dolzina_kosa:.0f} mm je daljši od palice "
+            f"{DOLZINA_PALICE_MM:.0f} mm — potrebno spajanje palic")
     zmogljivost = int((DOLZINA_PALICE_MM + KERF_MM)
                       // (dolzina_kosa + KERF_MM))
     if zmogljivost < 1:

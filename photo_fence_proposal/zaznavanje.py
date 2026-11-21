@@ -164,6 +164,19 @@ def zaznaj(pot: str) -> Zaznava:
         zaznava.opozorila.append(
             "Zaznanih je manj kot 2 stebra — geometrija ograje ni zanesljivo "
             "določljiva; mere ostajajo neznane.")
+    elif len(x_stebri) < 3:
+        zaznava.opozorila.append(
+            "Zaznana sta samo 2 stebra — zaznava je ŠIBKA in je lahko lažna "
+            "(tudi tehnična risba ali drug motiv namesto fotografije ograje); "
+            "štetje stebrov in vse mere potrdi ročno.")
+    else:
+        x_sez = sorted(x_stebri)
+        razmaki = [x_sez[i + 1] - x_sez[i] for i in range(len(x_sez) - 1)]
+        mediana = float(np.median(razmaki))
+        if mediana > 0 and max(abs(r - mediana) for r in razmaki) > 0.35 * mediana:
+            zaznava.opozorila.append(
+                "Razmaki med zaznanimi stebri so zelo neenakomerni — zaznava "
+                "stebrov je negotova (možne lažne zaznave); mere potrdi ročno.")
     if not vod:
         zaznava.opozorila.append(
             "Ni zaznanih vodoravnih letvi — višina ograje je manj zanesljiva "

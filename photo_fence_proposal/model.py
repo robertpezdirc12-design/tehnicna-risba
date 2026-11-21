@@ -47,6 +47,9 @@ class Mera:
             raise ValueError("Neznana mera ne sme imeti izmišljene vrednosti!")
         if self.status != NEZNANO and self.vrednost_mm is None:
             raise ValueError(f"Mera s statusom {self.status!r} mora imeti vrednost")
+        if self.vrednost_mm is not None and self.vrednost_mm < 0:
+            raise ValueError(
+                f"Mera ne sme biti negativna (prejeto: {self.vrednost_mm})")
 
     @property
     def je_potrjena(self):

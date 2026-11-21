@@ -43,12 +43,19 @@ python -m pytest testi_pfp.py -q
   in odsotnost merila omejujejo natančnost. Kalibracija predpostavlja čeln
   pogled; pod kotom so mere slabše.
 - Merjena napaka na **sintetičnih** testnih prizorih (5 prizorov, znane mere):
-  dolžina **±88–123 mm**, višina **±125–178 mm** (glej `testi_pfp.py`, izpis
-  `NAPAKA MER`). Sintetični prizori **niso** nadomestilo za terenske
+  dolžina **±0 mm** pri kalibraciji na razmak stebrov (to ni "čarovnija" — dolžina
+  je (n−1)×razmak iz istih zaznanih središč stebrov; zato je pravi preizkus
+  napake **navzkrižna kalibracija** na višino → napaka dolžine **0,2–3,9 %**),
+  višina **0,2–3,8 %** (merjena iz središč zunanjih letvi; glej `testi_pfp.py`,
+  izpis `NAPAKA MER`). Sintetični prizori **niso** nadomestilo za terenske
   fotografije — testiranje na resničnih fotografijah ostaja odprto.
 - Parametri nove ograje (širina lamele, razmak) so `ocenjeno`, dokler jih
   uporabnik ne potrdi.
 - Razrez je informativna hevristika (standardne 6000 mm palice, kerf 3 mm).
+  Kos, daljši od 6000 mm, iz ene palice ni izvedljiv — program tega **ne**
+  izračuna (brez negativnega odpada), ampak javi, da je potrebno spajanje palic.
+- Ročni vnosi `--visina` / `--dolzina` morajo biti pozitivne vrednosti v mm
+  (negativne ali ničelne so zavrnjene z jasno napako).
 
 ## Datoteke
 
@@ -62,6 +69,6 @@ python -m pytest testi_pfp.py -q
 | `material.py` | kosovnica + informativni razrez/odpad |
 | `zazeni.py` | CLI (celoten tok) |
 | `napravi_testne_slike.py` | generator sintetičnih prizorov z znanimi merami |
-| `testi_pfp.py` | samostojni testi (17) |
+| `testi_pfp.py` | samostojni testi (32) |
 
 Nič v tej mapi se ne priklopi v glavni program brez izrecne odobritve uporabnika.

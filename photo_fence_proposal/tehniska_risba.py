@@ -82,9 +82,11 @@ def narisi_tehnisko_risbo(rezultat: Rezultat, pot: str) -> str:
         _kota(ax, L * 1.12, 0, L * 1.12, H, f"Višina: {oznaka_v}", navpicno=True)
 
         # --- naslov ---
-        ax.set_title(f"SPREDNJI POGLED — {param.tip.replace('_', ' ')}   |   "
-                     f"{rezultat.oznaka_dokumenta}",
-                     fontsize=11, loc="left")
+        naslov = (f"SPREDNJI POGLED — {param.tip.replace('_', ' ')}   |   "
+                  f"{rezultat.oznaka_dokumenta}")
+        if dolz is None or vis is None:
+            naslov += "   |   shematski prikaz (mere niso znane)"
+        ax.set_title(naslov, fontsize=11, loc="left")
 
         # --- kosovnica ---
         ax2 = fig.add_axes([0.05, 0.02, 0.55, 0.14])
