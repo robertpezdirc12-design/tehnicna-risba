@@ -23,6 +23,13 @@
 - Primerjava teče **BREZ skladišča ostankov** — jasno označeno v izpisu,
   ker bi bila številka z ostanki primerljiva z „ročno“ le, če bi tudi
   delavec imel skladišče; scenarija sta sicer različna.
+- **Popravka po uporabniškem testiranju (USER-1):**
+  1. primerjava teče **vsak profil (skupino kosov) ZASE** in se sešteje —
+     združen izračun je obljubljal prihranek, ki bi ga dosegli le, če bi
+     različni profili delili palico (ne morejo);
+  2. ročni rez kosovnik bere **po vrstnem redu seznama** (kot delavec),
+     ne po že optimiziranih trakovih — sicer je bilo „ročno“ po krivici
+     enako dobro kot optimizator.
 - Prihranek se izpiše SAMO, če je > 0 (pri enakih kosih je 0 — nič
   zavajajočega „prihranka“).
 - Odpadni faktor v ponudbi (npr. +10 %) NI dodan — to je poslovna

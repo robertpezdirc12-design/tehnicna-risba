@@ -339,9 +339,14 @@ def predracun_znesek(cene, postavke):
 
     Vrne {"skupaj", "vrstice", "manjkajoce_cene", "vse_nic", "delno"}.
     """
+    def _kol(kol_str, enota):
+        """Združi količino in enoto BREZ podvajanja (npr. '17.4 m m')."""
+        k, e = str(kol_str), str(enota or "")
+        return k if (not e or k.endswith(e)) else f"{k} {e}"
+
     cene = cene or {}
     uporabljene = [float(cene.get(kljuc) or 0)
-                   for (_n, _k, _e, kljuc, num) in postavke if num]
+                   for (_n, _k, _e, kljuc, num) in postavke if num and kljuc]
     if cene.get("dela_ure") and cene.get("dela_ur_cena"):
         uporabljene.append(float(cene.get("dela_ur_cena") or 0))
     vse_nic = all(abs(v) < 1e-9 for v in uporabljene) if uporabljene else True
@@ -350,21 +355,29 @@ def predracun_znesek(cene, postavke):
     vrstice = []
     manjkajoce_cene = []
     for (naziv, kol_str, enota, kljuc, num) in postavke:
+        if kljuc is None:
+            # Izdelani kosi (npr. vratni profili) nimajo cenovnega ključa —
+            # NE izmišljamo cene (politika Plan G): "cena po dogovoru".
+            if num:
+                vrstice.append([naziv, _kol(kol_str, enota),
+                                "cena po dogovoru (ni cenovnega ključa)",
+                                "po dogovoru"])
+            continue
         cena = cene.get(kljuc)
         if cena is None:
             if num:
-                manjkajoce_cene.append(kljuc)
-                vrstice.append([naziv, f"{kol_str} {enota}",
+                manjkajoce_cene.append(str(kljuc))
+                vrstice.append([naziv, _kol(kol_str, enota),
                                 "CENA MANJKA (ni upoštevano)", "—"])
             continue
         if not num:
             continue
         sk = num * cena
         if abs(cena) < 1e-9:
-            vrstice.append([naziv, f"{kol_str} {enota}",
+            vrstice.append([naziv, _kol(kol_str, enota),
                             "PRIMER (ni obračunano)", "ni obračunano"])
         else:
-            vrstice.append([naziv, f"{kol_str} {enota}",
+            vrstice.append([naziv, _kol(kol_str, enota),
                             f"{cena:.2f} EUR/{enota}", f"{sk:.2f} EUR"])
             skup += sk
     ur, ur_c = cene.get("dela_ure"), cene.get("dela_ur_cena")

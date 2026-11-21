@@ -355,10 +355,37 @@ def vrata_podatki(c):
     return izhod
 
 
+def privzeto_stevilo_lamel(m):
+    """Prilagojeno privzeto število lamel (prečna predloga) — MORA se
+    prilegati coni.
+
+    Statična privzeta vrednost (13) je preračunana za privzete mere; ko
+    uporabnik spremeni mere, dobi napako za številko, ki je NI vnesel.
+    Zato se privzeta vrednost izračuna iz mer — ISTI prag kot razpored.
+    """
+    try:
+        cona = (float(m.get("visina", 0) or 0) - float(m.get("odcep", 0) or 0)
+                - 2 * float(m.get("profil_v", 0) or 0))
+        lv = float(m.get("lamela_v", 0) or 0)
+    except (TypeError, ValueError):
+        return 1
+    if cona <= 0 or lv <= 0:
+        return 1
+    return max(1, int((cona - 8) // (lv + 8)))
+
+
 def zdruzi(cfg):
     izhod = dict(PRIVZETO)
     izhod.update(cfg or {})
-    izhod["mere"] = {**PRIVZETO["mere"], **(cfg or {}).get("mere", {})}
+    mere = {**PRIVZETO["mere"], **(cfg or {}).get("mere", {})}
+    # Če uporabnik NI podal števila lamel, se privzeta vrednost izračuna
+    # iz mer (statična 13 se ob spremembi mer ne prilega in bi uporabnika
+    # blokirala s številko, ki je ni vnesel). Če jo podal, ostane njegova
+    # vrednost — ta se strogo preveri (brez tihega spreminjanja vhodov).
+    if "lamele" not in (cfg or {}).get("mere", {}):
+        if (izhod.get("predloga") or "ograja") == "ograja":
+            mere["lamele"] = privzeto_stevilo_lamel(mere)
+    izhod["mere"] = mere
     return izhod
 
 

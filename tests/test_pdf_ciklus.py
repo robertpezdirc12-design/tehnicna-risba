@@ -123,5 +123,5 @@ def test_primerjava_z_rocnim_rezanjem_v_montaznem_listu(tmp_path):
                      "visina": 1500, "smer": "desno-navzven"}]
     izhod, _png, _dod, _k = risba.generiraj(cfg)
     txt = besedilo_strani(izhod, 1)
-    assert "primerjava brez ostankov" in txt
+    assert "primerjava brez ostankov (vsak profil zase)" in txt
     assert "prihranek" in txt

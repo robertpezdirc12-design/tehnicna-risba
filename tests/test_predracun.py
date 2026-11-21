@@ -61,3 +61,33 @@ def test_predracun_manjkajoca_cena_opozorjena_ne_tiha(tmp_path):
     t = besedilo_strani(izhod, 2).upper()
     assert "CENA MANJKA" in t                  # vrstica NI izpuščena
     assert any("manjkajo cene" in o.lower() for o in risba.ZADNJA_OPOZORILA)
+
+
+def test_predracun_vrata_brez_cenovnega_kluca(tmp_path):
+    """Uporabniška najdba (USER-1): izdelani vratni kosi nimajo cenovnega
+    ključa (None) — predračun NE SME pasti, temveč jih prikaže kot
+    'cena po dogovoru' (brez izmišljenih cen) in jih ne šteje v SKUPAJ."""
+    from conftest import osnovni_cfg, besedilo_strani
+    cfg = osnovni_cfg(tmp_path / "vrata.pdf")
+    cfg["cene"] = {"wpc_deska_m": 24.5, "alu_m": 18.0, "rocaj_kos": 45.0,
+                   "nosilec_kos": 12.0, "vijak_kos": 0.9, "fasadni_kos": 1.2,
+                   "anker_kos": 1.5, "osnova_kos": 15.0}
+    cfg["vrata"] = [{"tip": "enokrilna", "x": 200, "sirina": 900,
+                     "visina": 950, "smer": "desno-navzven"}]
+    izhod, _png, _dod, _k = risba.generiraj(cfg)
+    from pypdf import PdfReader
+    assert len(PdfReader(izhod).pages) == 4      # vključno s predračunom
+    txt = besedilo_strani(izhod, 2)
+    assert "po dogovoru" in txt
+    assert "PREDRAČUN" in txt
+
+
+def test_predracun_znesek_brez_kluca():
+    """predracun_znesek vrne vrstico 'po dogovoru' brez napake."""
+    import proizvodnja
+    postavke = [("Kos A", "2", "kos", "vijak_kos", 2),
+                ("Izdelan kos", "1", "kos", None, 1)]
+    z = proizvodnja.predracun_znesek({"vijak_kos": 0.9}, postavke)
+    assert abs(z["skupaj"] - 1.8) < 1e-9
+    assert any("po dogovoru" in str(v[2]) for v in z["vrstice"])
+    assert z["manjkajoce_cene"] == []

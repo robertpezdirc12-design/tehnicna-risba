@@ -41,7 +41,8 @@ from jedro import (odsteni, barva_hex, fmt, traki_nabava,
                    nalozi_konf, preveri_cfg, PRIVZETO,
                    BARVA_OKOVJA,
                    BARVA_LAMEL as BARVA_LAMEL,
-                   WPC_BARVE as WPC_BARVE)
+                   WPC_BARVE as WPC_BARVE,
+                   privzeto_stevilo_lamel as privzeto_stevilo_lamel)
 from proizvodnja import (izracunaj_kolicine, predracun_znesek,
                          vrata_vrstice_potrebscine,
                          vrata_vrstice_kolicin as vrata_vrstice_kolicin,
@@ -1090,8 +1091,39 @@ def montazni_sestava(ax, x0, y_top, sirina, sestava):
             fontsize=6, color="#888888", ha="left", va="center")
 
 
+def _primerjava_reza(skupine_kosov, c):
+    """Besedilo primerjave optimizatorja z ročnim rezanjem (Plan 3).
+
+    POZOR (popravka po uporabniškem testu):
+    1. primerjava teče VSAKO SKUPINO kosov (profil) ZASE in se sešteje —
+       različni profili ne morejo deliti iste palice;
+    2. ročni rez kosovnik bere PO VRSTNEM REDU SEZNAMA (kot delavec),
+       ne po že optimiziranih trakovih — sicer je „ročno“ po krivici
+       enako dobro kot optimizator.
+
+    ``skupine_kosov``: [[(oznaka, dolzina), ...], ...]
+    """
+    kerf = float(c.get("kerf", 3.0) or 0.0)
+    zaloga = c.get("dolzine_deske") or [c.get("dolzina_deske", 5800)]
+    rocno = opt = 0.0
+    for kosi in skupine_kosov:
+        if not kosi:
+            continue
+        try:
+            m = metrika_reza(kosi, zaloga, kerf)
+        except ValueError:
+            return ""
+        rocno += m["rocno_poraba_mm"]
+        opt += m["opt_poraba_mm"]
+    prihranek = rocno - opt
+    if prihranek <= 1e-6:
+        return ""
+    return (f" • primerjava brez ostankov (vsak profil zase): ročno "
+            f"{rocno / 1000:.2f} m → prihranek {prihranek / 1000:.2f} m")
+
+
 def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki,
-                    sestava=None):
+                    sestava=None, primerjava=""):
     """Skupni izgled montažnega lista (stran 2) za vse predloge."""
     iso_okvir(ax)
     oznaka(ax, 20, 286, "MONTAŽNI LIST (LIST 2/2) — POTREBŠČINE")
@@ -1132,21 +1164,6 @@ def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki,
         skup_k = sum(ln for _, kosi in viz_traki for _, ln in kosi)
         skup_d = sum(dl for dl, _ in viz_traki)
         izk = skup_k / skup_d * 100 if skup_d else 0
-        # Plan 3: metrika odpada + primerjava z ročnim rezanjem (NestingCalc
-        # vzor) — ISTI kosi kot vizualni rez, a scenarij BREZ skladišča
-        # ostankov (jasno označeno — drugače številki nista primerljivi).
-        primerjava = ""
-        try:
-            m = metrika_reza(
-                [(o, ln) for _, kosi in viz_traki for o, ln in kosi],
-                c.get("dolzine_deske") or [c.get("dolzina_deske", 5800)], kerf)
-            if m["prihranek_mm"] > 1e-6:
-                primerjava = (f" • primerjava brez ostankov: ročno "
-                              f"{m['rocno_poraba_mm'] / 1000:.2f} m "
-                              f"(odpad {m['rocno_odpad_delez'] * 100:.0f} %) "
-                              f"→ prihranek {m['prihranek_mm'] / 1000:.2f} m")
-        except ValueError:
-            pass
         ax.text(20, y + 2, f"VIZUALNI REZ • kerf {fmt(kerf)} mm • "
                 f"izkoristek {izk:.0f} % • ostanek = trak − kosi − rez"
                 + (f" • prikazanih {prikaz_b} od {len(viz_traki)} trakov"
@@ -1246,6 +1263,9 @@ def narisi_montazni_list(ax, c):
     rez_rows = rp["rez_rows"]
     viz_traki = rp["viz_traki"]
     kos_iz_ost = rp["iz_ost_kos"]
+    kosi_lamel = kosi_l if vp["odprtine"] else [
+        (f"L{i + 1}", float(sir)) for i in range(n)]
+    kosi_vrat = []                         # skupina profilov: vratni kosi
     if vp["vrata"] or vp["prehodi"]:
         # kosi okvirjev/kril vrat — ločen rez (različni profili)
         kos_v = []
@@ -1256,7 +1276,11 @@ def narisi_montazni_list(ax, c):
         if kos_v:
             rv = razrez_kosov_podatki(kos_v, c, oznaka="V", glava="VRATA ŠT.")
             rp["rez_rows"] += rv["rez_rows"][1:]
+            kosi_vrat = kos_v
             rp["viz_traki"] += rv["viz_traki"]
+    # Plan 3 (popravka po uporabniškem testu): vsak profil zase + vrstni
+    # red kosovnika (ne optimizirani traki)
+    primerjava = _primerjava_reza([kosi_lamel, kosi_vrat], c)
     # 2 U-profila (zgornji + spodnji) sta RAZLIČNI sekciji — vsaka svoja zaloga
     palice_zg = stevilo_palic(sir, 1, dl_palice, kerf)
     palice_sp = stevilo_palic(sir, 1, dl_palice, kerf)
@@ -1301,7 +1325,8 @@ def narisi_montazni_list(ax, c):
         "Kontrola ravni in višine, slika izvedbo, pridobi podpis "
         "stranke.",
     ]
-    montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki)
+    montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki,
+                    primerjava=primerjava)
 
     # izračun višine + poraba/odpad (viden na montažnem listu)
     cona_z = zg[0] - sp[1]
@@ -1358,6 +1383,8 @@ def narisi_montazni_pokoncna(ax, c):
     rez_rows = rp["rez_rows"]
     viz_traki = rp["viz_traki"]
     kos_iz_ost = rp["iz_ost_kos"]
+    kosi_desk = [(f"D{i + 1}", float(deska_h)) for i in range(n_eff)]
+    kosi_vrat = []                         # skupina profilov: vratni kosi
     if vp["vrata"] or vp["prehodi"]:
         kos_v = []
         for enota in vp["vrata"] + vp["prehodi"]:
@@ -1367,7 +1394,9 @@ def narisi_montazni_pokoncna(ax, c):
         if kos_v:
             rv = razrez_kosov_podatki(kos_v, c, oznaka="V", glava="VRATA ŠT.")
             rp["rez_rows"] += rv["rez_rows"][1:]
+            kosi_vrat = kos_v
             rp["viz_traki"] += rv["viz_traki"]
+    primerjava = _primerjava_reza([kosi_desk, kosi_vrat], c)
     steber_dim = f"{fmt(m['steber_sirina'])}×{fmt(m['steber_debelina'])}"
     palice_s = stevilo_palic(vis, n_s, dl_palice, kerf)  # regresija agregatne formule
     vijaki = model["vijaki_element"]  # 2 vijaka na stik (B2: 2 stika na desko)
@@ -1417,7 +1446,8 @@ def narisi_montazni_pokoncna(ax, c):
         (f"Osnova za steber {c.get('osnova_dim') or '90×90×6'}",
          f"{vijak_nosilec_naziv} × 2"),
     ]
-    montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki, sestava=sestava)
+    montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki, sestava=sestava,
+                    primerjava=primerjava)
 
     n_vrst_r = min(len(rez_rows) - 1, 11) if rez_rows else 0
     y_iz = 197 - (8.5 + 7 + n_vrst_r * 7) - 5.5
@@ -1526,6 +1556,7 @@ def narisi_predracun(ax, c, postavke):
                  + " — postavke brez cene niso vštete v seštevek.")
     opombe += [
         "Predračun je ORIENTACIJSKI in brez DDV; veljavnost 30 dni.",
+        "Postavke z napisom 'cena po dogovoru' niso vštete v SKUPAJ.",
         "Cene materialov so nastavljene v konfiguraciji ('cene'); "
         "količine po dejanski porabi, odpad je prikazan posebej.",
         "Konstrukcijsko ustreznost (nosilnost, sidranje, veterno breme) "

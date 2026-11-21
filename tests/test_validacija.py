@@ -156,3 +156,39 @@ def test_status_dokumenta_dovoljeni_ok(tmp_path):
         cfg = osnovni_cfg(tmp_path / f"status-{status.replace(' ', '_')}.pdf")
         cfg["status_dokumenta"] = status
         risba.generiraj(cfg)          # brez izjeme
+
+
+def test_privzeto_stevilo_lamel_se_prilega_coni(tmp_path):
+    """Uporabniška najdba (testiranje USER-1): vnos BREZ števila lamel
+    ne sme pasti na privzeti vrednosti — ta se mora prilagoditi meram.
+    Eksplicitno število uporabnika ostane strogo preverjeno."""
+    import jedro
+    cfg = osnovni_cfg(tmp_path / "x.pdf")
+    cfg["mere"] = dict(cfg["mere"])
+    cfg["mere"].pop("lamele", None)          # uporabnik ga NI vnesel
+    cfg["mere"].update({"visina": 1200, "odcep": 250, "profil_v": 40,
+                        "lamela_v": 100})
+    izhod = jedro.zdruzi(cfg)
+    n = izhod["mere"]["lamele"]
+    cona = 1200 - 250 - 2 * 40
+    assert n * 100 <= cona, (n, cona)
+    assert jedro.preveri_cfg(izhod) == []    # veljavno brez napake
+    risba.generiraj(dict(izhod, izhod=str(tmp_path / "x.pdf")))  # brez izjeme
+
+    # ekspliciten uporabnikov vrednost pa OSTANE strogo preverjena:
+    cfg2 = osnovni_cfg(tmp_path / "y.pdf")
+    cfg2["mere"] = dict(cfg2["mere"], lamele=13, visina=1200, odcep=250,
+                        profil_v=40, lamela_v=100)
+    with pytest.raises(ValueError) as e:
+        risba.generiraj(cfg2)
+    assert "Lamele se ne prilegajo" in str(e.value)
+
+
+def test_privzeto_stevilo_lamel_robni_primeri():
+    import jedro
+    assert jedro.privzeto_stevilo_lamel({"visina": 0, "odcep": 0,
+                                         "profil_v": 0, "lamela_v": 60}) == 1
+    assert jedro.privzeto_stevilo_lamel({"visina": 100, "odcep": 0,
+                                         "profil_v": 0, "lamela_v": 0}) == 1
+    # privzete mere: cona 1060, lv 60 -> (1060-8)//68 = 15
+    assert jedro.privzeto_stevilo_lamel(jedro.PRIVZETO["mere"]) == 15
