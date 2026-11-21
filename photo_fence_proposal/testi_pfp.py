@@ -574,3 +574,62 @@ def test_negotova_zaznava_demove_mere_in_dokument():
     from model import Rezultat
     r = Rezultat(z, ParametriNove(), mere=mere, opozorila=list(z.opozorila))
     assert "PRIPRAVLJENO" not in r.oznaka_dokumenta
+
+
+# ---------------------------------------------------------------------------
+# Avtomatska skica (slika -> profesionalni A3 list): rektifikacija, ritem
+# ---------------------------------------------------------------------------
+
+def test_lamelni_ritem_na_sinteticni_sliki():
+    import numpy as np
+    import rektifikacija
+    slika = np.full((400, 600), 220, dtype=np.uint8)
+    for y in range(40, 360, 30):          # deske 20 px, fuge 10 px
+        slika[y:y + 20, :] = 40
+    ritem = rektifikacija.lamelni_ritem(slika)
+    assert ritem["n_lamel"] >= 5
+    assert abs(ritem["pitch_px"] - 30.0) < 4.0
+    assert ritem["vrzel_px"] < ritem["debelina_px"]   # fuga tanjša od deske
+
+
+def test_pas_ograje_zazna_pas():
+    import numpy as np
+    import rektifikacija
+    slika = np.full((400, 600), 230, dtype=np.uint8)
+    for y in range(100, 300, 30):         # pas samo med 100..300
+        slika[y:y + 20, 50:550] = 40
+    pas = rektifikacija.pas_ograje(slika, 30.0)
+    assert pas is not None
+    y0, y1, x0, x1 = pas
+    assert 60 <= y0 <= 140 and 260 <= y1 <= 340, pas    # pas ograje, ne cela slika
+
+
+def test_avtomatska_skica_pdf_vsebina(tmp_path):
+    import os
+    import napravi_testne_slike
+    import avtomatska_skica
+    from pypdf import PdfReader
+    scena = str(tmp_path / "prizor.png")
+    napravi_testne_slike.narisi_prizor(scena, 6000.0, 1800.0, nagib=0)
+    pot = str(tmp_path / "skica.pdf")
+    pot2, pod = avtomatska_skica.generiraj(
+        scena, pot, lokacija="TEST", referenca=("visina_ograje", 1800.0))
+    assert pot2 == pot and os.path.getsize(pot) > 5000
+    t = PdfReader(pot).pages[0].extract_text()
+    for kljuc in ("SPREDNJI POGLLED", "PRESEZ A-A", "DETAJL",
+                  "NASLOV", "LOKACIJA: TEST", "LEGENDA"):
+        assert kljuc in t, kljuc
+    # referenčna višina je potrjena
+    assert pod["mere"]["visina_ograje"].status == "izmerjeno"
+
+
+def test_avtomatska_skica_brez_reference_ne_izmisljuje(tmp_path):
+    import napravi_testne_slike
+    import avtomatska_skica
+    scena = str(tmp_path / "prizor2.png")
+    napravi_testne_slike.narisi_prizor(scena, 6000.0, 1800.0, nagib=4)
+    pot, pod = avtomatska_skica.generiraj(scena, str(tmp_path / "s2.pdf"))
+    for ime, m in pod["mere"].items():
+        # brez reference NIČ ni 'izmerjeno' — samo ocenjeno/izracunano/neznano
+        assert m.status != "izmerjeno", (ime, m.status)
+    assert any("Brez referenčne mere" in o for o in pod["opombe"])
