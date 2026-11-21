@@ -87,7 +87,7 @@ measurement assistant.
 | #3 | Vrata, prehodi, segmenti, DXF/CNC (61 novih testov) | ✅ zaprt (PR #7) |
 | #5 | Strokovna analiza in razvojni načrt (primerjava z DrawAFence) | ✅ zaprt — poročilo A–H v issue #5 (ciljna arhitektura, fazni načrt F1–F5) |
 | #6 | P0: revizija izračunov, kerfa, razreza + preverjena Windows izdaja | ✅ zaprt (PR #11; izdaja v1.2 do potrditve neobjavljena) |
-| #8 | ADD-ON: ograja iz fotografije (ločen modul, brez AI modelov) | 🔓 odprt |
+| #8 | ADD-ON: ograja iz fotografije (ločen modul, brez AI modelov) | 🔶 prototip `photo_fence_proposal/` dostavljen (PR #13 — NE združen brez odobritve; čaka realne fotografije za Fazo 4) |
 | #9, #10 | Prazen terenski list — prostoročno risanje, elementi, tisk A4/A3 | ✅ zaprti (PR #12; #10 dvojnik #9) |
 
 Testi: `python -m pytest tests/` — 210 testov (74 iz #2 + 61 iz #3 + 28 iz #6 + 47 iz #9/#10).
