@@ -8,6 +8,8 @@ import datetime
 import os
 import sys
 import tempfile
+from html import escape as _esc
+from time import time
 
 from flask import Flask, request, send_file, Response, after_this_request
 
@@ -18,6 +20,33 @@ import risba
 app = Flask(__name__)
 
 REPO = os.path.join(os.path.dirname(__file__), "..")
+
+# --- varnost (issue #5, S3/S5): enostaven omejevalnik zahtevkov ----------
+# Na Vercel serverless je to NAJBOLJŠE prizadevanje (pomnilnik ni deljen
+# med instancami) — za trdno omejitev dodaj še Vercel WAF / edge rate limit.
+_OMEJITEV = 10          # zahtevkov na minuto na IP (POST /generiraj)
+_ZAPISKI = {}           # ip -> [časovni žigi]
+
+
+def _prevec_zahtevkov(ip):
+    zdaj = time()
+    zigi = [t for t in _ZAPISKI.get(ip, []) if zdaj - t < 60.0]
+    if len(zigi) >= _OMEJITEV:
+        _ZAPISKI[ip] = zigi
+        return True
+    zigi.append(zdaj)
+    _ZAPISKI[ip] = zigi
+    return False
+
+
+BLOKIRANI_UA = ("sqlmap", "nikto", "masscan", "zgrab", "curl/7.0")
+
+
+def _dovoljen_ua():
+    ua = (request.headers.get("User-Agent") or "").strip().lower()
+    if not ua:                       # S5: prazen UA ni veljaven odjemalec
+        return False
+    return not any(vzorec in ua for vzorec in BLOKIRANI_UA)
 
 
 def nalozi_cene():
@@ -31,7 +60,8 @@ def nalozi_cene():
 
 
 def html_napake(napake):
-    sezn = "".join(f"<li>{n}</li>" for n in napake)
+    # S1/S2 (issue #5): sporočila se izpišejo ESKAPIRANA (brez XSS).
+    sezn = "".join(f"<li>{_esc(str(n))}</li>" for n in napake)
     return Response(
         f"""<!DOCTYPE html><html lang="sl"><head><meta charset="utf-8">
         <title>Napaka pri vnosu</title>
@@ -161,7 +191,8 @@ def obrazec():
     barve = "".join(f'<option value="{v}">{v}</option>'
                     for v in risba.WPC_BARVE)
     napaka = request.args.get("napaka")
-    blok = (f'<div class="napaka"><b>Napaka:</b> {napaka}</div>'
+    # S1/S2 (issue #5): parametar 'napaka' je uporabniški vnos — ESKAPIRAJ!
+    blok = (f'<div class="napaka"><b>Napaka:</b> {_esc(napaka)}</div>'
             if napaka else "")
     html = OBLRAZEC.replace("{napaka}", blok).replace("{barve}", barve)
     return Response(html, mimetype="text/html")
@@ -190,6 +221,16 @@ def _dolzine(raw):
 
 @app.route("/generiraj", methods=["POST"])
 def generiraj_web():
+    # S3/S5 (issue #5): omejitev zahtevkov + filtriranje odjemalcev.
+    if not _dovoljen_ua():
+        return Response("Prepovedano (neveljaven User-Agent).",
+                        status=403, mimetype="text/plain")
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr or "?")
+    ip = ip.split(",")[0].strip()
+    if _prevec_zahtevkov(ip):
+        return Response("Preveč zahtevkov — poskusi znova čez minuto.",
+                        status=429, mimetype="text/plain",
+                        headers={"Retry-After": "60"})
     f = request.form
     # vsak uporabnik dobi svojo začasno datoteko (sočasni uporabniki)
     fd_pdf, pdf_pot = tempfile.mkstemp(suffix=".pdf", prefix="risba_")

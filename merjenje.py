@@ -110,7 +110,9 @@ def _najboljsi_periodicni(prof, ofs=0):
                 info = {"stevilo": lam,
                         "debelina_px": float(np.mean(deb)) if deb else None,
                         "vrzel_px": float(np.mean(vrzeli)) if vrzeli else None,
-                        "pitch_px": float(np.mean(pitch)), "tip": tip}
+                        "pitch_px": float(np.mean(pitch)), "tip": tip,
+                        # F3 (issue #5): nepravilnost periodike = 1 - zaupanje
+                        "nepravilnost": float(rel)}
                 kand.append((rel, pasovi, info))
 
     # kandidat: robovi (gradient svetlosti) — deluje tudi pri nizkem kontrastu
@@ -130,7 +132,8 @@ def _najboljsi_periodicni(prof, ofs=0):
                 pasovi_g = [(v + ofs - 1, v + ofs + 1) for v in vr]
                 info = {"stevilo": int(round((vr[-1] - vr[0]) / med)) + 1,
                         "debelina_px": None, "vrzel_px": None,
-                        "pitch_px": med + 1, "tip": "robovi"}
+                        "pitch_px": med + 1, "tip": "robovi",
+                        "nepravilnost": float(mad / med)}
                 kand.append((mad / med, pasovi_g, info))
 
     if not kand:
@@ -160,9 +163,36 @@ def zaznaj_lamele(pot, roi=None):
     r = _najboljsi_periodicni(g[:, x0:x1].mean(axis=1), by0)
     if not r:
         return [], {"stevilo": 0, "debelina_px": None, "vrzel_px": None,
-                    "pitch_px": None}
+                    "pitch_px": None, "nepravilnost": None}
     _, pasovi, info = r
     return pasovi, info
+
+
+# F3 (issue #5): prag zanesljivosti zaznave — jasno obvestilo uporabniku.
+PRAG_ZAUPANJA = 0.25          # nepravilnost periodike nad tem = negotovo
+
+
+def zaupanje_zaznave(info):
+    """Ocena zanesljivosti zaznave v [0, 1] (ali None, če ni ocene).
+
+    Sloni na nepravilnosti periodike/pitcha — zelo neenakomerne pasove
+    sistem NE prepričljivo zazna in to pove.
+    """
+    nepr = (info or {}).get("nepravilnost")
+    if nepr is None:
+        return None
+    return float(max(0.0, min(1.0, 1.0 - nepr / (nepr + PRAG_ZAUPANJA))))
+
+
+def opozorilo_zaznave(info):
+    """Opozorilo za uporabnika (prazno, če je zaznava zanesljiva)."""
+    if (info or {}).get("stevilo", 0) == 0:
+        return "Zaznava ni uspela — elementov ni najdenih; uporabi klik-merjenje."
+    z = zaupanje_zaznave(info)
+    if z is not None and z < 0.5:
+        return ("Zaznava je NEGOTOVA (neenakomerni vzorci) — rezultate "
+                "PREVERI s klik-merjenjem, brez slepega zaupanja!")
+    return ""
 
 
 def zaznaj_vijake(pot, roi=None, y_range=None):
@@ -209,6 +239,9 @@ def zaznaj_vijake(pot, roi=None, y_range=None):
     info = {
         "stevilo": len(pike),
         "razmak_px": float(np.median(raz)) if raz else None,
+        # F3: nepravilnost razmakov med pikami (variabilnost)
+        "nepravilnost": (float(np.mean(np.abs(np.array(raz) - np.median(raz))))
+                         / max(float(np.median(raz)), 1e-9)) if raz else None,
     }
     return pike, info
 
@@ -545,6 +578,7 @@ class App(tk.Tk):
             return
         self.det_pasovi = pasovi
         self.det_info = info
+        opoz = opozorilo_zaznave(info)      # F3: prag zanesljivosti
         if self.scale and info["pitch_px"]:
             pitch = info["pitch_px"] / self.scale
             deb = (info["debelina_px"] or 0) / self.scale
@@ -552,11 +586,11 @@ class App(tk.Tk):
             self.status.config(
                 text=f"Zaznanih pasov: {info['stevilo']} • pitch ≈ {pitch:.0f}"
                      f" mm • lamela ≈ {deb:.0f} mm • vrzel ≈ {vr:.0f} mm "
-                     "(preveri z merilom!)")
+                     f"(preveri z merilom!) {opoz}")
             self.v_ime.set("razmak_lamel")
         else:
             self.status.config(text=f"Zaznanih pasov: {info['stevilo']} "
-                                    "(brez merila — najprej kalibracija).")
+                                    f"(brez merila — najprej kalibracija). {opoz}")
         self._narisi()
 
     def _zaznaj_vij(self):
@@ -582,14 +616,15 @@ class App(tk.Tk):
             messagebox.showerror("Napaka", str(e))
             return
         self.det_pike = pike
+        opoz = opozorilo_zaznave(info)      # F3: prag zanesljivosti
         if self.scale and info["razmak_px"]:
             self.status.config(
                 text=f"Zaznanih pik (vijaki/luknje): {info['stevilo']} • "
                      f"tipičen razmak ≈ {info['razmak_px'] / self.scale:.0f} "
-                     "mm (preveri z merilom!)")
+                     f"mm (preveri z merilom!) {opoz}")
         else:
             self.status.config(text=f"Zaznanih pik: {info['stevilo']} "
-                                    "(brez merila — najprej kalibracija).")
+                                    f"(brez merila — najprej kalibracija). {opoz}")
         self._narisi()
 
     def _shrani(self):
