@@ -6,7 +6,8 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[],
-    hiddenimports=['ezdxf', 'yaml', 'PIL.ImageTk'],   # zaklepanje (issue #6)
+    hiddenimports=['ezdxf', 'yaml', 'PIL.ImageTk',
+                   'terenski_list', 'terenski_gui'],   # zaklepanje (issue #6) + terenski list (#9/#10)
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
