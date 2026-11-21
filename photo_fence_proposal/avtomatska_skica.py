@@ -448,23 +448,128 @@ def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None, vogali=None):
     return narisi_skico(pod, pot_pdf), pod
 
 
-def izberi_vogale(slika_pot):
-    """Interaktivni klik 4 vogalov ograje (TL, TR, BR, BL) na sliki.
+def _povecava(rgb, x, y, polmer=70, faktor=3):
+    """Povečan izrez okoli (x, y) za LUPO — čista funkcija (testna).
 
-    Odpri okno, klikni 4 vogale po vrsti. Deluje le v GUI-okuolju;
-    za avtomatsko pot uporabi --vogali s koordinatami.
+    Vrne (izrez_rgb, sredisce) kjer je sredisce položaj (x, y) znotraj
+    izreza (ko slika nima robov).
     """
+    h, w = rgb.shape[:2]
+    x, y = int(round(x)), int(round(y))
+    x0, x1 = max(x - polmer, 0), min(x + polmer, w)
+    y0, y1 = max(y - polmer, 0), min(y + polmer, h)
+    izrez = rgb[y0:y1, x0:x1]
+    if izrez.size == 0:
+        izrez = rgb[max(y - 1, 0):y + 1, max(x - 1, 0):x + 1]
+    return izrez, (x - x0, y - y0)
+
+
+class _KlikVogalov:
+    """Logika klika vogalov (Plan B) — ločena od matplotlib dogodkov (testna).
+
+    Metode klik()/tipka()/premik() kličejo dogodki matplotlib ALI testi
+    neposredno. Lupa je vstavek (inset) s povečanim izrezom okoli kurzorja.
+    """
+
+    OZNAKE = ("TL", "TR", "BR", "BL")
+
+    def __init__(self, rgb, ax, lupa_ax, fig):
+        self.rgb = rgb
+        self.ax = ax
+        self.lupa_ax = lupa_ax
+        self.fig = fig
+        self.tocke = []
+
+    def narisi(self):
+        ax = self.ax
+        ax.clear()
+        ax.imshow(self.rgb)
+        ax.set_title("Klikni 4 VOGALE (TL, TR, BR, BL) • u = razveljavi • "
+                     "Enter = konec", fontsize=9)
+        if self.tocke:
+            xs = [t[0] for t in self.tocke]
+            ys = [t[1] for t in self.tocke]
+            ax.plot(xs, ys, "r+-", ms=10, lw=1)
+            for i, (x, y) in enumerate(self.tocke):
+                ax.annotate(self.OZNAKE[i], (x, y), color="red", fontsize=9,
+                            xytext=(4, 4), textcoords="offset points")
+        self.fig.canvas.draw_idle()
+
+    def lupa(self, x, y):
+        izrez, (cx, cy) = _povecava(self.rgb, x, y)
+        self.lupa_ax.clear()
+        self.lupa_ax.imshow(izrez)
+        self.lupa_ax.plot([cx], [cy], "r+", ms=6)
+        self.lupa_ax.set_title(f"Lupa  x={x:.0f}  y={y:.0f}", fontsize=7)
+        self.lupa_ax.axis("off")
+        self.fig.canvas.draw_idle()
+
+    def premik(self, x, y):
+        if x is not None and y is not None:
+            self.lupa(x, y)
+
+    def klik(self, x, y, button=1):
+        if button == 1:
+            if len(self.tocke) < 4 and x is not None and y is not None:
+                self.tocke.append((float(x), float(y)))
+                self.narisi()
+        elif button == 3 and self.tocke:
+            self.tocke.pop()
+            self.narisi()
+
+    def tipka(self, key):
+        if key in ("u", "U", "backspace"):
+            if self.tocke:
+                self.tocke.pop()
+                self.narisi()
+        elif key == "enter" and len(self.tocke) == 4:
+            plt.close(self.fig)
+
+
+def izberi_vogale(slika_pot, vnosi=None):
+    """Interaktivni klik 4 vogalov ograje (TL, TR, BR, BL) z Lupo (Plan B).
+
+    - premik miške: lupa (povečan izrez s križcem) sledi kurzorju,
+    - levi klik: postavi vogal (1–4),
+    - tipka `u` / desni klik: razveljavi zadnji klik,
+    - tipka `Enter`: zaključi (ko so 4 točke).
+
+    vnosi: [(x, y) × 4] — programski vnos (brez okna) za teste/avtomatizacijo.
+    Deluje le v GUI-okolju; za polno avtomatsko pot uporabi --vogali.
+    """
+    if vnosi is not None:
+        if len(vnosi) != 4:
+            raise ValueError("Potrebni so točno 4 točke (TL, TR, BR, BL).")
+        return [(float(x), float(y)) for x, y in vnosi]
+
     slika = cv2.imread(slika_pot)
     if slika is None:
         raise ValueError(f"Slike ni mogoče odpreti: {slika_pot}")
-    fig = plt.figure()
-    plt.imshow(cv2.cvtColor(slika, cv2.COLOR_BGR2RGB))
-    plt.title("Klikni 4 VOGALE ograje po vrsti: TL, TR, BR, BL")
-    tocke = plt.ginput(4, timeout=0)
-    plt.close(fig)
-    if len(tocke) != 4:
+    rgb = cv2.cvtColor(slika, cv2.COLOR_BGR2RGB)
+    fig, ax = plt.subplots()
+    lupa_ax = fig.add_axes([0.72, 0.72, 0.26, 0.26])
+    lupa_ax.axis("off")
+    inter = _KlikVogalov(rgb, ax, lupa_ax, fig)
+
+    def na_premik(ev):
+        if ev.inaxes is ax:
+            inter.premik(ev.xdata, ev.ydata)
+
+    def na_klik(ev):
+        inter.klik(ev.xdata, ev.ydata, getattr(ev, "button", 1))
+
+    def na_tipko(ev):
+        inter.tipka(ev.key)
+
+    fig.canvas.mpl_connect("motion_notify_event", na_premik)
+    fig.canvas.mpl_connect("button_press_event", na_klik)
+    fig.canvas.mpl_connect("key_press_event", na_tipko)
+    inter.narisi()
+    inter.lupa(rgb.shape[1] / 2, rgb.shape[0] / 2)
+    plt.show()
+    if len(inter.tocke) != 4:
         raise ValueError("Potrebni so točno 4 kliki (TL, TR, BR, BL).")
-    return [(float(x), float(y)) for x, y in tocke]
+    return [(float(x), float(y)) for x, y in inter.tocke]
 
 
 def main():

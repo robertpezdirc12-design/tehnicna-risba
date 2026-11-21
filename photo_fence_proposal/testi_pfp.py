@@ -694,3 +694,72 @@ def test_vogali_in_referenca_natančno_izmerita(tmp_path):
     assert abs(m["visina_ograje"].vrednost_mm - 1200.0) < 3.0
     assert abs(m["dolzina_ograje"].vrednost_mm - 2400.0) / 2400.0 < 0.05, \
         m["dolzina_ograje"].oznaka
+
+
+def test_povecava_lupe():
+    """Plan B: lupa vrne povečan izrez s središčem na kliku."""
+    import numpy as np
+    import avtomatska_skica as ask
+    rgb = np.zeros((200, 300, 3), dtype=np.uint8)
+    rgb[78:83, 98:103] = 255          # svetla pika okoli (100, 80)
+    izrez, (cx, cy) = ask._povecava(rgb, 100, 80, polmer=50)
+    assert izrez.shape[0] == 100 and izrez.shape[1] == 100
+    assert (cx, cy) == (50, 50)       # center izreza = klik
+    assert izrez[cy, cx].max() > 200  # pika je v središču
+
+
+def test_povecava_na_robu_slike():
+    """Lupa deluje tudi ob robu (brez napake, crop ni prazen)."""
+    import numpy as np
+    import avtomatska_skica as ask
+    rgb = np.full((50, 60, 3), 128, dtype=np.uint8)
+    izrez, (cx, cy) = ask._povecava(rgb, 0, 0, polmer=40)
+    assert izrez.size > 0
+    assert cx == 0 and cy == 0
+
+
+def test_izberi_vogale_programski_vnos():
+    """Plan B: programski vnos 4 točk deluje, 3 točke -> jasna napaka."""
+    import avtomatska_skica as ask
+    tocke = ask.izberi_vogale(
+        "ne-obstaja.png", vnosi=[(0, 0), (10, 0), (10, 5), (0, 5)])
+    assert tocke == [(0.0, 0.0), (10.0, 0.0), (10.0, 5.0), (0.0, 5.0)]
+    with pytest.raises(ValueError):
+        ask.izberi_vogale("ne-obstaja.png", vnosi=[(0, 0), (1, 0), (1, 1)])
+
+
+def test_izberi_vogale_interaktivni_tok_z_lupo():
+    """Plan B: logika klika (klik/tipka/premik) + lupa.
+
+    4 kliki -> 4 točke; tipka 'u' razveljavi zadnji klik."""
+    import numpy as np
+    import matplotlib
+    matplotlib.use("Agg", force=True)
+    import matplotlib.pyplot as plt
+    import avtomatska_skica as ask
+
+    rgb = np.full((120, 160, 3), 200, dtype=np.uint8)
+    fig, ax = plt.subplots()
+    lupa_ax = fig.add_axes([0.72, 0.72, 0.26, 0.26])
+    inter = ask._KlikVogalov(rgb, ax, lupa_ax, fig)
+
+    for x, y in ((10, 10), (150, 10), (150, 110), (10, 110)):
+        inter.premik(x, y)                       # lupa sledi kurzorju
+        inter.klik(x, y, button=1)
+    assert inter.tocke == [(10.0, 10.0), (150.0, 10.0),
+                           (150.0, 110.0), (10.0, 110.0)]
+    # 5. klik se NE zabeleži
+    inter.klik(50, 50, button=1)
+    assert len(inter.tocke) == 4
+    # desni klik = razveljavitev
+    inter.klik(0, 0, button=3)
+    assert len(inter.tocke) == 3
+    # tipka 'u' = razveljavitev
+    inter.tipka("u")
+    assert len(inter.tocke) == 2
+    # dopolnitev in Enter zapre figuro
+    inter.klik(150, 110, button=1)
+    inter.klik(10, 110, button=1)
+    inter.tipka("enter")
+    assert not plt.fignum_exists(fig.number)
+    assert len(inter.tocke) == 4
