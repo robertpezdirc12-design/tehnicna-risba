@@ -2,10 +2,12 @@
 
 Specifikacija (docs/dxf-specifikacija.md):
 - format R2010 (AC1024), enote mm ($INSUNITS=4, $MEASUREMENT=1), 1:1 realne mm
-- plasti (fiksna shema): OUTLINE, POSTS, HOLES, HARDWARE, FILL, DIMENSIONS,
-  CENTERLINES, TEXT, FRAME — rez/vrtanje SAMO iz OUTLINE, POSTS, HOLES
+- plasti (fiksna shema, ISO 13567 struktura): M-ELEM-CONT, M-STEB-CONT,
+  M-ODPR-CONT, M-OKOV-PRIT, M-POLN-SRAF, M-ANNO-DIMS, M-ANNO-CLIN,
+  M-ANNO-TEXT, M-ANNO-FRAM — rez/vrtanje SAMO iz M-ELEM-CONT, M-STEB-CONT,
+  M-ODPR-CONT (stara imena OUTLINE/POSTS/HOLES — glej LEGACY_SLOJI)
 - konture: zaprte LWPOLYLINE brez ponovljene prve točke; luknje CIRCLE
-- kote: statične (LINE + SOLID puščice + MTEXT) na plasti DIMENSIONS
+- kote: statične (LINE + SOLID puščice + MTEXT) na plasti M-ANNO-DIMS
 - OMEJITEV: DXF ne vsebuje G-code/toolpath/kompenzacije orodja ali kerfa —
   konture so nominalne mere.
 
@@ -22,18 +24,39 @@ from ezdxf import units as ez_units
 import risba
 import vrata
 
-# Fiksna shema plasti: (barva ACI, linetype, lw mm, ali vsebuje rez/vrtanje)
+# Fiksna shema plasti po ISO 13567 strukturi (discipline-major-minor):
+# (barva ACI, linetype, lw mm, ali vsebuje rez/vrtanje)
 PLASTI = {
-    "OUTLINE": (7, "CONTINUOUS", 0.50, True),
-    "POSTS": (5, "CONTINUOUS", 0.35, True),
-    "HOLES": (1, "CONTINUOUS", 0.25, True),
-    "HARDWARE": (2, "CONTINUOUS", 0.25, False),
-    "FILL": (8, "CONTINUOUS", 0.25, False),
-    "DIMENSIONS": (3, "CONTINUOUS", 0.18, False),
-    "CENTERLINES": (6, "CENTER", 0.13, False),
-    "TEXT": (7, "CONTINUOUS", 0.25, False),
-    "FRAME": (8, "CONTINUOUS", 0.25, False),
+    "M-ELEM-CONT": (7, "CONTINUOUS", 0.50, True),    # konture kosov
+    "M-STEB-CONT": (5, "CONTINUOUS", 0.35, True),    # stebri/nosilci, profili
+    "M-ODPR-CONT": (1, "CONTINUOUS", 0.25, True),    # odprtine/vrtanje
+    "M-OKOV-PRIT": (2, "CONTINUOUS", 0.25, False),   # okovje/pritrdila
+    "M-POLN-SRAF": (8, "CONTINUOUS", 0.25, False),   # šrafure/polnila
+    "M-ANNO-DIMS": (3, "CONTINUOUS", 0.18, False),   # kote
+    "M-ANNO-CLIN": (6, "CENTER", 0.13, False),       # simetrične osi
+    "M-ANNO-TEXT": (7, "CONTINUOUS", 0.25, False),   # besedila
+    "M-ANNO-FRAM": (8, "CONTINUOUS", 0.25, False),   # okvir lista
 }
+
+# Prehodna tabela (Plan 2): stara interna imena -> ISO 13567 imena.
+# Notranja koda (vrata.py, risba.py) uporablja stara imena; prevedejo se
+# šele ob zapisu v DXF (globok modul — en vir resnice o geometriji).
+LEGACY_SLOJI = {
+    "OUTLINE": "M-ELEM-CONT",
+    "POSTS": "M-STEB-CONT",
+    "HOLES": "M-ODPR-CONT",
+    "HARDWARE": "M-OKOV-PRIT",
+    "FILL": "M-POLN-SRAF",
+    "DIMENSIONS": "M-ANNO-DIMS",
+    "CENTERLINES": "M-ANNO-CLIN",
+    "TEXT": "M-ANNO-TEXT",
+    "FRAME": "M-ANNO-FRAM",
+}
+
+
+def _sloj(ime):
+    """Notranje (legacy) ali že ISO ime -> canonicalno ISO ime sloja."""
+    return LEGACY_SLOJI.get(ime, ime)
 
 MED_RAZMAK = 1000.0  # razmak med segmenti v model prostoru (mm)
 
@@ -41,7 +64,8 @@ OPOMBE_DXF = [
     "Mere v mm, tolerance ISO 2768-m.",
     "Konture so nominalne — BREZ kompenzacije orodja/kerfa.",
     "DXF NE vsebuje G-code ali toolpath poti.",
-    "Rez/vrtanje SAMO iz plasti OUTLINE, POSTS, HOLES.",
+    "Rez/vrtanje SAMO iz plasti M-ELEM-CONT, M-STEB-CONT, M-ODPR-CONT "
+    "(legacy imena: OUTLINE, POSTS, HOLES).",
     "Preveri mere na objektu pred izvedbo.",
     "Risba NI statični izračun — nosilnost/sidranje preveri usposobljen strokovnjak.",
 ]
@@ -60,6 +84,7 @@ def _plasti(doc):
 
 def kvadrat(msp, x, y, w, h, layer):
     """Zaprta kontura pravokotnika (CCW, brez ponovljene prve točke)."""
+    layer = _sloj(layer)
     if w <= 0 or h <= 0:
         return None
     tocke = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
@@ -67,20 +92,24 @@ def kvadrat(msp, x, y, w, h, layer):
 
 
 def crta(msp, x1, y1, x2, y2, layer):
+    layer = _sloj(layer)
     return msp.add_line((x1, y1), (x2, y2), dxfattribs={"layer": layer})
 
 
 def krog(msp, x, y, premer, layer):
+    layer = _sloj(layer)
     return msp.add_circle((x, y), premer / 2.0, dxfattribs={"layer": layer})
 
 
 def tekst(msp, x, y, niz, visina=2.5, layer="TEXT", rot=0.0):
+    layer = _sloj(layer)
     return msp.add_mtext(niz, dxfattribs={"layer": layer, "char_height": visina,
                                           "rotation": rot}).set_location((x, y))
 
 
 def _puscica(msp, x, y, smer_x, dolzina=2.5, layer="DIMENSIONS"):
     """SOLID trikotna puščica kote (klin v smeri smer_x)."""
+    layer = _sloj(layer)
     p1 = (x, y)
     p2 = (x + smer_x * dolzina, y + dolzina / 6.0)
     p3 = (x + smer_x * dolzina, y - dolzina / 6.0)
@@ -100,6 +129,7 @@ def kota_h(msp, x1, x2, y, y_text, vrednost, layer="DIMENSIONS"):
 
 def kota_v(msp, y1, y2, x, x_text, vrednost, layer="DIMENSIONS"):
     """Navpična kota."""
+    layer = _sloj(layer)
     crta(msp, x_text - 1.2, y1, x + 0.8, y1, layer)
     crta(msp, x_text - 1.2, y2, x + 0.8, y2, layer)
     crta(msp, x, y1, x, y2, layer)
@@ -362,9 +392,11 @@ def preveri_dxf(pot):
             napake.append(f"podvojena entiteta {kljuc}")
         videne.add(kljuc)
 
-    if not (stevila.get("OUTLINE") or stevila.get("POSTS")
-            or stevila.get("HOLES")):
-        napake.append("na plasteh OUTLINE/POSTS/HOLES ni rezalne geometrije")
+    rezalne = [ime for ime, (_b, _l, _w, rez) in PLASTI.items() if rez]
+    if not any(stevila.get(ime) for ime in rezalne):
+        napake.append("na rezalnih plasteh (M-ELEM-CONT/M-STEB-CONT/"
+                      "M-ODPR-CONT; legacy OUTLINE/POSTS/HOLES) "
+                      "ni rezalne geometrije")
 
     return {
         "veljaven": not napake,

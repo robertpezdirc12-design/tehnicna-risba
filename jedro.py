@@ -368,6 +368,9 @@ def nalozi_konf(pot):
     return zdruzi(podatki)
 
 
+DOVOLJENI_STATUSI = ("V DELU", "ZA POTRDITEV", "IZVEDENO")
+
+
 def preveri_cfg(cfg):
     """Kontrola pravilnosti PRED izvozom. Vrne seznam napak (prazno = OK)."""
     nap = []
@@ -388,6 +391,12 @@ def preveri_cfg(cfg):
         v = m.get(k)
         if not isinstance(v, (int, float)) or v <= 0:
             nap.append(f"Mera '{k}' mora biti pozitivno število.")
+    # ISO 7200 (Plan 2): status dokumenta — dovoljeni trije statusi;
+    # „IZVEDENO" se sme uporabiti šele po terenski potrditvi.
+    status = str(cfg.get("status_dokumenta") or "").strip()
+    if status and status.upper() not in DOVOLJENI_STATUSI:
+        nap.append(f"Status dokumenta '{status}' ni dovoljen — dovoljeni: "
+                   + ", ".join(DOVOLJENI_STATUSI) + ".")
     odcep = m.get("odcep", 0)
     if not isinstance(odcep, (int, float)) or odcep < 0:
         nap.append("Mera 'odcep' ne sme biti negativna.")

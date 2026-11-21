@@ -141,3 +141,18 @@ def test_kontrola_zavrne_in_pove_zakaj(tmp_path):
         risba.generiraj(cfg)
     assert "Kontrola pravilnosti" in str(e.value)
     assert "-" in str(e.value)                 # izpisane posamezne napake
+
+def test_status_dokumenta_nedovoljen(tmp_path):
+    """Plan 2 (ISO 7200): nedovoljen status dokumenta je napaka."""
+    cfg = osnovni_cfg(tmp_path / "status.pdf")
+    cfg["status_dokumenta"] = "ZA GRADNJO"
+    with pytest.raises(ValueError) as e:
+        risba.generiraj(cfg)
+    assert "Status dokumenta" in str(e.value)
+
+
+def test_status_dokumenta_dovoljeni_ok(tmp_path):
+    for status in ("V DELU", "ZA POTRDITEV", "IZVEDENO"):
+        cfg = osnovni_cfg(tmp_path / f"status-{status.replace(' ', '_')}.pdf")
+        cfg["status_dokumenta"] = status
+        risba.generiraj(cfg)          # brez izjeme

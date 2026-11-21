@@ -75,7 +75,7 @@ def test_datoteka_ni_prazna(cfg_osnovni):
     pot, por = dxf_izvoz.izvozi_dxf(cfg_osnovni)
     assert os.path.getsize(pot) > 0
     assert sum(por["stevila"].values()) > 0
-    assert por["stevila"].get("OUTLINE") or por["stevila"].get("POSTS")
+    assert por["stevila"].get("M-ELEM-CONT") or por["stevila"].get("M-STEB-CONT")
 
 
 # ---------------------------------------------------------------------------
@@ -87,7 +87,7 @@ def test_vse_rezalne_konture_so_zaprte(cfg_z_vrati):
     doc = ezdxf.readfile(pot)
     n_zaprtih = 0
     for e in doc.modelspace():
-        if e.dxftype() == "LWPOLYLINE" and e.dxf.layer in ("OUTLINE", "POSTS"):
+        if e.dxftype() == "LWPOLYLINE" and e.dxf.layer in ("M-ELEM-CONT", "M-STEB-CONT"):
             assert e.closed, f"odprta kontura na {e.dxf.layer}"
             tocke = list(e.get_points("xy"))
             assert len(tocke) >= 3
@@ -109,11 +109,12 @@ def test_brez_dvojnih_entitet(cfg_z_vrati):
 
 
 def test_luknje_na_plasti_holes(cfg_z_vrati):
-    # Tečaji so HARDWARE (informativno); CIRCLE je dovoljen le na HOLES/HARDWARE.
+    # Tečaji so M-OKOV-PRIT (informativno); CIRCLE je dovoljen le na
+    # M-ODPR-CONT / M-OKOV-PRIT.
     pot, _ = dxf_izvoz.izvozi_dxf(cfg_z_vrati)
     doc = ezdxf.readfile(pot)
     for e in doc.modelspace().query("CIRCLE"):
-        assert e.dxf.layer in ("HOLES", "HARDWARE")
+        assert e.dxf.layer in ("M-ODPR-CONT", "M-OKOV-PRIT")
 
 
 # ---------------------------------------------------------------------------
@@ -137,7 +138,7 @@ def test_vrata_v_dxf_so_pravih_mer(cfg_z_vrati):
     g = vrata.geometrija_vrat(cfg_z_vrati["vrata"][0], 1000, 2000)
     w_k = g["sirine_kril"][0]                        # 870 mm
     assert w_k == 870.0
-    # Kontura krila (OUTLINE): w_k × h_k — F1 (issue #5, O2): krilo sega od
+    # Kontura krila (M-ELEM-CONT): w_k × h_k — F1 (issue #5, O2): krilo sega od
     # tal do tla + h_k (kot kosovnica: stojalo krila = h_k); prej h_k − 40
     # (risba neusklajena s kosovnico).
     h_konture = g["h_k"]
@@ -216,7 +217,7 @@ def test_opombe_vsebujejo_omejitve_cnc(cfg_osnovni):
     besedila = " ".join(e.plain_text() for e in doc.modelspace().query("MTEXT"))
     assert "G-code" in besedila
     assert "kompenzacije" in besedila
-    assert "OUTLINE, POSTS, HOLES" in besedila
+    assert "M-ELEM-CONT, M-STEB-CONT, M-ODPR-CONT" in besedila
 
 
 def test_naslovni_blok_in_layout(cfg_osnovni):
@@ -248,3 +249,14 @@ def test_skupna_dolzina_je_vsota_sirin_brez_risalnih_razmikov(tmp_path):
     zadetki = [b for b in besedila if "Skupna dolžina" in b]
     assert zadetki, "naslovni blok nima skupne dolžine"
     assert any("4400" in b for b in zadetki), zadetki
+
+
+def test_sloji_iso_13567_struktura():
+    """Plan 2: vsi sloji imajo ISO 13567 strukturo (discipline-major-minor),
+    legacy imena se prevedejo in so idempotentna."""
+    import re
+    for ime in dxf_izvoz.PLASTI:
+        assert re.match(r"^M-[A-Z]{4}-[A-Z]{4}$", ime), ime
+    assert set(dxf_izvoz.LEGACY_SLOJI.values()) == set(dxf_izvoz.PLASTI)
+    assert dxf_izvoz._sloj("OUTLINE") == "M-ELEM-CONT"
+    assert dxf_izvoz._sloj("M-ELEM-CONT") == "M-ELEM-CONT"

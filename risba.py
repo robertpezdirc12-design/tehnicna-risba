@@ -318,6 +318,10 @@ def naslovni_blok(ax, p):
     crta(ax, 355, 29, 355, 38, lw=0.7)
     ax.text(x0 + 2, 33.5, p["podjetje"], fontsize=11, fontweight="bold",
             ha="left", va="center")
+    # ISO 7200 (Plan 2): STATUS dokumenta (V DELU / ZA POTRDITEV / IZVEDENO)
+    status = (p.get("status") or "V DELU").upper()
+    ax.text(x0 + 2, 30.6, f"STATUS: {status}", fontsize=6.5,
+            color="#555555", ha="left", va="center")
     ax.text(357, 36.2, "RISBA ŠT. / REV.", fontsize=5.5, color="#555555",
             ha="left", va="center")
     ax.text(357, 31.8, f"{p['risba_st']}  •  REV. {p['rev']}", fontsize=10.5,
@@ -699,6 +703,7 @@ def narisi_pokoncna(ax, c):
                if "WPC" in (c.get("material_lamel") or "").upper()
                else c["material"])[:26]
     naslovni_blok(ax, {
+        "status": (c.get("status_dokumenta") or "V DELU").upper(),
         "podjetje": c.get("podjetje") or "—",
         "ime": c["ime"], "risba_st": c["risba_st"],
         "rev": revizije[-1][0], "merilo": merilo_niz,
@@ -963,6 +968,7 @@ def narisi_ogrado(ax, c):
                if "WPC" in (c.get("material_lamel") or "").upper()
                else c["material"])[:26]
     naslovni_blok(ax, {
+        "status": (c.get("status_dokumenta") or "V DELU").upper(),
         "podjetje": c.get("podjetje") or "—",
         "ime": c["ime"], "risba_st": c["risba_st"],
         "rev": revizije[-1][0], "merilo": merilo_niz,

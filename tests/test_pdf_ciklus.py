@@ -100,3 +100,16 @@ def test_opozorila_so_vidna_ce_montazni_list_pade(cfg_ograja, monkeypatch,
     assert any("Montažni list" in o for o in risba.ZADNJA_OPOZORILA)
     assert stevilo_strani(izhod) == 1         # samo risba (kolicine = nič)
     assert os.path.getsize(izhod) > 1000
+
+def test_status_dokumenta_v_naslovnem_bloku(tmp_path):
+    """Plan 2 (ISO 7200): STATUS se izpiše v naslovnem bloku."""
+    cfg = osnovni_cfg(tmp_path / "status.pdf")
+    cfg["status_dokumenta"] = "ZA POTRDITEV"
+    izhod, _png, _dod, _k = risba.generiraj(cfg)
+    assert "STATUS: ZA POTRDITEV" in besedilo_strani(izhod, 0)
+
+
+def test_status_dokumenta_privzeto_v_delu(tmp_path):
+    cfg = osnovni_cfg(tmp_path / "status2.pdf")
+    izhod, _png, _dod, _k = risba.generiraj(cfg)
+    assert "STATUS: V DELU" in besedilo_strani(izhod, 0)
