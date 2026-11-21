@@ -127,8 +127,30 @@ def kalibriraj_referenca(zaznava: Zaznava, kaj: str, vrednost_mm: float
 
 def izpelji_mere(zaznava: Zaznava, parametri: ParametriNove,
                  kalibracija: Kalibracija | None) -> dict:
-    """Iz zaznave (+ kalibracije) sestavi mere s statusi."""
+    """Iz zaznave (+ kalibracije) sestavi mere s statusi.
+
+    Poštenost (test z realnimi fotografijami, balkoni): če je zaznava
+    negotova (neenakomerni razmaki stebrov, ...), izpeljane mere NISO
+    'izmerjeno' — demovane so v 'ocenjeno', ker izhajajo iz zgrešene
+    zaznave (npr. dolžina 17329 mm namesto ~6200 mm).
+    """
     mere: dict[str, Mera] = {}
+    negotova = any(("negotov" in o.lower()) or ("neenakomern" in o.lower())
+                   for o in zaznava.opozorila)
+    # referenčna višina (uporabnik jo je potrdil) ostane 'izmerjeno';
+    # vse ostalo iz negotove zaznave je le 'ocenjeno'
+    ref_visina = bool(kalibracija and
+                      kalibracija.opis.startswith("visina_ograje"))
+
+    def _status(je_referenca):
+        if not negotova:
+            return IZMERJENO
+        return IZMERJENO if je_referenca else OCENJENO
+
+    def _opis(osnova, je_referenca):
+        if negotova and not je_referenca:
+            return osnova + " (zaznava NEGOTOVA — ocena, ne natančna meritev)"
+        return osnova
 
     # Dolžina ograje (razpon skrajnih središč stebrov — glej dolzina_ograje_px)
     dolz_px = dolzina_ograje_px(zaznava)
@@ -136,8 +158,9 @@ def izpelji_mere(zaznava: Zaznava, parametri: ParametriNove,
         mere["dolzina_ograje"] = _preveri_verodostojnost(
             "dolzina_ograje",
             kalibracija.v_mere(
-                dolz_px, "teka ograje (razpon skrajnih središč stebrov; "
-                "fallback: območje zaznave)", status=IZMERJENO),
+                dolz_px, _opis("teka ograje (razpon skrajnih središč stebrov; "
+                              "fallback: območje zaznave)", False),
+                status=_status(False)),
             zaznava)
     elif dolz_px:
         mere["dolzina_ograje"] = Mera(
@@ -152,8 +175,9 @@ def izpelji_mere(zaznava: Zaznava, parametri: ParametriNove,
         mere["visina_ograje"] = _preveri_verodostojnost(
             "visina_ograje",
             kalibracija.v_mere(
-                vis_px, "višina ograje (razpon središč zunanjih letvi; "
-                "fallback: območje zaznave)", status=IZMERJENO),
+                vis_px, _opis("višina ograje (razpon središč zunanjih letvi; "
+                             "fallback: območje zaznave)", ref_visina),
+                status=_status(ref_visina)),
             zaznava)
     elif vis_px:
         mere["visina_ograje"] = Mera(

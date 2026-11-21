@@ -550,3 +550,27 @@ def test_cli_negativna_rocna_mera_zavrnjena(tmp_path, capsys):
         assert kod == 2, argumenti
         err = capsys.readouterr().err
         assert "NAPAKA" in err and "pozitivna" in err, argumenti
+
+def test_negotova_zaznava_demove_mere_in_dokument():
+    """Realni balkonski test: zgrešena zaznava ne sme dajati 'izmerjeno'
+    in 'PRIPRAVLJENO ZA IZDELAVO' (dolžina 17329 mm namesto ~6200 mm)."""
+    from model import Zaznava, Slika, Element, ParametriNove
+    import kalibracija
+    slika = Slika("x.png", 1024, 768)
+    el = [Element("steber", [(10, 0), (10, 100)], 0.5),
+          Element("steber", [(900, 0), (900, 100)], 0.5),
+          Element("letv", [(0, 50), (1024, 50)], 0.5),
+          Element("letv", [(0, 95), (1024, 95)], 0.5)]
+    z = Zaznava(slika, el, [(0, 0), (1024, 0), (1024, 768), (0, 768)],
+                ["Razmaki med zaznanimi stebri so zelo neenakomerni — "
+                 "zaznava stebrov je negotova."])
+    k = kalibracija.kalibriraj_referenca(z, "visina_ograje", 1050.0)
+    mere = kalibracija.izpelji_mere(z, ParametriNove(), k)
+    # dolžina iz negotove zaznave NI 'izmerjeno'
+    assert mere["dolzina_ograje"].status in ("ocenjeno", "neznano")
+    # referenčna višina (uporabnik potrdil) ostane izmerjeno
+    assert mere["visina_ograje"].status == "izmerjeno"
+    # dokument NI 'PRIPRAVLJENO ZA IZDELAVO'
+    from model import Rezultat
+    r = Rezultat(z, ParametriNove(), mere=mere, opozorila=list(z.opozorila))
+    assert "PRIPRAVLJENO" not in r.oznaka_dokumenta

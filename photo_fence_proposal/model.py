@@ -175,7 +175,16 @@ class Rezultat:
 
     @property
     def oznaka_dokumenta(self) -> str:
+        # Poštenost (test z realnimi fotografijami): potrjene mere ŠE NE
+        # pomenijo pripravljenosti — če je zaznava negotova (opozorila),
+        # dokument ostane predlog za potrditev na objektu.
         if self.vse_kljucne_mere_potrjene:
+            blokirajoce = [o for o in self.opozorila
+                           if any(z in o.lower() for z in
+                                  ("negotov", "neenakomern", "ni zanesljivo"))]
+            if blokirajoce:
+                return ("PREDLOG ZA POTRDITEV (mere potrjene, a zaznava je "
+                        "negotova — obvezno preveri na objektu)")
             return "PRIPRAVLJENO ZA IZDELAVO (vse ključne mere potrjene)"
         return "INFORMATIVNI PREDLOG (ključne mere niso potrjene)"
 
