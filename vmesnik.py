@@ -15,6 +15,7 @@ from tkinter import ttk, filedialog, messagebox
 import yaml
 
 import proizvodnja
+import posodobitev
 
 # v exe načinu se nastavitve shranjujejo poleg programa (ne v začasni mapi)
 if getattr(sys, "frozen", False):
@@ -547,6 +548,9 @@ class App(tk.Tk):
         self.btn_razveljavi.pack(side="right", padx=(0, 2))
         ttk.Button(fr_p, text="✦ ČAROVNIK",
                    command=self._carovnik).pack(side="right", padx=(0, 8))
+        # Plan 5: preverjanje posodobitev (GitHub Releases, neblokirajoče)
+        ttk.Button(fr_p, text="⟳ Posodobitev", command=self._preveri_posodobitev,
+                   width=13).pack(side="right", padx=(0, 6))
         # Plan 4: preklop teme (svetla/temna)
         ttk.Button(fr_p, text="◐ Tema", command=self._preklopi_temo,
                    width=8).pack(side="right", padx=(0, 6))
@@ -784,6 +788,37 @@ class App(tk.Tk):
     def _carovnik(self):
         """Odpri voden vnos po korakih (Plan E)."""
         Carovnik(self)
+
+    def _preveri_posodobitev(self):
+        """Plan 5: preveri GitHub Releases v ozadju in javi izid.
+
+        Omrežje ni kritično — napaka se javi v statusu, aplikacija teče.
+        """
+        self.status.config(text="Preverjam posodobitve …")
+
+        def _delo():
+            izid = posodobitev.preveri_posodobitev()
+            self.after(0, lambda: self._pokazi_posodobitev(izid))
+
+        threading.Thread(target=_delo, daemon=True).start()
+
+    def _pokazi_posodobitev(self, izid):
+        if izid.get("napaka"):
+            self.status.config(
+                text=f"Preverjanje posodobitev ni uspelo: {izid['napaka']}")
+        elif izid.get("novo"):
+            self.status.config(
+                text=f"Na voljo nova različica {izid['verzija']}.")
+            naslov = izid.get("url") or ("https://github.com/"
+                                         + posodobitev.REPO + "/releases")
+            messagebox.showinfo(
+                "Posodobitev",
+                f"Na voljo je nova različica {izid['verzija']} "
+                f"(trenutna {posodobitev.VERZIJA}).\n\nPrenos: {naslov}")
+        else:
+            self.status.config(
+                text=f"Posodobljeno — različica {posodobitev.VERZIJA} je "
+                     "zadnja.")
 
     def _nastavi_temo(self, ime_teme):
         """Nastavi temo ttkbootstrap.

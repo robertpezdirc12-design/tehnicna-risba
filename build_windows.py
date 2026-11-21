@@ -95,6 +95,38 @@ def zgradi():
     return {"exe": EXE, "velikost_b": os.path.getsize(EXE), "sha256": sha256(EXE)}
 
 
+def podpisi():
+    """Podpis EXE (Plan 5) — PO gradnji, s časovnim žigom RFC 3161.
+
+    Zahteva certifikat prek okoljskih spremenljivk:
+      PODPIS_PFX   — pot do .pfx/.p12 certifikata
+      PODPIS_GESLO — geslo certifikata (izbirno)
+      PODPIS_TOOL  — pot do signtool.exe (izbirno, privzeto 'signtool')
+
+    BREZ certifikata se podpis PRESKOČI (ni napake) — iskreno: certifikat
+    je strošek ponudnika, ki ga plača naročnik (EV ~200–500 USD/leto).
+    Časovni žig (/tr) je OBVEZEN — brez njega podpis umre s certifikatom.
+    Vrstni red (raziskava): najprej podpiši EXE, šele nato sestavi
+    namestitev, drugače ostane nepodpisan ekstrakt znotraj paketa.
+    """
+    pfx = os.environ.get("PODPIS_PFX")
+    if not pfx:
+        return {"podpisano": False, "razlog": "PODPIS_PFX ni nastavljen"}
+    orodje = os.environ.get("PODPIS_TOOL", "signtool")
+    ukaz = [orodje, "sign", "/f", pfx, "/fd", "sha256",
+            "/tr", "http://timestamp.digicert.com", "/td", "sha256"]
+    if os.environ.get("PODPIS_GESLO"):
+        ukaz += ["/p", os.environ["PODPIS_GESLO"]]
+    ukaz += [EXE]
+    # gesla ne izpisujemo v zapisnik/izpis
+    prikaz = ["<geslo>" if (i and ukaz[i - 1] == "/p") else arg
+              for i, arg in enumerate(ukaz[:-1])]
+    print("Podpisujem EXE:", " ".join(prikaz), "<EXE>")
+    subprocess.run(ukaz, check=True, cwd=KOREN)
+    return {"podpisano": True, "certifikat": os.path.basename(pfx),
+            "casovni_zig": "http://timestamp.digicert.com"}
+
+
 def smoke():
     """Funkcionalni preizkus zgrajenega programa (neinteraktivni način)."""
     delo = tempfile.mkdtemp(prefix="tr_smoke_")
@@ -145,6 +177,7 @@ if __name__ == "__main__":
                 "spec_sha256": sha256(SPEC),
                 "ukaz": "python build_windows.py --smoke"}
     zapisnik["build"] = zgradi()
+    zapisnik["podpis"] = podpisi()
     if "--smoke" in sys.argv:
         zapisnik["smoke"] = smoke()
     zapisnik["trajanje_s"] = round(time.time() - zac, 1)
