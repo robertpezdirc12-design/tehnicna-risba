@@ -4,3 +4,4 @@ PyYAML
 numpy
 ezdxf==1.4.5
 Pillow
+ttkbootstrap   # Plan 4: teme (neobvezno — brez njega ostane privzeti videz)

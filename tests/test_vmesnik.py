@@ -90,3 +90,24 @@ def test_gumb_odpisi_ostanke_je_sam_ob_spremembi(datoteka):
         assert str(app.btn_ost["state"]) == "disabled"
     finally:
         app.destroy()
+
+# ---------------------------------------------------------------- Plan 4
+def test_preklop_teme():
+    """Plan 4: preklop teme (ttkbootstrap) deluje ali pošteno javi, da
+    paket ni nameščen; aplikacija deluje v obeh primerih."""
+    import tkinter as tk
+    try:
+        app = vmesnik.App()
+    except tk.TclError:
+        pytest.skip("Tk okolje ni na voljo")
+    try:
+        assert app._tema in ("svetla", None)
+        app._preklopi_temo()
+        if app._ttkb is None:
+            assert "namesti ttkbootstrap" in app.status.cget("text")
+        else:
+            assert app._tema == "temna"
+            app._preklopi_temo()
+            assert app._tema == "svetla"
+    finally:
+        app.destroy()

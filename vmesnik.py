@@ -476,6 +476,18 @@ class Carovnik(tk.Toplevel):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
+        # Plan 4: teme (ttkbootstrap) — če ni nameščen, ostane privzeti
+        # videz brez napake. Teme stilirajo ttk gradnike; canvas risbe in
+        # tk.Label ostanejo s fiksnimi barvami (berljivost risbe).
+        self._ttkb = None
+        self._tema = None
+        try:
+            import ttkbootstrap as ttkb
+            self._ttkb = ttkb
+            self._nastavi_temo("bootstrap-light")   # 2.0 ime teme
+            self._tema = "svetla"
+        except Exception:
+            pass
         self.title("Generator tehničnih risb — balkonska ograja")
         self.geometry("920x820")
         self.minsize(860, 760)
@@ -535,6 +547,9 @@ class App(tk.Tk):
         self.btn_razveljavi.pack(side="right", padx=(0, 2))
         ttk.Button(fr_p, text="✦ ČAROVNIK",
                    command=self._carovnik).pack(side="right", padx=(0, 8))
+        # Plan 4: preklop teme (svetla/temna)
+        ttk.Button(fr_p, text="◐ Tema", command=self._preklopi_temo,
+                   width=8).pack(side="right", padx=(0, 6))
 
         zg = ttk.Frame(self, padding=(14, 4))
         zg.pack(fill="x")
@@ -769,6 +784,34 @@ class App(tk.Tk):
     def _carovnik(self):
         """Odpri voden vnos po korakih (Plan E)."""
         Carovnik(self)
+
+    def _nastavi_temo(self, ime_teme):
+        """Nastavi temo ttkbootstrap.
+
+        Style je singleton in drži referenco na root — če je prejšnje okno
+        uničeno (testi!), ga je treba vezati znova, sicer TclError.
+        """
+        if self._ttkb is None:
+            return
+        if getattr(self._ttkb.Style, "instance", None) is not None:
+            self._ttkb.Style.instance = None
+        self._ttkb.Style(theme=ime_teme)
+
+    def _preklopi_temo(self):
+        """Plan 4: preklop svetla/temna (ttkbootstrap)."""
+        if self._ttkb is None:
+            self.status.config(
+                text="Teme niso na voljo — namesti ttkbootstrap "
+                     "(pip install ttkbootstrap).")
+            return
+        nova = "bootstrap-dark" if self._tema == "svetla" \
+            else "bootstrap-light"
+        try:
+            self._nastavi_temo(nova)
+            self._tema = "svetla" if nova == "bootstrap-light" else "temna"
+            self.status.config(text=f"Tema: {self._tema}.")
+        except Exception as e:
+            self.status.config(text=f"Preklop teme ni uspel: {e}")
 
     def _pomoc(self):
         """F1: pomoč z bližnjicami in legendo (Plan F)."""
