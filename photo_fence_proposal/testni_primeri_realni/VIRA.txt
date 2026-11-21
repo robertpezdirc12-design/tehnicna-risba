@@ -1,0 +1,10 @@
+Testne fotografije starih ograj — viri (Wikimedia Commons, proste licence):
+1. lesena_stara.jpg — "Old Wood Fence, Castle Crags, CA 2000 (6309694571).jpg",
+   avtor inkknife_2000 (Flickr), CC BY 2.0
+2. lesena_rjava.jpg — "Brown wood fence.JPG", avtor Alton, CC BY 2.5
+3. lesena_bela.jpg — "Wood fence.jpg", avtor Idlir Fida, CC BY 2.0
+4. zicna.jpg — "Chain-link-Fence.jpg", avtor Evan-Amos, CC0 1.0
+5. lesena_blizu.jpg — "Close-up of wooden fence on Downside, Epsom.jpg",
+   avtor Cristian Bortes, CC BY 2.0
+Vse preneseno prek commons.wikimedia.org (Special:FilePath, width=1024/1600).
+Namen: testiranje dodatka photo_fence_proposal (issue #8, Faza 4).
