@@ -153,3 +153,25 @@ def test_foto_predogled(tmp_path):
         assert app._foto_tk is None
     finally:
         app.destroy()
+
+
+def test_meri_slike_dvojna_korenina(tmp_path):
+    """Napaka iz preverjanja vmesnikov: MERI S SLIKE odpre DRUGO Tk-korenino;
+    ImageTk.PhotoImage brez master=self se veže na prvo in create_image
+    vrne 'image pyimageN doesn't exist'."""
+    import tkinter as tk
+    try:
+        app = vmesnik.App()
+    except tk.TclError:
+        pytest.skip("Tk okolje ni na voljo")
+    try:
+        from PIL import Image
+        pot = str(tmp_path / "f.jpg")
+        Image.new("RGB", (200, 120), (90, 60, 60)).save(pot, format="JPEG")
+        import merjenje
+        m = merjenje.App(pot)      # brez izjeme tudi ob živi prvi korenini
+        m.update()
+        assert m._tk_img is not None
+        m.destroy()
+    finally:
+        app.destroy()

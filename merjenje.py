@@ -496,7 +496,10 @@ class App(tk.Tk):
             a, b = S(*self.klik[0]), S(*self.prev_premik)
             dr.line([a, b], fill=(255, 120, 120), width=2)
 
-        self._tk_img = ImageTk.PhotoImage(crop)
+        self._tk_img = ImageTk.PhotoImage(crop, master=self)
+        # master=self je NUJEN: merjenje.App je lastna Tk-korenina — brez
+        # tega se PhotoImage veže na prvo korenino (vmesnik) in create_image
+        # vrne 'image pyimageN doesn't exist' (dokazano v testu).
         self.canvas.delete("all")
         self.canvas.create_image(W / 2 + (x0 - scx) * sc + self.off[0],
                                  H / 2 + (y0 - scy) * sc + self.off[1],

@@ -72,9 +72,28 @@ def test_slika_transformacije_in_zadetek(slika_pot):
     assert abs(vel["sirina"] - 80.0) < 1e-9
     mn = tl.element_meje(el)
     assert mn[2] == pytest.approx(40.0)
-    # vrtenje NI podprto — jasna napaka, ne tiho napaka
-    with pytest.raises(ValueError, match="Vrtenje"):
-        tl.zavrti(el, 45.0)
+    # vrtenje slike DELUJE (odziv uporabnika: zasuk potrebujemo)
+    obrn = tl.zavrti(el, 90.0)
+    assert abs(obrn["rotacija"] - 90.0) < 1e-9
+    # pri 90° se ohišje zavrti — mere se zamenjajo
+    mn2 = tl.element_meje(obrn)
+    assert mn2[2] - mn2[0] == pytest.approx(el["visina"], abs=0.5)
+    assert mn2[3] - mn2[1] == pytest.approx(el["sirina"], abs=0.5)
+    # pri 45° je ohišje večje (diag. vsote)
+    obrn45 = tl.zavrti(el, 45.0)
+    mn3 = tl.element_meje(obrn45)
+    assert mn3[2] - mn3[0] > 40.0
+    # zasukana slika se pravilno izriše v PDF (brez izjeme, XObject ostane)
+    d2 = tl.nov_dokument()
+    d2["elementi"].append(obrn45)
+    import os as _os
+    import tempfile
+    from pypdf import PdfReader
+    with tempfile.TemporaryDirectory() as td:
+        pot = str(_os.path.join(td, "rot.pdf"))
+        tl.izvozi_pdf(d2, pot)
+        r = PdfReader(pot)
+        assert r.pages[0].get("/Resources", {}).get("/XObject", {})
 
 
 def test_slika_napake(slika_pot, tmp_path):
@@ -114,5 +133,9 @@ def test_slika_v_urejevalniku(slika_pot):
         u.dok["elementi"].append(el)
         u._narisi()                        # brez izjeme, slika narisana
         assert u._tk_slike, "PhotoImage referenca mora obstajati (GC zaščita)"
+        # zasukana slika — prav tako brez izjeme, referenca ostane
+        u.dok["elementi"][0] = tl.zavrti(el, 30.0)
+        u._narisi()
+        assert u._tk_slike
     finally:
         u.destroy()

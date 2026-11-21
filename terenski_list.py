@@ -364,7 +364,7 @@ def _tocke_elementa(el):
         return list(el["tocke"])
     if tip in ("crta", "puscica", "mera"):
         return [el["a"], el["b"]]
-    if tip in ("pravokotnik", "elipsa"):
+    if tip in ("pravokotnik", "elipsa", "slika"):
         x, y, s, v = el["x"], el["y"], el["sirina"], el["visina"]
         kot = math.radians(el.get("rotacija", 0.0))
         cx, cy = x + s / 2.0, y + v / 2.0
@@ -378,9 +378,6 @@ def _tocke_elementa(el):
         return [(el["x"], el["y"])]
     if tip == "kvader":
         return [(el["x"], el["y"])]
-    if tip == "slika":
-        x, y, s, v = el["x"], el["y"], el["sirina"], el["visina"]
-        return [(x, y), (x + s, y), (x + s, y + v), (x, y + v)]
     raise ValueError(f"Neznana vrsta elementa {tip!r}")
 
 
@@ -512,16 +509,13 @@ def zavrti(el, kot_stopinje, srediste=None):
     elif tip in ("crta", "puscica", "mera"):
         nov["a"] = _zavrti_tocko(nov["a"], srediste, kot)
         nov["b"] = _zavrti_tocko(nov["b"], srediste, kot)
-    elif tip in ("pravokotnik", "elipsa"):
+    elif tip in ("pravokotnik", "elipsa", "slika"):
         # zavrti SREDIŠČE okoli dane točke in dodaj kot — čista rotacija lika
         sredina = (nov["x"] + nov["sirina"] / 2.0, nov["y"] + nov["visina"] / 2.0)
         nova_sredina = _zavrti_tocko(sredina, srediste, kot)
         nov["x"] = nova_sredina[0] - nov["sirina"] / 2.0
         nov["y"] = nova_sredina[1] - nov["visina"] / 2.0
         nov["rotacija"] = nov.get("rotacija", 0.0) + kot_stopinje
-    elif tip == "slika":
-        raise ValueError("Vrtenje vstavljenih slik ni podprto — sliko "
-                         "obrnite v urejevalniku slik pred vstavitvijo.")
     else:
         nov["x"], nov["y"] = _zavrti_tocko((nov["x"], nov["y"]), srediste, kot)
         nov["rotacija"] = nov.get("rotacija", 0.0) + kot_stopinje
@@ -686,23 +680,31 @@ def _narisi_element(ax, el, merilo_osa):
         _narisi_kvader(ax, el["x"], el["y"], el["a"], el["b"], el["c"],
                        barva, el["sirina_crte"])
     elif tip == "slika":
+        rot = float(el.get("rotacija") or 0.0)
         img = nalozi_sliko(el)
         if img is None:
             # nadomestni okvir z opozorilom — NE tiho prazen prostor
-            from matplotlib.patches import Rectangle
-            ax.add_patch(Rectangle((el["x"], el["y"]),
-                                   el["sirina"], el["visina"],
-                                   fill=False, edgecolor="#c00000",
-                                   linewidth=0.6, linestyle="--"))
+            from matplotlib.patches import Polygon
+            ax.add_patch(Polygon(_tocke_elementa(el), closed=True, fill=False,
+                                 edgecolor="#c00000", linewidth=0.6,
+                                 linestyle="--"))
             ax.text(el["x"] + el["sirina"] / 2.0, el["y"] + el["visina"] / 2.0,
                     "SLIKE NI MOGOČE NALOŽITI", color="#c00000", fontsize=6,
                     ha="center", va="center")
         else:
             import numpy as np
-            ax.imshow(np.asarray(img),
-                      extent=(el["x"], el["x"] + el["sirina"],
-                              el["y"], el["y"] + el["visina"]),
-                      aspect="auto", interpolation="bilinear", zorder=1)
+            from matplotlib.transforms import Affine2D
+            umetnik = ax.imshow(np.asarray(img),
+                                extent=(el["x"], el["x"] + el["sirina"],
+                                        el["y"], el["y"] + el["visina"]),
+                                aspect="auto", interpolation="bilinear",
+                                zorder=1)
+            if rot:
+                # rotacija okoli središča slike (kot v svetu, CCW)
+                umetnik.set_transform(
+                    Affine2D().rotate_deg_around(
+                        el["x"] + el["sirina"] / 2.0,
+                        el["y"] + el["visina"] / 2.0, rot) + ax.transData)
     else:
         raise ValueError(f"Neznana vrsta elementa {tip!r} — ne morem narisati")
 

@@ -334,15 +334,22 @@ def izracunaj_kolicine(c, rp=None):
             "kosovnica": kolicine["kosovnica"]}
 
 
+def kolicina_z_enoto(kol_str, enota):
+    """Združi količino in enoto BREZ podvajanja (npr. '17.4 m m').
+
+    Skupna logika za predračun in ponudbo (en izvor resnice).
+    """
+    k, e = str(kol_str), str(enota or "")
+    return k if (not e or k.endswith(e)) else f"{k} {e}"
+
+
 def predracun_znesek(cene, postavke):
     """Čisti seštevek predračuna (Plan A) — EN algoritem za vse izpise.
 
     Vrne {"skupaj", "vrstice", "manjkajoce_cene", "vse_nic", "delno"}.
     """
     def _kol(kol_str, enota):
-        """Združi količino in enoto BREZ podvajanja (npr. '17.4 m m')."""
-        k, e = str(kol_str), str(enota or "")
-        return k if (not e or k.endswith(e)) else f"{k} {e}"
+        return kolicina_z_enoto(kol_str, enota)
 
     cene = cene or {}
     uporabljene = [float(cene.get(kljuc) or 0)

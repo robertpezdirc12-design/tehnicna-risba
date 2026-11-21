@@ -56,3 +56,17 @@ def test_ponudba_brez_cenika_sploh_nima_zneskov(tmp_path):
     cfg = osnovni_cfg(tmp_path / "o.pdf")
     m = ponudba.sestavi_moznosti(cfg)
     assert all(x["znesek"] is None for x in m)
+
+def test_ponudba_brez_dvojne_enote(tmp_path):
+    """'m m' v ponudbi (ista napaka kot prej v predračunu, a v ponudba.py)."""
+    from pypdf import PdfReader
+    import ponudba
+    from conftest import osnovni_cfg
+    c = osnovni_cfg(str(tmp_path / "R.pdf"))
+    c["cene"] = {"lamele_m": 10.0}
+    pot = str(tmp_path / "ponudba.pdf")
+    ponudba.narisi_ponudbo(pot, c)
+    bes = "".join((pg.extract_text() or "") for pg in PdfReader(pot).pages)
+    # vzorec ' m m' (presledek+m+presledek+m) — NE 'premiuM Materiali'
+    assert " m m" not in bes, "ponudba ne sme podvajati enote ('75.4 m m')"
+    assert "IZVEDBENE MOŽNOSTI" in bes

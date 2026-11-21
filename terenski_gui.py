@@ -253,18 +253,25 @@ class Urejevalnik(tk.Tk):
         elif tip == "slika":
             ax, ay = self._v_platno(el["x"], el["y"] + el["visina"])
             bx, by = self._v_platno(el["x"] + el["sirina"], el["y"])
+            rot = float(el.get("rotacija") or 0.0)
             img = tl.nalozi_sliko(el)
             if img is None:
-                # nadomestni okvir — NE tiho prazen prostor
-                p.create_rectangle(ax, ay, bx, by, outline="#c00000",
-                                   dash=(3, 3))
+                # nadomestni okvir — NE tiho prazen prostor (upošteva zasuk)
+                tocke = [t for pt in tl._tocke_elementa(el)
+                         for t in self._v_platno(*pt)]
+                p.create_polygon(*tocke, outline="#c00000", fill="",
+                                 dash=(3, 3))
                 p.create_text((ax + bx) / 2, (ay + by) / 2,
                               text="slike ni mogoče naložiti", fill="#c00000")
             else:
                 from PIL import ImageTk
                 sir = max(1, int(abs(bx - ax)))
                 vis = max(1, int(abs(by - ay)))
-                tk_img = ImageTk.PhotoImage(img.resize((sir, vis)))
+                slika = img.resize((sir, vis))
+                if rot:
+                    # rotacija CCW (kot v svetu) okoli središča slike
+                    slika = slika.rotate(rot, expand=True)
+                tk_img = ImageTk.PhotoImage(slika)
                 self._tk_slike.append(tk_img)      # zaščita pred GC
                 p.create_image((ax + bx) / 2, (ay + by) / 2, image=tk_img)
 

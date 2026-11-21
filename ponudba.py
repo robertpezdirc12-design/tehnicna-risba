@@ -15,7 +15,7 @@ Uporaba:
 """
 import datetime
 
-from proizvodnja import izracunaj_kolicine, predracun_znesek
+from proizvodnja import izracunaj_kolicine, kolicina_z_enoto, predracun_znesek
 
 # barve kartic (osnovna, priporočena, premium)
 BARVE = ("#455a64", "#2e7d32", "#6a1b9a")
@@ -122,8 +122,8 @@ def narisi_ponudbo(pot_pdf, c, moznosti=None):
             fontsize=9.5, fontweight="bold")
     y = 233
     for (naziv, kol_str, enota, _k, _n) in kol["postavke"][:8]:
-        ax.text(14, y, f"• {naziv}: {kol_str} {enota}", fontsize=7.8,
-                va="top")
+        ax.text(14, y, f"• {naziv}: {kolicina_z_enoto(kol_str, enota)}",
+                fontsize=7.8, va="top")
         y -= 4.2
     if len(kol["postavke"]) > 8:
         ax.text(14, y, f"• … skupaj {len(kol['postavke'])} postavk "
