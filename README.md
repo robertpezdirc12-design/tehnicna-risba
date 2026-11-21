@@ -22,6 +22,12 @@ measurement assistant.
 - **Montažni list (stran 2 PDF-a)** — potrebščine, rezalni načrt z ostanki
   (kerf-pozavesten), vizualni rez z izkoristkom, izračun višine, montažni
   koraki s sklici na detajle, kontrola terena, podpis stranke
+- **Terenski list (modul `terenski_list`)** — popolnoma prazen A4/A3 list za
+  prostoročno skico in ročno sestavljanje elementov (črte, puščice, oblike,
+  besedilo, ročne mere z oznako »(ročno)«, izometrične kocke/kvadri),
+  shranjevanje v YAML, PDF/predogled in tisk — `python terenski_list.py --gui`
+  oziroma `python vmesnik.py --terenski`; brez povezave s proizvodnimi
+  izračuni (ročne mere so anotacije, ne potrjene mere)
 - **Predračun (priloga PDF-a, neobvezno)** — če v konfiguracijo vpišeš `cene:`
   (EUR/m, EUR/kos, delo), se samodejno ustvari orientacijski predračun;
   če so vse cene 0.00 (PRIMER), je jasno označen kot informativen in
@@ -82,9 +88,9 @@ measurement assistant.
 | #5 | Strokovna analiza in razvojni načrt (primerjava z DrawAFence) | ✅ zaprt — poročilo A–H v issue #5 (ciljna arhitektura, fazni načrt F1–F5) |
 | #6 | P0: revizija izračunov, kerfa, razreza + preverjena Windows izdaja | ✅ zaprt (PR #11; izdaja v1.2 do potrditve neobjavljena) |
 | #8 | ADD-ON: ograja iz fotografije (ločen modul, brez AI modelov) | 🔓 odprt |
-| #9, #10 | Prazen terenski list (medsebojna dvojnika) | 🔓 odprt — kandidata za združitev/zaprtje |
+| #9, #10 | Prazen terenski list — prostoročno risanje, elementi, tisk A4/A3 | ✅ zaprti (PR #12; #10 dvojnik #9) |
 
-Testi: `python -m pytest tests/` — 163 testov (74 iz #2 + 61 iz #3 + 28 iz #6).
+Testi: `python -m pytest tests/` — 210 testov (74 iz #2 + 61 iz #3 + 28 iz #6 + 47 iz #9/#10).
 
 ## Namestitev
 
