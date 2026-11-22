@@ -129,6 +129,32 @@ def vijak_dim(naziv, priv="M8×70"):
             .replace(" ", "")) if najdi else priv
 
 
+# Priporočena sidranja po podlagi (načrt 8) — EDO vir resnice za tabelo
+# na montažnem listu in za DETAJL 1 — SIDRANJE na risbi.
+# Vrednosti so ≈/OCENJENO („priporočeno — potrdi strokovnjak"),
+# NIKOLI „izmerjeno" — nosilnost preveri statik (opomba NI statični izračun).
+SIDRANJA_PODLAGE = (
+    (("beton",), "Beton C20/25", "anker M10", 60),
+    (("zid", "opek", "silikat"), "Zid (opeka/silikat)", "fasadni Ø8", 70),
+    (("les", "jeklo"), "Les / jeklo", "vijak Ø8", 40),
+)
+
+
+def priporoceno_sidranje(podlaga):
+    """Priporočeno sidranje za podlago (načrt 8).
+
+    Vrne (vrsta_podlage, sidro, globina_mm); za nepoznano ali prazno
+    podlago (None, None, None) — brez izmišljanja vrednosti.
+    """
+    vz = (podlaga or "").strip().lower()
+    if not vz:
+        return None, None, None
+    for kljuci, vrsta, sidro, globina in SIDRANJA_PODLAGE:
+        if any(k in vz for k in kljuci):
+            return vrsta, sidro, globina
+    return None, None, None
+
+
 # ---------------------------------------------------------------- geometrija ograje
 def razpored(m):
     """Vrne (zgornji_profil, spodnji_profil, lamele od spodaj, vrzel, n).

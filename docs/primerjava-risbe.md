@@ -62,11 +62,20 @@ Operon/CUBE/Trueleveler/BcStep — sistemi za upravljanje risb).*
 
 ## 4. Točka za točko: kaj imamo / kaj manjka
 
+> **⚠️ POPRAVEK (22. 11. 2026, načrt 8):** dve oceni v tej tabeli sta bili
+> **NAPAČNI** — napisani po spominu, ne po natančnem branju kode.
+> `narisi_ogrado`/`narisi_pokoncna` dejansko že rišeta bočni pogled,
+> tloris, PREREZ A-A (pokončna v 1:5 s ploščo in ankerji) in DETAJL
+> PRITRJEVANJA + DETAJL LAMELE/DESKE. Prvotni oceni sta popravljeni
+> spodaj; dejanska vrzel (nerazmerjen detajl brez dimenzij sidranja)
+> je bila odpravljena v načrtu 8 (DETAJL 1 — SIDRANJE z globino sidra
+> ≈ priporočeno in iskrenim '??' za oddaljenost roba).
+
 | Profesionalni element | Naše stanje | Resnost |
 |---|---|---|
 | Čelni pogled s kotami | ✅ imamo | — |
-| **Bočni pogled / tloris / prerezi** | ❌ samo čelni pogled | **visoka** |
-| **Detajli vez (sidranje, podnožje, var)** | ❌ (podatki o pritrditvi so v besedilu, ne kot detajl) | **visoka** |
+| **Bočni pogled / tloris / prerezi** | ✅ POPRAVLJENO: bočni + tloris + PREREZ A-A že obstajajo (prej napačno ocenjeno „samo čelni“) | — |
+| **Detajli vez (sidranje, podnožje, var)** | ✅ POPRAVLJENO: DETAJL 1 — SIDRANJE (dimenzioniran, povezan s tabelo) + DETAJL 2; varjenih vezi ni (vijačena izvedba) | — |
 | Kote brez seštevanja verige | ✅ kote so neposredne | — |
 | Delovne točke / referenčne črte | △ dimenzioniramo z robov | srednja |
 | Oznake kosov (part marks) | ✅ nalepke + oznake L/V/D | — |
@@ -85,10 +94,11 @@ Operon/CUBE/Trueleveler/BcStep — sistemi za upravljanje risb).*
 | Podpisna vrstica IZDELAL/STRANKA | ✅ imamo | — |
 | Poštena opozorila (NI statični izračun) | ✅ — pri konkurenci nič takega | — |
 
-**Povzetek:** naš paket je funkcionalno blizu *malega obrtniškega kompleta*
-(montažni list + kosi + nalepke + pogodbeni podpisi), manjkajo pa mu
-**pogledi (bočni/prerezi), detajli vez in revizije** — troje, ki profesionalce
-loči od „skice za delavnico“.
+**Povzetek (popravljen 22. 11. 2026):** naš paket je funkcionalno blizu
+*malega obrtniškega kompleta* (pogledi + prerezi + detajli + montažni list
++ kosi + nalepke + pogodbeni podpisi), kar je več, kot je zapisala prva
+(napačna) ocena. Preostale vrzeli so: **revizije (odpravljeno, načrt 7)**,
+**blok toleranc, QC seznam, tok ZA POTRDITEV → IZVEDENO**.
 
 ## 5. Ograjno-specifične zahteve (konkretni vzorci)
 
@@ -125,6 +135,10 @@ Iz javnega speca (City of Madison, ograja) in proizvajalskih CAD listov
 | 5 | **„ZA POTRDITEV / IZVEDENO“ tok** (status že imamo → promocija v proces) | city spec: potrditev pred montažo | majhna |
 | 6 | Simbol usmerjenosti kosov + delovne točke | „kos se ne more namestiti narobe“ | srednja |
 | 7 | Varilni simboli ISO 2553 (če bodo varjeni okviri) | ISO 2553:2019 | srednja |
+
+**Izvedeno (22. 11. 2026):** #1 → načrt 7 (revizije + diff);
+#2 → načrt 8 (DETAJL 1 — SIDRANJE; bočni pogled/prerezi so že obstajali,
+vrzel je bil le nerazmerjen detajl brez dimenzij).
 
 ## 8. Viri (2026-11-21)
 

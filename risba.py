@@ -39,6 +39,7 @@ from jedro import (odsteni, barva_hex, fmt, traki_nabava,
                    pozicije_nosilcev, razdeli_po_odprtinah,
                    razpored_pokoncna, vrata_podatki, zdruzi,
                    nalozi_konf, preveri_cfg, PRIVZETO,
+                   priporoceno_sidranje, SIDRANJA_PODLAGE,
                    BARVA_OKOVJA,
                    BARVA_LAMEL as BARVA_LAMEL,
                    WPC_BARVE as WPC_BARVE,
@@ -572,6 +573,10 @@ def narisi_pokoncna(ax, c):
           f"{fmt(dd)} mm")
     ax.text(px0 + pw_s + pw_d + 10, y_tla + 10, f"{anker_dim} × 2",
             fontsize=7, ha="left", va="center")
+    _g_glob, _r_glob = napisi_sidranja(c.get("podlaga"))
+    ax.text(px0 + pw_s + pw_d + 10, y_tla + 4, _g_glob.replace(
+        " — priporočeno, potrdi strokovnjak", " (≈ priporočeno)"),
+            fontsize=5.5, ha="left", va="center")
     ax.text(px0 + pw_s + pw_d + 10, y_tla + 22, "(prekinjeno)", fontsize=6,
             color="#555555", ha="left", va="center")
     ozna_st(ax, px0 - 2, y_top_top - 4, 106, y_top_top - 4, 1)
@@ -579,8 +584,8 @@ def narisi_pokoncna(ax, c):
     ozna_st(ax, px0 + pw_s + pw_d, y_b0 + h_b - 6, 106, y_b0 + h_b - 14, 3)
     ozna_st(ax, px0 - 3, y_tla + 5, 16, 30, 4)
 
-    # ==================== DETAJL PRITRJEVANJA ====================
-    oznaka(ax, 106, 121, "DETAJL PRITRJEVANJA")
+    # ==================== DETAJL 1 — SIDRANJE ====================
+    oznaka(ax, 106, 121, "DETAJL 1 — SIDRANJE")
     cx, cy, r = 138, 74, 23
     sachiranje(ax, cx - r, cy - r, cx + r, cy - r + 7)      # plošča (spodaj)
     pravokotnik(ax, cx - 15, cy - 7, 30, 5, fill=b_pro, lw=0.5)  # osnova
@@ -600,9 +605,15 @@ def narisi_pokoncna(ax, c):
     ax.text(cx, cy - r - 7,
             f"{vijak_nosilec_naziv} × 2 • predrtje Ø + 1 mm", ha="center",
             va="center", fontsize=7, color="#555555")
+    # načrt 8: dimenziji sidranja (≈ priporočeno ali iskren ?? — brez izmišljanja)
+    g_napis, r_napis = napisi_sidranja(c.get("podlaga"))
+    ax.text(cx, cy - r - 11, g_napis, ha="center", va="center",
+            fontsize=5.5, color="#555555")
+    ax.text(cx, cy - r - 15, r_napis, ha="center", va="center",
+            fontsize=5.5, color="#555555")
 
-    # ==================== DETAJL DESKE ====================
-    oznaka(ax, 172, 121, "DETAJL DESKE")
+    # ==================== DETAJL 2 — DESKE ====================
+    oznaka(ax, 172, 121, "DETAJL 2 — DESKE")
     cx2, cy2, r2 = 192, 74, 20
     sl = min(0.4, 36 / ds, 14 / dd)
     lw_, hh_ = ds * sl, dd * sl
@@ -843,8 +854,8 @@ def narisi_ogrado(ax, c):
     ozna_st(ax, v4.X(glob), v4.Y(sp[0] + m["profil_v"] / 2),
             v4.X(glob) + 16, v4.Y(sp[0] + m["profil_v"] / 2), 3)
 
-    # ==================== DETAJL PRITRJEVANJA ====================
-    oznaka(ax, 118, 104, "DETAJL PRITRJEVANJA")
+    # ==================== DETAJL 1 — SIDRANJE ====================
+    oznaka(ax, 118, 104, "DETAJL 1 — SIDRANJE")
     cx, cy, r = 142, 74, 23
     sachiranje(ax, cx - r, cy - r, cx - 15, cy + r)
     pravokotnik(ax, cx - 15, cy - 20, 5, 40, fill=b_pro, lw=0.5)     # nosilec
@@ -862,9 +873,15 @@ def narisi_ogrado(ax, c):
             fontsize=7, color="#555555")
     ax.text(cx, cy - r - 7, "predrtje Ø + 1 mm (ekspanzija)", ha="center",
             va="center", fontsize=7, color="#555555")
+    # načrt 8: dimenziji sidranja (≈ priporočeno ali iskren ?? — brez izmišljanja)
+    g_napis, r_napis = napisi_sidranja(c.get("podlaga"))
+    ax.text(cx, cy - r - 11, g_napis, ha="center", va="center",
+            fontsize=5.5, color="#555555")
+    ax.text(cx, cy - r - 15, r_napis, ha="center", va="center",
+            fontsize=5.5, color="#555555")
 
-    # ==================== DETAJL LAMELE ====================
-    oznaka(ax, 172, 104, "DETAJL LAMELE")
+    # ==================== DETAJL 2 — LAMELE ====================
+    oznaka(ax, 172, 104, "DETAJL 2 — LAMELE")
     cx2, cy2, r2 = 192, 74, 20
     sl = min(0.4, 30 / m["lamela_v"], 14 / m["debelina"])
     lw_, hh_ = m["debelina"] * sl, m["lamela_v"] * sl
@@ -1044,22 +1061,40 @@ def interaktivno():
     return zdruzi(c)
 
 
+def napisi_sidranja(podlaga):
+    """Napisa za DETAJL 1 — SIDRANJE: globina sidra in oddaljenost roba (načrt 8).
+
+    Eno vir resnice (jedro.priporoceno_sidranje). Vrednosti so ≈
+    priporočene (potrdi strokovnjak) ali iskren '??' (NEZNANO) —
+    nikoli izmišljene.
+    """
+    _vrsta, _sidro, globina = priporoceno_sidranje(podlaga)
+    if globina is not None:
+        g = f"globina sidra ≈ {globina} mm — priporočeno, potrdi strokovnjak"
+    else:
+        g = "globina sidra ?? — določi projektant po podlagi"
+    r = "oddaljenost roba sidra ?? — določi projektant po podlagi"
+    return g, r
+
+
 def montazni_sidranje(ax, x0, y_top, sirina=120):
-    """Priporočene globine sidranja po podlagi — potrdi strokovnjak."""
+    """Priporočene globine sidranja po podlagi — potrdi strokovnjak.
+
+    Podatki iz SIDRANJA_PODLAGE (en vir resnice z DETAJL 1 — SIDRANJE).
+    """
     nas_h, h = 7.5, 7
     pravokotnik(ax, x0, y_top - nas_h, sirina, nas_h, fill=BARVA_OZN, lw=0)
-    ax.text(x0 + sirina / 2, y_top - nas_h / 2, "SIDRANJE (priporočeno)",
+    ax.text(x0 + sirina / 2, y_top - nas_h / 2,
+            "SIDRANJE (priporočeno) — DETAJL 1",
             ha="center", va="center", fontsize=7.5, fontweight="bold",
             color="white")
     y = y_top - nas_h
-    for podlaga, sidro, glob in (("Beton C20/25", "anker M10", "60 mm"),
-                                 ("Zid (opeka/silikat)", "fasadni Ø8", "70 mm"),
-                                 ("Les / jeklo", "vijak Ø8", "40 mm")):
+    for _kljuci, podlaga, sidro, glob in SIDRANJA_PODLAGE:
         pravokotnik(ax, x0, y - h, sirina, h, fill="#eef1f6", lw=0.5)
         ax.text(x0 + 2, y - h / 2, podlaga, fontsize=6.5, ha="left", va="center")
         ax.text(x0 + 62, y - h / 2, sidro, fontsize=6.5, ha="left", va="center")
-        ax.text(x0 + sirina - 2, y - h / 2, glob, fontsize=6.5, ha="right",
-                va="center")
+        ax.text(x0 + sirina - 2, y - h / 2, f"{glob} mm", fontsize=6.5,
+                ha="right", va="center")
         y -= h
     ax.text(x0, y - 3, "(preveri usposobljen strokovnjak)", fontsize=6,
             color="#888888", ha="left", va="center")
