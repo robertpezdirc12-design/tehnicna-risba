@@ -86,7 +86,9 @@ def test_vmesnik_dialog_izbira_nacrta(monkeypatch):
                             lambda *a, **k: None)
         u._rezni_nacrt_dialog()
         u.update_idletasks()
-        okno = [w for w in u.winfo_children() if isinstance(w, tk.Toplevel)]
+        # okno obrazca (načrt 13) ni ta dialog — izloči ga
+        okno = [w for w in u.winfo_children()
+                if isinstance(w, tk.Toplevel) and w is not u.obrazec_okno]
         assert okno, "dialog se mora odpreti"
         from tkinter import ttk
         tree = _najdi(okno[0], ttk.Treeview)

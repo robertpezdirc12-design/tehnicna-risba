@@ -603,8 +603,8 @@ class App(tk.Tk):
         except Exception:
             pass
         self.title("Generator tehničnih risb — balkonska ograja")
-        self.geometry("920x820")
-        self.minsize(860, 760)
+        self.geometry("1100x780")
+        self.minsize(720, 520)
         self.pdf_pot = None
         self.png_pot = None
         self.kolicine = None
@@ -620,6 +620,8 @@ class App(tk.Tk):
         self.st_zivo = tk.BooleanVar(value=True)
         # PREDGLED: klik na risbo odpre cel zaslon (meni Pogled)
         self.st_klik = tk.BooleanVar(value=False)
+        # načrt 13: tanka vrstica stanja spodaj (Pogled → Vrstica stanja)
+        self.st_status = tk.BooleanVar(value=True)
         self._zivi_id = None
         # UI/UX Plan D: zgodovina (undo/redo)
         self._zgodovina = []
@@ -627,19 +629,15 @@ class App(tk.Tk):
         self._zgodovina_id = None
         self._obnavljam = False
         self._zgradi()
-        # prilagodljiva začetna geometrija: okno naj bo veliko toliko kot
-        # vsebina (platno ne posreduje mere — merimo _vsebina),
-        # a vedno znotraj zaslona (prej odrezana polja/gumbi)
+        # Glavno okno = delovni prostor (načrt 13): odpre se smiselno
+        # veliko in centrirano; obrazec je v pogovornem oknu (Urejanje →
+        # Podatki projekta…) in si velikost prilagodi sam.
         try:
-            self.update_idletasks()
-            req_s = self._vsebina.winfo_reqwidth() + 30
-            req_v = self._vsebina.winfo_reqheight() + 30
-            sir = min(req_s, self.winfo_screenwidth() - 24)
-            vis = min(req_v, self.winfo_screenheight() - 60)
-            # centriraj — privzeta postavitev Tk lahko sega izven zaslona
+            sir = min(1180, self.winfo_screenwidth() - 80)
+            vis = min(860, self.winfo_screenheight() - 100)
             px = max(0, (self.winfo_screenwidth() - sir) // 2)
             py = max(0, (self.winfo_screenheight() - vis) // 2)
-            self.geometry(f"{max(sir, 860)}x{max(vis, 760)}+{px}+{py}")
+            self.geometry(f"{sir}x{vis}+{px}+{py}")
         except tk.TclError:
             pass
         self._preklopi_nacin()
@@ -650,19 +648,47 @@ class App(tk.Tk):
     # ------------------------------------------------------------- gradnja
     def _zgradi(self):
         self._zgradi_meni()
-        # Celotna vsebina v DRSEM območju (popravek 2026-11-22): zahtevana
-        # širina obrazca je bila 1524 px proti zaslonu 1280 — desna polja
-        # (Globina, Debelina …) in spodnji gumbi so bili odrezani. Zdaj se
-        # vsebina pomika v obe smeri, okno pa se odpre prilagojeno zaslonu.
-        platno = tk.Canvas(self, highlightthickness=0, borderwidth=0)
-        d_v = ttk.Scrollbar(self, orient="vertical", command=platno.yview)
-        d_s = ttk.Scrollbar(self, orient="horizontal", command=platno.xview)
+        # ===== DELOVNI PROSTOR (načrt 13): glavno okno = menijska vrstica
+        # + prostor z risbo. Ves obrazec (podatki) je skrit v pogovornem
+        # oknu: Urejanje → Podatki projekta… (Ctrl+D).
+        delovni = ttk.Frame(self)
+        delovni.pack(fill="both", expand=True)
+        self.predogled = PredogledCanvas(delovni)
+        self.predogled.pack(fill="both", expand=True)
+        self.predogled.sporocilo(
+            "Delovni prostor — risba se prikaže po Datoteka → NARIŠI "
+            "RISBO (Ctrl+N).\nPodatke projekta uredi v Urejanje → Podatki "
+            "projekta… (Ctrl+D).\n(kolešček = povečava • vleci = premik • "
+            "dvoklik = prilagodi)")
+        self.predogled.na_klik = self._klik_predogled
+        # tanka vrstica stanja (obvestila) — Pogled → Vrstica stanja
+        self.status_vrstica = tk.Frame(self)
+        self.status_vrstica.pack(side="bottom", fill="x")
+        self.status = tk.Label(self.status_vrstica, text="Pripravljen.",
+                               fg="#555555", font=("Segoe UI", 9))
+        self.status.pack(side="left", padx=8, pady=2)
+        tk.Label(self.status_vrstica,
+                 text="vse funkcije: Datoteka • Urejanje • Pogled • Orodja "
+                      "• Pomoč",
+                 fg="#888888", font=("Segoe UI", 8)).pack(side="right",
+                                                           padx=8)
+        # ===== OBRAZEC v pogovornem oknu (skrito — podatki) =====
+        self.obrazec_okno = tk.Toplevel(self)
+        self.obrazec_okno.title("Podatki projekta — Generator tehničnih risb")
+        self.obrazec_okno.protocol("WM_DELETE_WINDOW", self._zapri_obrazec)
+        self.obrazec_okno.withdraw()
+        platno = tk.Canvas(self.obrazec_okno, highlightthickness=0,
+                           borderwidth=0)
+        d_v = ttk.Scrollbar(self.obrazec_okno, orient="vertical",
+                            command=platno.yview)
+        d_s = ttk.Scrollbar(self.obrazec_okno, orient="horizontal",
+                            command=platno.xview)
         platno.configure(yscrollcommand=d_v.set, xscrollcommand=d_s.set)
         d_v.pack(side="right", fill="y")
         d_s.pack(side="bottom", fill="x")
         platno.pack(side="left", fill="both", expand=True)
         vsebina = ttk.Frame(platno)
-        self._vsebina = vsebina          # za merjenje začetne geometrije
+        self._vsebina = vsebina          # za merjenje geometrije okna
         okno_id = platno.create_window((0, 0), window=vsebina, anchor="nw")
 
         def osvezi_platno(_e=None):
@@ -835,15 +861,13 @@ class App(tk.Tk):
                                   wraplength=620, justify="left")
         self.lbl_vrata.grid(row=2, column=0, columnspan=4, sticky="w")
 
-        # ---- VRSTICA STANJA (vse akcije so v opravilni vrstici zgoraj) ----
+        # ---- namig v obrazcu (vrstica stanja je v glavnem oknu) ----
         fb = ttk.Frame(zg, padding=(0, 10))
         fb.grid(row=5, column=0, sticky="ew")
-        self.status = tk.Label(fb, text="Pripravljen.", fg="#555555",
-                               font=("Segoe UI", 9))
-        self.status.pack(side="left")
-        tk.Label(fb, text="Vse funkcije so v opravilni vrstici: Datoteka • "
-                 "Urejanje • Pogled • Orodja • Pomoč",
-                 fg="#888888", font=("Segoe UI", 8)).pack(side="right", padx=12)
+        tk.Label(fb, text="Podatke vpiši tukaj; risba nastane v Datoteka → "
+                 "NARIŠI RISBO (Ctrl+N) — delovni prostor je v glavnem "
+                 "oknu.",
+                 fg="#888888", font=("Segoe UI", 8)).pack(side="left")
 
         # ---- ŽIVI POVZETEK (UI/UX Plan A) ----
         fz = ttk.LabelFrame(zg, text="ŽIVI POVZETEK", padding=8)
@@ -868,15 +892,7 @@ class App(tk.Tk):
                  fg="#888888", font=("Segoe UI", 8), wraplength=270,
                  justify="left").pack(fill="x", pady=(4, 0))
 
-        # ---- PREDGLED ----
-        self.fp = ttk.LabelFrame(vsebina, text="PREDGLED RISBE", padding=6)
-        self.fp.pack(fill="both", expand=True, padx=14, pady=(0, 12))
-        self.predogled = PredogledCanvas(self.fp)
-        self.predogled.pack(fill="both", expand=True)
-        self.predogled.sporocilo(
-            "Klikni »NARIŠI RISBO« — tukaj se prikaže risba.\n"
-            "(kolešček = povečava • vleci = premik • dvoklik = prilagodi)")
-        self.predogled.na_klik = self._klik_predogled
+        # PREDGLED je zdaj DELOVNI PROSTOR glavnega okna (načrt 13).
 
         # živo osveževanje: ob vsaki spremembi polja (debounce 600 ms)
         for _var in self.v.values():
@@ -895,7 +911,48 @@ class App(tk.Tk):
         self.bind_all("<Control-s>", lambda e: self._shrani_projekt())
         self.bind_all("<Control-o>", lambda e: self._odpri_projekt())
         self.bind_all("<Control-e>", lambda e: self._izvozi_dxf())
+        self.bind_all("<Control-d>", lambda e: self._pokazi_obrazec())
         self.bind_all("<F1>", lambda e: self._pomoc())
+
+    # ------------------------------------- obrazec / delovni prostor
+    def _pokazi_obrazec(self):
+        """Prikaže pogovorno okno s podatki projekta (načrt 13).
+
+        Glavno okno ostane delovni prostor; obrazec je ves čas zgrajen
+        (gradniki ohranjajo stanje), le skrit je.
+        """
+        self._prilagodi_obrazec()
+        self.obrazec_okno.deiconify()
+        self.obrazec_okno.lift()
+        self.obrazec_okno.focus_force()
+
+    def _zapri_obrazec(self):
+        """X na oknu obrazca ga samo skrije — podatki ostanejo."""
+        self.obrazec_okno.withdraw()
+
+    def _prilagodi_obrazec(self):
+        """Okno obrazca = naravna vsebina (nikoli odrezano), centrirano."""
+        try:
+            self.obrazec_okno.update_idletasks()
+            req_s = self._vsebina.winfo_reqwidth() + 30
+            req_v = self._vsebina.winfo_reqheight() + 30
+            sir = min(req_s, self.winfo_screenwidth() - 24)
+            vis = min(req_v, self.winfo_screenheight() - 80)
+            px = max(0, self.winfo_rootx()
+                     + (self.winfo_width() - sir) // 2)
+            py = max(0, self.winfo_rooty()
+                     + (self.winfo_height() - vis) // 2)
+            self.obrazec_okno.geometry(
+                f"{max(sir, 860)}x{max(vis, 640)}+{px}+{py}")
+        except tk.TclError:
+            pass
+
+    def _preklopi_status_vrstico(self):
+        """Pogled → Vrstica stanja: tanko vrstico spodaj je mogoče skriti."""
+        if self.st_status.get():
+            self.status_vrstica.pack(side="bottom", fill="x")
+        else:
+            self.status_vrstica.pack_forget()
 
     def _polje(self, star, vrsta, stolpec, kljuc, sirina, napis=None):
         if kljuc not in self.v:
@@ -1592,8 +1649,11 @@ class App(tk.Tk):
         d.add_command(label="Izhod", command=self.destroy)
         meni.add_cascade(label="Datoteka", menu=d)
 
-        # ---- Urejanje: zgodovina + urejanje modela ----
+        # ---- Urejanje: podatki + zgodovina + urejanje modela ----
         u = tk.Menu(meni, tearoff=0)
+        u.add_command(label="Podatki projekta…", accelerator="Ctrl+D",
+                      command=self._pokazi_obrazec)
+        u.add_separator()
         self.btn_razveljavi = self._meni_postavka(
             u, "Razveljavi", self._razveljavi, "Ctrl+Z", stanje="disabled")
         self.btn_ponovi = self._meni_postavka(
@@ -1616,6 +1676,8 @@ class App(tk.Tk):
                           variable=self.st_zivo)
         p.add_checkbutton(label="Klik na risbo odpre cel zaslon",
                           variable=self.st_klik)
+        p.add_checkbutton(label="Vrstica stanja", variable=self.st_status,
+                          command=self._preklopi_status_vrstico)
         p.add_separator()
         p.add_checkbutton(label="Preprosti način",
                           variable=self.st_preprost,
