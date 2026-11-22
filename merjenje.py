@@ -302,6 +302,7 @@ class App(tk.Tk):
         self.img = None
         self.w_px = self.h_px = 0
         self.png_pot = None
+        self.mala_slika = False    # nizka ločljivost → mere NETOČNE
         self.scale = None          # px na mm
         self.zoom = 1.0
         self.off = [0.0, 0.0]
@@ -427,9 +428,27 @@ class App(tk.Tk):
         self.roi = None
         for b in (self.btn_meri, self.btn_lam, self.btn_vij, self.btn_roi):
             b.config(state="normal")
-        self.status.config(text=f"Slika: {self.w_px}×{self.h_px} px — "
-                                "najprej KALIBRACIJA (2 klika na znano "
-                                "dimenzijo).")
+        # poštenost: majhna slika → jasno opozorilo (uporabnik je videl
+        # 'zeleni ekran' — nizko ločljivost napihnjen čez celo okno)
+        self.mala_slika = (min(self.w_px, self.h_px) < 400
+                           or self.w_px * self.h_px < 300_000)
+        if self.mala_slika:
+            self.status.config(
+                text=f"Slika: {self.w_px}×{self.h_px} px — OPOZORILO: "
+                     "MAJHNA slika, mere bodo zelo NETOČNE! Najprej "
+                     "KALIBRACIJA (2 klika na znano dimenzijo).")
+            messagebox.showwarning(
+                "Majhna slika",
+                f"Slika je majhna ({self.w_px}×{self.h_px} px).\n\n"
+                "Take slike NI dovolj za merjenje — prikaz je lahko "
+                "zamegljen ali enobarven (zeleni ekran), mere pa bodo "
+                "zelo NETOČNE.\n\n"
+                "Priporočeno: fotografija z vsaj 1600 px na daljši "
+                "stranici.")
+        else:
+            self.status.config(text=f"Slika: {self.w_px}×{self.h_px} px — "
+                                    "najprej KALIBRACIJA (2 klika na znano "
+                                    "dimenzijo).")
         self._narisi()
 
     # ------------------------------------------------------------- canvas
@@ -454,7 +473,11 @@ class App(tk.Tk):
         crop = self.img.crop((int(x0), int(y0), int(x1), int(y1)))
         dw = min(5000, max(1, int((x1 - x0) * sc)))
         dh = min(5000, max(1, int((y1 - y0) * sc)))
-        crop = crop.resize((dw, dh), Image.BILINEAR)
+        # pri povečavi (sc > 1) NEAREST — uporabnik vidi realne piksle
+        # namesto zamegljenega madeža (nizka ločljivost je očitna);
+        # pri umanjšavi BILINEAR (gladek prikaz).
+        crop = crop.resize((dw, dh),
+                           Image.NEAREST if sc > 1.0 else Image.BILINEAR)
         dr = ImageDraw.Draw(crop)
 
         def S(sx, sy):
@@ -548,6 +571,8 @@ class App(tk.Tk):
                 self.nacin = None
             else:
                 ime = self.v_ime.get().strip() or f"M{len(self.meritve) + 1}"
+                if self.mala_slika:
+                    ime += " (mala slika — netočno)"
                 mm = d_px / self.scale if self.scale else None
                 self.meritve.append((ime, mm, (p1, p2)))
                 self._vstavi_meritev(ime, mm, d_px)

@@ -13,7 +13,8 @@ Uporaba:
     t3.narisi_3d_png(cfg, "3d.png")
     t3.pokazi_3d(cfg, master)         # interaktivno okno (vrtenje)
 """
-from jedro import razpored, razpored_pokoncna, pozicije_nosilcev, vrata_podatki
+from jedro import (razpored, razpored_pokoncna, pozicije_nosilcev,
+                    vrata_podatki, barva_hex)
 
 BARVA_DESKE = "#8d6e63"
 BARVA_PROFIL = "#90a4ae"
@@ -44,7 +45,7 @@ def sestavi_3d(c):
     m = c["mere"]
     sir = float(m["sirina"] or 0)
     vis = float(m["visina"] or 0)
-    glob = float(m.get("globina") or 60)
+    glob = float(m.get("globina") or 0)   # stranska dolžina (L-oblika)
     odcep = float(m.get("odcep") or 0)
     predloga = c.get("predloga") or "ograda"
     vp = vrata_podatki(c)
@@ -53,8 +54,12 @@ def sestavi_3d(c):
     fig = plt.figure(figsize=(9, 6))
     ax = fig.add_subplot(111, projection="3d")
 
-    # tla
-    _skatla(ax, -200, sir + 200, -150, 150, -20, 0, BARVA_TLA)
+    # tla = balkonska plošča (sirina × stranska dolžina) — L-oblika
+    _skatla(ax, -150, sir + 150, -150, (glob if glob > 0 else 60) + 150,
+            -20, 0, BARVA_TLA)
+
+    barva_lamel = barva_hex(m.get("barva"))   # barva lamel iz cfg
+    deb_kon = 80          # globina nosilne konstrukcije (nosilci)
 
     if predloga == "pokončna":
         p = razpored_pokoncna(m)
@@ -66,7 +71,7 @@ def sestavi_3d(c):
             kosi = _razdeli(xr, xr + ds, odprtine)
             for xa, xb in kosi:
                 _skatla(ax, xa, xb, -dt / 2, dt / 2,
-                        odcep, odcep + visina_deske, BARVA_DESKE)
+                        odcep, odcep + visina_deske, barva_lamel)
         # stebri
         for xs in p["centri"]:
             _skatla(ax, xs - 30, xs + 30, -40, 40,
@@ -75,25 +80,54 @@ def sestavi_3d(c):
         rz0, rz1 = p["rocaj"]
         _skatla(ax, 0, sir, -35, 35, odcep + rz0, odcep + rz1,
                 BARVA_PROFIL)
+        # stranski segment (L-oblika) — deske potekajo vzdolž y pri x = 0
+        if glob > 0:
+            korak = ds + 20
+            for yr in [i * korak for i in
+                       range(int(max(glob - ds, 0) // korak) + 1)]:
+                _skatla(ax, -dt / 2, dt / 2, yr, min(yr + ds, glob),
+                        odcep, odcep + visina_deske, barva_lamel)
+            for ys in (0.0, glob):
+                _skatla(ax, -40, 40, ys - 30, ys + 30,
+                        odcep - 40, odcep + vis, BARVA_STEBER)
+            _skatla(ax, -35, 35, 0, glob, odcep + rz0, odcep + rz1,
+                    BARVA_PROFIL)
     else:
         zg, sp, lamele, _vrzel, n = razpored(m)
         deb = float(m.get("debelina", 20) or 20)
-        # lamele (vodoravne) — zareze okoli odprtin
-        for z0, z1 in lamele:
-            for xa, xb in _razdeli(0.0, sir, odprtine):
-                _skatla(ax, xa, xb, -deb / 2, deb / 2, z0, z1, BARVA_DESKE)
-        # profila (zgornji/spodnji) — po celotni širini, prekinjena pri vratih
-        for z0, z1 in ((zg[0], zg[1]), (sp[0], sp[1])):
-            for xa, xb in _razdeli(0.0, sir, odprtine):
-                _skatla(ax, xa, xb, -40, 40, z0, z1, BARVA_PROFIL)
-        # nosilci
-        xs_nos, _razmak = pozicije_nosilcev(sir,
-                                            float(m.get("razmak_nosilcev",
-                                                        1000) or 1000))
-        for xn in xs_nos:
-            if not _znotraj_odprtine(xn, odprtine):
-                _skatla(ax, xn - 30, xn + 30, -60, -40,
-                        sp[0], zg[1], BARVA_STEBER)
+
+        def segment(os_, dolzina, sredina, odprtine_seg):
+            """En segment ograje (L-oblika): lamele + profila + nosilci.
+
+            os_ = "x": poteka vzdolž x pri y = sredina (debelina v y);
+            os_ = "y": poteka vzdolž y pri x = sredina (debelina v x).
+            """
+
+            def kos(a0, a1, d0, d1, z0, z1, barva):
+                if os_ == "x":
+                    _skatla(ax, a0, a1, d0, d1, z0, z1, barva)
+                else:
+                    _skatla(ax, d0, d1, a0, a1, z0, z1, barva)
+
+            for z0, z1 in lamele:
+                for aa, ab in _razdeli(0.0, dolzina, odprtine_seg):
+                    kos(aa, ab, sredina - deb / 2, sredina + deb / 2,
+                        z0, z1, barva_lamel)
+            for z0, z1 in ((zg[0], zg[1]), (sp[0], sp[1])):
+                for aa, ab in _razdeli(0.0, dolzina, odprtine_seg):
+                    kos(aa, ab, sredina - 40, sredina + 40,
+                        z0, z1, BARVA_PROFIL)
+            xs_nos, _razmak = pozicije_nosilcev(
+                dolzina, float(m.get("razmak_nosilcev", 1000) or 1000))
+            for xn in xs_nos:
+                if not _znotraj_odprtine(xn, odprtine_seg):
+                    kos(xn - 30, xn + 30, sredina - deb_kon,
+                        sredina - deb / 2, sp[0], zg[1], BARVA_STEBER)
+
+        # prednji segment (y = 0) in stranski (x = 0) => L-oblika balkona
+        segment("x", sir, 0.0, odprtine)
+        if glob > 0:
+            segment("y", glob, 0.0, [])
 
     # okvirji vrat/prehodov
     for (ox0, ox1, ozn) in odprtine:
@@ -109,11 +143,15 @@ def sestavi_3d(c):
                 odcep + vis_o, BARVA_OKVIR)
 
     ax.set_xlabel("širina (mm)")
-    ax.set_ylabel("globina (mm)")
+    ax.set_ylabel("globina / stranska (mm)")
     ax.set_zlabel("višina (mm)")
+    oblika = ("L-oblika: prednja + stranska" if glob > 0 else "ravna ograja")
     ax.set_title(f"3D predogled — {c.get('ime') or 'ograda'} "
-                 f"(shematsko, ni konstrukcijski model)")
-    ax.set_box_aspect((max(sir, 1), max(glob * 3, 1), max(vis, 1)))
+                 f"({oblika} • shematsko iz vnesenih mer — NI model "
+                 f"iz slike)")
+    ax.set_box_aspect((max(sir, 1),
+                       max(glob if glob > 0 else sir * 0.15, 1),
+                       max(vis, 1)))
     ax.view_init(elev=18, azim=-55)
     return fig
 
