@@ -63,3 +63,35 @@ undo/redo, stran/orientacija/merilo/mreža/vodila/okvir, YAML shramba
    „NOVA VRSTA (pilot)“, ki polja generira iz deklarativnih `POLJA`
    (U3: nič polj brez oznak), količine + PNG predogled.
 4. Kozmetika: obnovljena polja so kazala `3333.0` namesto `3333`.
+## Drugi pregled (2026-11-22) — vizualni nadzor opravilne vrstice
+
+Vprašanje: *„če so v opravilni vrstici vse funkcije.“* Pregled v živo
+(pravi GUI, odprti meniji, posnetki) + statično križanje vseh
+`command=self.X` vezavi.
+
+**Najdene vrzeli (6 funkcij je bilo samo na gumbih) → odpravljeno:**
+
+| Funkcija | Prej | Zdaj |
+|---|---|---|
+| Izberi fotografijo… (`_brskaj_foto`) | samo gumb „Prebrskaj…“ | Orodja → Izberi fotografijo… |
+| Dodaj vrata/prehod… (`_vrata_dodaj`) | samo gumb v tabeli | Urejanje |
+| Uredi izbrana vrata… (`_vrata_uredi`) | samo gumb | Urejanje |
+| Odstrani izbrana vrata (`_vrata_odstrani`) | samo gumb | Urejanje |
+| Osveži živ povzetek (`_zivi_osvezi`) | samo gumb | Pogled |
+| Preklopi preprosti način (`_preklopi_nacin`) | samo gumb | Pogled |
+
+**Terenski urejevalnik:** vsa orodja (12: izberi, prostoročno, radirka,
+črta, puščica, pravokotnik, elipsa, besedilo, ročna mera, kocka, kvader,
+slika) so zdaj tudi v meniju **Vstavi** — radijske povezave na ISTI
+`self.orodje` vir kot orodna vrstica, zato meni vedno kaže aktivno
+orodje (kljukica). Meni Datoteka: dodan „Izhod“.
+
+**Ostaja namenoma zunaj menijev** (preverjeno): notranji gumbi dialogov
+(čarovnik: Naprej/Nazaj; Nova vrsta: Količine/Predogled), nastavitve
+obrazca (checkbox „Uporabi skladišče ostankov“, „Živo osveževanje“,
+„Klik na risbo odpre cel zaslon“, comboboxi Barva/Status) — to so
+vnosna polja, ne funkcije.
+
+**Regresijska zaščita:** `tests/test_meni_popolnost.py` — statično
+križanje (noben `command=self.X` brez poti v meniju) + realno menijsko
+drevo obeh vmesnikov.

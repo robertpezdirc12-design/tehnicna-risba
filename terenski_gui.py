@@ -79,6 +79,8 @@ class Urejevalnik(tk.Tk):
         d.add_command(label="PDF…", command=self._pdf)
         d.add_command(label="Predogled", command=self._predogled)
         d.add_command(label="Tiskaj", command=self._tiskaj)
+        d.add_separator()
+        d.add_command(label="Izhod", command=self.destroy)
         meni.add_cascade(label="Datoteka", menu=d)
 
         u = tk.Menu(meni, tearoff=0)
@@ -96,6 +98,14 @@ class Urejevalnik(tk.Tk):
 
         v = tk.Menu(meni, tearoff=0)
         v.add_command(label="Vstavi sliko…", command=self._vstavi_sliko)
+        v.add_separator()
+        # orodja tudi v meniju — radijske povezave na ISTI self.orodje vir,
+        # zato meni vedno kaže aktivno orodje (en vir resnice kot orodna
+        # vrstica spodaj)
+        for oznaka, opis in ORODJA:
+            v.add_radiobutton(label=opis, value=oznaka,
+                              variable=self.orodje,
+                              command=self._zamenjaj_orodje)
         meni.add_cascade(label="Vstavi", menu=v)
 
         self.config(menu=meni)

@@ -245,7 +245,7 @@ def test_terenski_meni():
                 if pod.type(j) == "command"]
         assert vsebina["Datoteka"] == ["Nova", "Odpri…", "Shrani",
                                        "Shrani kot…", "PDF…", "Predogled",
-                                       "Tiskaj"]
+                                       "Tiskaj", "Izhod"]
         assert "Vstavi sliko…" in vsebina["Vstavi"]
         assert "Razveljavi" in vsebina["Urejanje"]
         assert "Zavrti 45°" in vsebina["Urejanje"]

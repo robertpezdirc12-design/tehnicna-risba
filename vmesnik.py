@@ -1595,9 +1595,10 @@ class App(tk.Tk):
     def _zgradi_meni(self):
         """Spustni meniji — vse funkcije po logiki, nič razmetanega po ekranu.
 
-        Datoteka = izdelava/izpisi • Urejanje = razveljavi/ponovi •
-        Pogled = prikaz in tema • Orodja = meritve, statika, piloti •
-        Pomoč = čarovnik, posodobitve, o programu.
+        Datoteka = izdelava/izpisi • Urejanje = razveljavi/ponovi +
+        urejanje modela (vrata) • Pogled = prikaz in tema • Orodja =
+        fotografija, meritve, statika, piloti • Pomoč = čarovnik,
+        posodobitve, o programu.
         """
         meni = tk.Menu(self)
 
@@ -1626,12 +1627,17 @@ class App(tk.Tk):
         d.add_command(label="Izhod", command=self.destroy)
         meni.add_cascade(label="Datoteka", menu=d)
 
-        # ---- Urejanje: zgodovina ----
+        # ---- Urejanje: zgodovina + urejanje modela ----
         u = tk.Menu(meni, tearoff=0)
         self.btn_razveljavi = self._meni_postavka(
             u, "Razveljavi", self._razveljavi, "Ctrl+Z", stanje="disabled")
         self.btn_ponovi = self._meni_postavka(
             u, "Ponovi", self._ponovi, "Ctrl+Y", stanje="disabled")
+        u.add_separator()
+        u.add_command(label="Dodaj vrata/prehod…", command=self._vrata_dodaj)
+        u.add_command(label="Uredi izbrana vrata…", command=self._vrata_uredi)
+        u.add_command(label="Odstrani izbrana vrata",
+                      command=self._vrata_odstrani)
         meni.add_cascade(label="Urejanje", menu=u)
 
         # ---- Pogled: prikaz ----
@@ -1639,12 +1645,16 @@ class App(tk.Tk):
         self.btn_cel = self._meni_postavka(
             p, "Cel zaslon", self._cel_zaslon, stanje="disabled")
         p.add_command(label="3D predogled", command=self._3d_predogled)
+        p.add_command(label="Osveži živ povzetek", command=self._zivi_osvezi)
         p.add_separator()
+        p.add_command(label="Preklopi preprosti način",
+                      command=self._preklopi_nacin)
         p.add_command(label="Preklopi temo", command=self._preklopi_temo)
         meni.add_cascade(label="Pogled", menu=p)
 
         # ---- Orodja: meritve, analize, skladišče ----
         o = tk.Menu(meni, tearoff=0)
+        o.add_command(label="Izberi fotografijo…", command=self._brskaj_foto)
         self.polja.setdefault("meri_slike", []).append(
             self._meni_postavka(o, "Meri s slike (pomožno merjenje)",
                                 self._meri_slike))
