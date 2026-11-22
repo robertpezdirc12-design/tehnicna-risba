@@ -2,6 +2,7 @@
 """Načrt 7: revizijska tabela + diff povzetek ('en model — ena revizija')."""
 import tkinter as tk
 
+import pytest
 import yaml
 from pypdf import PdfReader
 
