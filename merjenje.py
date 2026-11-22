@@ -476,8 +476,9 @@ class App(tk.Tk):
         # pri povečavi (sc > 1) NEAREST — uporabnik vidi realne piksle
         # namesto zamegljenega madeža (nizka ločljivost je očitna);
         # pri umanjšavi BILINEAR (gladek prikaz).
+        ostri = getattr(Image, "NEAREST", 0)     # PIL 0 = NEAREST
         crop = crop.resize((dw, dh),
-                           Image.NEAREST if sc > 1.0 else Image.BILINEAR)
+                           ostri if sc > 1.0 else Image.BILINEAR)
         dr = ImageDraw.Draw(crop)
 
         def S(sx, sy):

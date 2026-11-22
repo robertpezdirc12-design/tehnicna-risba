@@ -133,12 +133,9 @@ def test_meritev_majhne_slike_je_oznacena(tmp_path, monkeypatch):
         app.nacin = "meri"
         app.v_ime.set("visina")
 
-        class D:
-            pass
-
-        d1, d2 = D(), D()
-        d1.x, d1.y = 10, 10
-        d2.x, d2.y = 110, 10
+        from types import SimpleNamespace
+        d1 = SimpleNamespace(x=10, y=10)
+        d2 = SimpleNamespace(x=110, y=10)
         app._klik(d1)
         app._klik(d2)
         assert app.meritve
