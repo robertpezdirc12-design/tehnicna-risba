@@ -545,6 +545,12 @@ def narisi_pokoncna(ax, c):
     if len(p["centri"]) >= 2:
         dim_h(ax, v.X(p["centri"][0]), v.X(p["centri"][1]), v.Y(0) - 5,
               None, None, f"{fmt(round(p['centri'][1] - p['centri'][0]))} mm")
+    # načrt 12: delovne točke — mere/kote od T točk (ne verižno)
+    delovne_tocke(ax, [v.X(xc) for xc in p["centri"]], v.Y(0))
+    ax.text(35, v.Y(0) - 16,
+            "T1…Tn = delovne točke (osi stebrov): mere in kote se "
+            "vodijo od delovnih točk — brez verižnega seštevanja.",
+            fontsize=5.5, color="#555555", ha="left", va="center")
     # širina deske + vrzel (kota na prvih dveh deskah, zgoraj)
     if len(p["deske_x"]) >= 2:
         pass  # širina deske se kotira na DETAJL DESKE
@@ -672,6 +678,13 @@ def narisi_pokoncna(ax, c):
                 lw=0.5)
     ax.add_patch(Circle((cx2, cy2), r2, facecolor="none", edgecolor=CRNA,
                         lw=LW_THICK, zorder=8))
+    # načrt 12: simbol usmerjenosti kos (▲ VRH) + iskrena opomba
+    oznaka_usmerjenosti(ax, cx2 - lw_ / 2 - 6, cy2, visina=11)
+    ax.text(cx2, cy2 - r2 - 3, "▲ VRH — usmerjenost po risbi",
+            fontsize=6, ha="center", va="center", color=CRNA)
+    ax.text(cx2, cy2 - r2 - 7,
+            "vidno stran profila preveri pri proizvajalcu — NI izmerjeno",
+            fontsize=5, ha="center", va="center", color="#555555")
     dim_h(ax, cx2 - lw_ / 2, cx2 + lw_ / 2, cy2 + hh_ / 2 + 4, None, None,
           f"{fmt(ds)} mm")
     dim_v(ax, cy2 - hh_ / 2, cy2 + hh_ / 2, cx2 + r2 + 4, cx2 + lw_ / 2,
@@ -834,6 +847,13 @@ def narisi_ogrado(ax, c):
     if n_nos >= 2:
         dim_h(ax, v.X(xs_nos[0]), v.X(xs_nos[1]), v.Y(0) - 5, None, None,
               f"{fmt(round(razmak_dejanski))} mm")
+    # načrt 12: delovne točke — mere/kote od T točk (ne verižno)
+    delovne_tocke(ax, [v.X(xn) for xn in xs_nos], v.Y(0))
+    ax.text(35, v.Y(0) - 16,
+            "T1…Tn = delovne točke (presečišča osi nosilcev s tlemi): "
+            "mere in kote se vodijo od delovnih točk — brez verižnega "
+            "seštevanja.",
+            fontsize=5.5, color="#555555", ha="left", va="center")
     ozna_st(ax, v.X(xs_nos[-1]), v.Y(0), v.X(xs_nos[-1]), v.Y(0) - 10, 4)
     dim_h(ax, v.X(0), v.X(sir), v.Y(vis) + 8, v.Y(vis), v.Y(vis),
           f"{fmt(sir)} mm")
@@ -941,6 +961,13 @@ def narisi_ogrado(ax, c):
                 lw=0.5)
     ax.add_patch(Circle((cx2, cy2), r2, facecolor="none", edgecolor=CRNA,
                         lw=LW_THICK, zorder=8))
+    # načrt 12: simbol usmerjenosti kos (▲ VRH) + iskrena opomba
+    oznaka_usmerjenosti(ax, cx2 - lw_ / 2 - 6, cy2, visina=11)
+    ax.text(cx2, cy2 - r2 - 3, "▲ VRH — usmerjenost po risbi",
+            fontsize=6, ha="center", va="center", color=CRNA)
+    ax.text(cx2, cy2 - r2 - 7,
+            "vidno stran profila preveri pri proizvajalcu — NI izmerjeno",
+            fontsize=5, ha="center", va="center", color="#555555")
     dim_v(ax, cy2 - hh_ / 2, cy2 + hh_ / 2, cx2 + r2 + 4, cx2 + lw_ / 2,
           cx2 + lw_ / 2, f"{fmt(m['lamela_v'])} mm")
     dim_h(ax, cx2 - lw_ / 2, cx2 + lw_ / 2, cy2 - r2 - 4, None, None,
@@ -1112,6 +1139,33 @@ def interaktivno():
     c["izhod"] = vprasanje("Ime izhodne datoteke", PRIVZETO["izhod"])
     c["mere"] = m
     return zdruzi(c)
+
+
+def delovne_tocke(ax, xs, y_ref):
+    """Delovne točke T1…Tn (načrt 12): krog na presečišču konstrukcijske
+    osi (nosilec/steber) z referenčno črto (tla).
+
+    Profesionalna praksa: mere in kote se vodijo od delovnih točk —
+    BREZ verižnega seštevanja (primerjava-risbe.md).
+    """
+    for i, x in enumerate(xs, 1):
+        ax.add_patch(Circle((x, y_ref), 1.1, facecolor="white",
+                            edgecolor=CRNA, lw=0.8, zorder=9))
+        ax.text(x - 2.6, y_ref + 3.0, f"T{i}", fontsize=6,
+                fontweight="bold", ha="right", va="center", zorder=9)
+
+
+def oznaka_usmerjenosti(ax, x, y_sredina, visina=11):
+    """▲ VRH (načrt 12): simbol usmerjenosti kos.
+
+    Oznaka na kosu/nalepki prepreči obrnjeno vgradnjo; usmerjenost je
+    določena po risbi (ne izmišljena mera).
+    """
+    ax.annotate("", xy=(x, y_sredina + visina / 2),
+                xytext=(x, y_sredina - visina / 2),
+                arrowprops=dict(arrowstyle="->", lw=1.0, color=CRNA))
+    ax.text(x, y_sredina + visina / 2 + 2.4, "▲ VRH", fontsize=6,
+            fontweight="bold", ha="center", va="center", color=CRNA)
 
 
 def napisi_sidranja(podlaga):
@@ -1502,7 +1556,7 @@ def narisi_montazni_list(ax, c):
         "Vgradi zgornji in spodnji alu profil; kontroliraj višino "
         "in ravnost.",
         f"Vgradi lamele ({vijak_lamela_naziv} skozi notranjo alu cev; "
-        "brez predrtja ne vrtaj!).",
+        "brez predrtja ne vrtaj!; vsako lamelo z oznako ▲ VRH navzgor).",
         "Kontrola ravni in višine, slika izvedbo, pridobi podpis "
         "stranke.",
     ]
@@ -1622,7 +1676,8 @@ def narisi_montazni_pokoncna(ax, c):
         "DETAJL PRITRJEVANJA); kontroliraj ravnost.",
         "Postavi stebre; kontroliraj navpičnost.",
         f"Vgradi deske po poljih med stebri ({vijak_lamela_naziv}: "
-        "2 vijaka na stik, 4 na desko; predrtje Ø + 1 mm).",
+        "2 vijaka na stik, 4 na desko; predrtje Ø + 1 mm; vsako desko "
+        "z oznako ▲ VRH navzgor).",
         "Vgradi ročaj, kontrola ravni in višine, slika izvedbo, podpis "
         "stranke.",
     ]
@@ -1664,6 +1719,12 @@ def narisi_nalepke(ax, c, kosovnica):
     ax.text(20, 278, f"Naloga: {c['risba_st']} • Datum: {datum} • "
             f"izreži vsak kos in prilepi oznako", fontsize=8.5,
             ha="left", va="center")
+    ax.text(20, 271.5,
+            "▲ VRH = usmerjenost kosov: stran, ki po vgradnji gleda "
+            "navzgor — vgradi z oznako NAVZGOR. Usmerjenost je določena "
+            "po risbi; vidno stran profila preveri pri proizvajalcu "
+            "(NI izmerjeno).",
+            fontsize=6.5, color="#555555", ha="left", va="center")
     n = len(kosovnica)
     prikaz = min(n, 12)
     cols, cw, chh, x0, y0 = 3, 118, 52, 25, 245
@@ -1674,6 +1735,8 @@ def narisi_nalepke(ax, c, kosovnica):
         pravokotnik(ax, x, y - chh, cw, chh, fill="white", lw=1.0)
         ax.text(x + 5, y - 9, oz, fontsize=13, fontweight="bold",
                 ha="left", va="center")
+        ax.text(x + cw - 5, y - 9, "▲ VRH", fontsize=9,
+                fontweight="bold", ha="right", va="center", color=CRNA)
         ax.text(x + 5, y - 21, f"{fmt(dol)} mm", fontsize=10,
                 fontweight="bold", ha="left", va="center")
         ax.text(x + 5, y - 31, c.get("profil") or "", fontsize=6.5,
