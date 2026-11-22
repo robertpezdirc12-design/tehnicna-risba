@@ -133,3 +133,40 @@ def test_brez_tihih_zapisov_v_projekt(tmp_path, monkeypatch):
         assert cfg.get("foto", "") != os.path.abspath(pot)
     finally:
         app.destroy()
+
+
+def test_odpri_projekt_sprejme_sliko(tmp_path, monkeypatch):
+    """Uporabnikova težava: okno za odpiranje je bilo omejeno na *.yaml —
+    fotografije sploh ni bilo mogoče izbrati. Zdaj 'Odpri projekt…'
+    sprejme tudi sliko in jo odloži v delovni prostor (scena)."""
+    app = _app()
+    try:
+        pot = _slika(tmp_path, "fotografija.jpg")
+        monkeypatch.setattr("tkinter.filedialog.askopenfilename",
+                            lambda **k: pot)
+        sporocila = []
+        monkeypatch.setattr("tkinter.messagebox.showinfo",
+                            lambda *a, **k: sporocila.append(a))
+        app._odpri_projekt()
+        assert app.scena["pot"] == os.path.abspath(pot)
+        assert app.namera_vrstica.winfo_manager() == "pack"
+        assert any("delovnem prostoru" in str(a) for a in sporocila)
+    finally:
+        app.destroy()
+
+
+def test_odpri_projekt_yaml_se_vedno_deluje(tmp_path, monkeypatch):
+    app = _app()
+    try:
+        pot = str(tmp_path / "projekt.yaml")
+        with open(pot, "w", encoding="utf-8") as f:
+            f.write("ime: Testni projekt\nsirina: 2000\n")
+        monkeypatch.setattr("tkinter.filedialog.askopenfilename",
+                            lambda **k: pot)
+        monkeypatch.setattr("tkinter.messagebox.showinfo",
+                            lambda *a, **k: None)
+        app._odpri_projekt()
+        assert app.v["ime"].get() == "Testni projekt"
+        assert app.scena["pot"] is None        # YAML NI šel v sceno
+    finally:
+        app.destroy()

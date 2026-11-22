@@ -2601,22 +2601,57 @@ class App(tk.Tk):
             f"Nastavitve shranjene:\n{pot}\n\nIsto risbo narediš tudi iz "
             f"ukazne vrstice:\npython risba.py {os.path.basename(pot)}")
 
+    @staticmethod
+    def _je_slika(pot):
+        """Ali je datoteka slika (pripona ali prepoznan format PIL)."""
+        pripona = os.path.splitext(pot)[1].lower()
+        if pripona in (".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tif",
+                       ".tiff", ".gif"):
+            return True
+        try:
+            from PIL import Image
+            with Image.open(pot) as im:
+                im.verify()
+            return True
+        except Exception:
+            return False
+
     def _odpri_projekt(self):
         """Odpri shranjen projekt (.yaml) — povratna pot '_shrani_projekt'.
 
-        Prej je bilo mogoče projekt le SHRANITI — vmesnik ga ni mogel
-        znova odpreti (le ukazna vrstica 'python risba.py projekt.yaml').
+        POPORAVEK (uporabnikova težava): pogovorno okno je bilo prej
+        omejeno na *.yaml — fotografije sploh ni bilo mogoče izbrati.
+        Zdaj sprejme tudi SLIKE in jo odloži v delovni prostor (scena).
         """
         pot = filedialog.askopenfilename(
-            filetypes=[("Projekt (YAML)", "*.yaml *.yml")],
-            title="Odpri projekt")
+            filetypes=[("Projekt in slike",
+                        "*.yaml *.yml *.jpg *.jpeg *.png *.bmp *.webp "
+                        "*.tif *.tiff"),
+                       ("Projekt (YAML)", "*.yaml *.yml"),
+                       ("Slike",
+                        "*.jpg *.jpeg *.png *.bmp *.webp *.tif *.tiff"),
+                       ("Vse datoteke", "*.*")],
+            title="Odpri projekt ali sliko")
         if not pot:
+            return
+        if self._je_slika(pot):
+            self._scena_nalozi(pot)
+            messagebox.showinfo(
+                "Slika v delovnem prostoru",
+                f"Slika je v delovnem prostoru:\n{pot}\n\n"
+                "Izberi, kaj želiš z njo narediti (vrstica pod sliko "
+                "ali meni Vstavi).\n\n"
+                "Če želiš odpreti PROJEKT, odpri datoteko .yaml.")
             return
         try:
             with open(pot, encoding="utf-8") as f:
                 cfg = yaml.safe_load(f) or {}
         except Exception as e:
-            messagebox.showerror("Napaka", f"Projekta ni mogoče prebrati: {e}")
+            messagebox.showerror(
+                "Napaka",
+                f"Projekta ni mogoče prebrati: {e}\n\n"
+                "Če želiš naložiti SLIKO, uporabi Vstavi → Sliko v "
+                "prostor… (Ctrl+I).")
             return
         if not isinstance(cfg, dict):
             messagebox.showerror(
@@ -2629,7 +2664,7 @@ class App(tk.Tk):
         messagebox.showinfo(
             "Projekt naložen",
             f"Nastavitve naložene iz:\n{pot}\n\n"
-            "Za izdelavo risbe klikni NARIŠI RISBO.")
+            "Za izdelavo risbe: Datoteka → NARIŠI RISBO (Ctrl+N).")
 
 
 if __name__ == "__main__":
