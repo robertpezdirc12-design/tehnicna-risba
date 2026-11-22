@@ -313,7 +313,8 @@ def test_meni_vsebuje_vse_funkcije():
         nizi = [meni.entrycget(i, "label")
                 for i in range(meni.index("end") + 1)
                 if meni.type(i) == "cascade"]
-        assert nizi == ["Datoteka", "Urejanje", "Pogled", "Orodja", "Pomoč"]
+        assert nizi == ["Datoteka", "Urejanje", "Vstavi", "Pogled",
+                        "Orodja", "Pomoč"]
         vsebina = {}
         for i in range(meni.index("end") + 1):
             if meni.type(i) != "cascade":

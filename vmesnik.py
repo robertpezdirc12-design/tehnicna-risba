@@ -6,11 +6,13 @@ Zagon:  python vmesnik.py   (ali dvoklik nanj)
 """
 
 import json
+import math
 import os
 import sys
+import tempfile
 import threading
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox, simpledialog
 
 import yaml
 
@@ -328,6 +330,23 @@ class PredogledCanvas(tk.Canvas):
         if zacetek is not None and not self._premik and self.na_klik:
             self.na_klik(e)
 
+    def slika_koordinate(self, e):
+        """Koordinate klika v koordinatah slike (None = klik izven slike).
+
+        Platno riše sliko centrirano (glej _narisi): levi rob je pri
+        cw/2 + ox − W/2, kjer je W = širina slike × faktor."""
+        if self._izvirna is None:
+            return None
+        cw = max(self.winfo_width(), 40)
+        ch = max(self.winfo_height(), 40)
+        w = self._izvirna.width * self.faktor
+        h = self._izvirna.height * self.faktor
+        ix = (e.x - (cw / 2 + self.ox - w / 2)) / self.faktor
+        iy = (e.y - (ch / 2 + self.oy - h / 2)) / self.faktor
+        if 0 <= ix < self._izvirna.width and 0 <= iy < self._izvirna.height:
+            return (ix, iy)
+        return None
+
     def _narisi(self):
         self.delete("all")
         cw = max(self.winfo_width(), 40)
@@ -615,6 +634,12 @@ class App(tk.Tk):
         self.revizije = []            # revizije risbe (načrt 7)
         self.rev_snapshot = None      # stanje ob zadnji reviziji (diff)
         self.optimizacija = None      # issue #14: izbrani rezni načrt
+        # načrt 14: scena delovnega prostora (slika + merilo + namera)
+        self.scena: dict = {"pot": None, "delovna": None, "merilo": None,
+                            "merilo_vir": "", "merilo_opozorilo": ""}
+        self._merilo_tocki = []
+        self._merjenje_tocki = []
+        self._shranjen_na_klik = None
         self.st_preprost = tk.BooleanVar(value=True)   # preprosti način
         # UI/UX Plan A: živi povzetek (debounce osveževanje)
         self.st_zivo = tk.BooleanVar(value=True)
@@ -655,12 +680,32 @@ class App(tk.Tk):
         delovni.pack(fill="both", expand=True)
         self.predogled = PredogledCanvas(delovni)
         self.predogled.pack(fill="both", expand=True)
-        self.predogled.sporocilo(
-            "Delovni prostor — risba se prikaže po Datoteka → NARIŠI "
-            "RISBO (Ctrl+N).\nPodatke projekta uredi v Urejanje → Podatki "
-            "projekta… (Ctrl+D).\n(kolešček = povečava • vleci = premik • "
-            "dvoklik = prilagodi)")
+        self._prostor_opis = (
+            "Delovni prostor — risbo prikaže Datoteka → NARIŠI RISBO "
+            "(Ctrl+N), sliko pa Vstavi → Sliko v prostor… (Ctrl+I) ali "
+            "spusti datoteko sem.\nPodatke projekta uredi v Urejanje → "
+            "Podatki projekta… (Ctrl+D).\n(kolešček = povečava • vleci = "
+            "premik • dvoklik = prilagodi)")
+        self.predogled.sporocilo(self._prostor_opis)
         self.predogled.na_klik = self._klik_predogled
+        self.predogled.bind("<Control-v>",
+                            lambda e: self._scena_iz_odlozisca())
+        # kontekstualna vrstica namera (načrt 14) — prikaže se ob sliki
+        self.namera_vrstica = ttk.Frame(delovni, padding=(8, 4))
+        ttk.Label(self.namera_vrstica,
+                  text="Kaj želite narediti s to sliko?").pack(
+            side="left", padx=(0, 8))
+        for _napis, _ukaz in (
+                ("Meri s slike", self._scena_meri),
+                ("Avtomatska skica", self._scena_skica),
+                ("Nastavi merilo (2 točki)", self._merilo_zacni),
+                ("Izmeri v prostoru (2 točki)", self._merjenje_zacni),
+                ("Fotografija v projekt", self._scena_foto_v_projekt),
+                ("Obrni levo", self._scena_obrni_levo),
+                ("Obrni desno", self._scena_obrni_desno),
+                ("Odstrani", self._scena_pocisti)):
+            ttk.Button(self.namera_vrstica, text=_napis,
+                       command=_ukaz).pack(side="left", padx=2)
         # tanka vrstica stanja (obvestila) — Pogled → Vrstica stanja
         self.status_vrstica = tk.Frame(self)
         self.status_vrstica.pack(side="bottom", fill="x")
@@ -912,6 +957,7 @@ class App(tk.Tk):
         self.bind_all("<Control-o>", lambda e: self._odpri_projekt())
         self.bind_all("<Control-e>", lambda e: self._izvozi_dxf())
         self.bind_all("<Control-d>", lambda e: self._pokazi_obrazec())
+        self.bind_all("<Control-i>", lambda e: self._scena_vstavi())
         self.bind_all("<F1>", lambda e: self._pomoc())
 
     # ------------------------------------- obrazec / delovni prostor
@@ -1324,6 +1370,217 @@ class App(tk.Tk):
         }
 
     # ------------------------------------------------------------- akcije
+    # --------------------------------------------------- scena (načrt 14)
+    def _scena_nalozi(self, pot):
+        """Slika v delovni prostor (scena) + vprašanje po nameni.
+
+        Po vzoru SolidWorks/Figma/FenceSpec: vstavljeni predmet se TAKOJ
+        pokaže in program vpraša, kaj želi uporabnik z njim.
+        """
+        if not pot or not os.path.isfile(pot):
+            return
+        polna = os.path.abspath(pot)
+        self.scena.update(pot=polna, delovna=polna, merilo=None,
+                          merilo_vir="", merilo_opozorilo="")
+        self._merilo_tocki = []
+        self._merjenje_tocki = []
+        self._scena_prikazi()
+        self._namera_pokazi()
+        self.status.config(
+            text=f"Slika v prostoru: {os.path.basename(pot)} "
+                 "• merilo: NI nastavljeno (mere iz slike = NEZNANO)")
+
+    def _scena_prikazi(self):
+        try:
+            self.predogled.nastavi(self.scena["delovna"])
+        except Exception as e:
+            self.status.config(text=f"Slike ni mogoče prikazati: {e}")
+
+    def _scena_pocisti(self):
+        """Odstrani sliko iz prostora — stanje scene se popolnoma počisti."""
+        self.scena.update(pot=None, delovna=None, merilo=None,
+                          merilo_vir="", merilo_opozorilo="")
+        self._merilo_tocki = []
+        self._merjenje_tocki = []
+        self.predogled.na_klik = self._klik_predogled
+        self.predogled.sporocilo(self._prostor_opis)
+        self._namera_skrij()
+        self.status.config(text="Slika odstranjena iz delovnega prostora.")
+
+    def _scena_vstavi(self):
+        pot = filedialog.askopenfilename(
+            title="Sliko v delovni prostor",
+            filetypes=[("Slike",
+                        "*.jpg *.jpeg *.png *.bmp *.webp *.tif *.tiff"),
+                       ("Vse datoteke", "*.*")])
+        if pot:
+            self._scena_nalozi(pot)
+
+    def _scena_iz_odlozisca(self):
+        """Ctrl+V: sliko iz odložišča (PIL) v delovni prostor."""
+        try:
+            from PIL import ImageGrab
+            vsebina = ImageGrab.grabclipboard()
+        except Exception:
+            vsebina = None
+        if vsebina is None:
+            messagebox.showinfo(
+                "Odložišče",
+                "V odložišču ni slike.\n\n"
+                "Kopiraj sliko (npr. desni klik → Kopiraj sliko) ali "
+                "uporabi Vstavi → Sliko v prostor…")
+            return
+        if isinstance(vsebina, list):
+            if vsebina:
+                self._scena_nalozi(str(vsebina[0]))
+            return
+        try:
+            zacasna = os.path.join(tempfile.gettempdir(),
+                                   "pi_scena_odlozisce.png")
+            vsebina.convert("RGB").save(zacasna)
+        except Exception as e:
+            messagebox.showerror(
+                "Odložišče", f"Slike iz odložišča ni mogoče prebrati: {e}")
+            return
+        self._scena_nalozi(zacasna)
+
+    def _scena_obrni(self, kot):
+        """Rotacija slike v prostoru (izvorna datoteka ostane nespremenjena)."""
+        if not self.scena["pot"]:
+            messagebox.showinfo("Scena", "Najprej vstavite sliko "
+                                "(Vstavi → Sliko v prostor…).")
+            return
+        try:
+            from PIL import Image
+            with Image.open(self.scena["delovna"]) as im:
+                rotirana = im.rotate(kot, expand=True).convert("RGB")
+            zacasna = os.path.join(
+                tempfile.gettempdir(),
+                "pi_scena_rot_" + os.path.splitext(
+                    os.path.basename(self.scena["pot"]))[0] + ".png")
+            rotirana.save(zacasna)
+        except Exception as e:
+            messagebox.showerror("Rotacija", f"Rotacija ni uspela: {e}")
+            return
+        self.scena["delovna"] = zacasna
+        self._scena_prikazi()
+        self.status.config(
+            text=f"Slika obrnjena ({kot:+d}°) — izvorna datoteka ostane "
+                 "nespremenjena.")
+
+    def _scena_obrni_levo(self):
+        self._scena_obrni(90)
+
+    def _scena_obrni_desno(self):
+        self._scena_obrni(-90)
+
+    def _scena_foto_v_projekt(self):
+        """Slika iz scene postane fotografija projekta (foto v PDF)."""
+        if not self.scena["pot"]:
+            messagebox.showinfo("Scena", "Najprej vstavite sliko "
+                                "(Vstavi → Sliko v prostor…).")
+            return
+        self.v["foto"].set(self.scena["pot"])
+        self.status.config(
+            text=f"Fotografija projekta: "
+                 f"{os.path.basename(self.scena['pot'])}")
+
+    def _scena_meri(self):
+        self._meri_slike(self.scena["pot"] or None)
+
+    def _scena_skica(self):
+        self._avtomatska_skica(self.scena["pot"] or None)
+
+    def _namera_pokazi(self):
+        self.namera_vrstica.pack(side="bottom", fill="x")
+
+    def _namera_skrij(self):
+        self.namera_vrstica.pack_forget()
+
+    # -------------------------------------- merilo / merjenje (načrt 14)
+    def _merilo_zacni(self):
+        """Nastavi merilo scene: 2 točki na sliki + znana dolžina.
+
+        Po vzoru SolidWorks „scale tool“ in ImageMeter „reference“.
+        Brez merila so mere iz slike NEZNANO — nikoli izmišljene.
+        """
+        if not self.scena["pot"]:
+            messagebox.showinfo("Scena", "Najprej vstavite sliko "
+                                "(Vstavi → Sliko v prostor…).")
+            return
+        self._merilo_tocki = []
+        self._shranjen_na_klik = self.predogled.na_klik
+        self.predogled.na_klik = self._merilo_klik
+        self.status.config(
+            text="MERILO: klikni dve točki na sliki, med katerima je "
+                 "znana dolžina …")
+
+    def _merilo_klik(self, e):
+        tocka = self.predogled.slika_koordinate(e)
+        if tocka is None:
+            return
+        self._merilo_tocki.append(tocka)
+        if len(self._merilo_tocki) < 2:
+            self.status.config(text="MERILO: še druga točka …")
+            return
+        (x1, y1), (x2, y2) = self._merilo_tocki
+        self.predogled.na_klik = self._shranjen_na_klik
+        px = math.hypot(x2 - x1, y2 - y1)
+        if px <= 0:
+            self.status.config(
+                text="MERILO: točki se prekrivata — poskusite znova.")
+            return
+        dolzina = simpledialog.askfloat(
+            "Merilo", "Znana dolžina med točkama (mm):",
+            parent=self, minvalue=0.01)
+        if not dolzina:
+            self.status.config(
+                text="MERILO: preklicano — mere iz slike ostajajo NEZNANO.")
+            return
+        self.scena["merilo"] = px / float(dolzina)      # px na mm
+        self.scena["merilo_vir"] = "2 točki + znana dolžina"
+        self.scena["merilo_opozorilo"] = "perspektiva ni odpravljena"
+        self.status.config(
+            text=f"MERILO: 1 mm = {self.scena['merilo']:.3f} px "
+                 f"({self.scena['merilo_vir']}, {dolzina:g} mm) — "
+                 "izmerjeno po sliki; perspektiva ni odpravljena — "
+                 "PREVERI na objektu.")
+
+    def _merjenje_zacni(self):
+        """Merjenje razdalje na sliki. Brez merila = NEZNANO (načrt 14)."""
+        if not self.scena["pot"]:
+            messagebox.showinfo("Scena", "Najprej vstavite sliko "
+                                "(Vstavi → Sliko v prostor…).")
+            return
+        if not self.scena["merilo"]:
+            messagebox.showinfo(
+                "Merilo ni nastavljeno",
+                "NEZNANO — merilo ni nastavljeno, zato razdalje iz slike "
+                "ni mogoče pošteno izračunati.\n\n"
+                "Najprej: Vstavi → Nastavi merilo (2 točki) …")
+            return
+        self._merjenje_tocki = []
+        self._shranjen_na_klik = self.predogled.na_klik
+        self.predogled.na_klik = self._merjenje_klik
+        self.status.config(text="MERJENJE: klikni dve točki na sliki …")
+
+    def _merjenje_klik(self, e):
+        tocka = self.predogled.slika_koordinate(e)
+        if tocka is None:
+            return
+        self._merjenje_tocki.append(tocka)
+        if len(self._merjenje_tocki) < 2:
+            self.status.config(text="MERJENJE: še druga točka …")
+            return
+        (x1, y1), (x2, y2) = self._merjenje_tocki
+        self.predogled.na_klik = self._shranjen_na_klik
+        px = math.hypot(x2 - x1, y2 - y1)
+        mm = px / self.scena["merilo"]
+        self.status.config(
+            text=f"Razdalja: {mm:.1f} mm — izmerjeno po sliki "
+                 f"({self.scena['merilo_vir']}); perspektiva ni "
+                 "odpravljena — PREVERI na objektu.")
+
     def _brskaj_foto(self):
         pot = filedialog.askopenfilename(
             title="Izberi fotografijo",
@@ -1331,6 +1588,7 @@ class App(tk.Tk):
                        ("Vse datoteke", "*.*")])
         if pot:
             self.v["foto"].set(pot)
+            self._scena_nalozi(pot)   # načrt 14: slika v delovnem prostoru
 
     def _osvezi_foto_predogled(self, *_):
         """Majhen predogled vstavljene fotografije (brez PIL = le besedilo)."""
@@ -1351,13 +1609,13 @@ class App(tk.Tk):
             self.foto_predogled.configure(
                 image="", text=f"predogled ni mogoč\n({type(e).__name__})")
 
-    def _avtomatska_skica(self):
+    def _avtomatska_skica(self, pot=None):
         """Avtomatska A3 skica iz fotografije (photo_fence_proposal — BREZ AI).
 
         Mere na skici so označene z zaupanjem (izmerjeno/izračunano/
         ocenjeno) — nikoli izmišljene kot izmerjene.
         """
-        pot = self.v["foto"].get().strip()
+        pot = (pot or self.v["foto"].get().strip())
         if not pot or not os.path.isfile(pot):
             pot = filedialog.askopenfilename(
                 title="Izberi fotografijo za avtomatsko skico",
@@ -1404,9 +1662,9 @@ class App(tk.Tk):
             "Mere so označene z zaupanjem — pred izdelavo PREVERI "
             "dejanske mere na objektu.")
 
-    def _meri_slike(self):
+    def _meri_slike(self, pot=None):
         """Odpri pomožno merjenje s fotografije (kalibracija + zaznavanje)."""
-        pot = self.v["foto"].get().strip()
+        pot = (pot or self.v["foto"].get().strip())
         if not pot or not os.path.isfile(pot):
             pot = filedialog.askopenfilename(
                 title="Izberi fotografijo za merjenje",
@@ -1664,6 +1922,31 @@ class App(tk.Tk):
         u.add_command(label="Odstrani izbrana vrata",
                       command=self._vrata_odstrani)
         meni.add_cascade(label="Urejanje", menu=u)
+
+        # ---- Vstavi: scena delovnega prostora (načrt 14) ----
+        v = tk.Menu(meni, tearoff=0)
+        v.add_command(label="Sliko v prostor…", accelerator="Ctrl+I",
+                      command=self._scena_vstavi)
+        v.add_command(label="Sliko iz odložišča", accelerator="Ctrl+V",
+                      command=self._scena_iz_odlozisca)
+        v.add_separator()
+        v.add_command(label="Nastavi merilo (2 točki)",
+                      command=self._merilo_zacni)
+        v.add_command(label="Izmeri v prostoru (2 točki)",
+                      command=self._merjenje_zacni)
+        v.add_separator()
+        v.add_command(label="Meri s slike", command=self._scena_meri)
+        v.add_command(label="Avtomatska skica", command=self._scena_skica)
+        v.add_command(label="Fotografija v projekt",
+                      command=self._scena_foto_v_projekt)
+        v.add_separator()
+        v.add_command(label="Obrni sliko levo",
+                      command=self._scena_obrni_levo)
+        v.add_command(label="Obrni sliko desno",
+                      command=self._scena_obrni_desno)
+        v.add_command(label="Odstrani sliko iz prostora",
+                      command=self._scena_pocisti)
+        meni.add_cascade(label="Vstavi", menu=v)
 
         # ---- Pogled: prikaz ----
         p = tk.Menu(meni, tearoff=0)
