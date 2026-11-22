@@ -1110,6 +1110,31 @@ def napisi_sidranja(podlaga):
     return g, r
 
 
+def qc_blok(ax, x0, y_top, sirina, skupine):
+    """Kontrolni seznam QC (načrt 10) — potrditvena polja, kriteriji vezani na risbo.
+
+    skupine: [(naslov_skupine, ["☐ točka — kriterij", ...]), ...]
+    Polja so PRAZNA (obrazec) — nič ni označeno kot opravljeno.
+    """
+    nas_h, vrst = 8.5, 3.1
+    n_vrst = sum(1 + len(t) for _g, t in skupine)
+    visina = nas_h + n_vrst * vrst + 1
+    pravokotnik(ax, x0, y_top - visina, sirina, visina, fill="white", lw=0.8)
+    pravokotnik(ax, x0, y_top - nas_h, sirina, nas_h, fill=BARVA_OZN, lw=0)
+    ax.text(x0 + sirina / 2, y_top - nas_h / 2, "KONTROLNI SEZNAM (QC)",
+            ha="center", va="center", fontsize=8, fontweight="bold",
+            color="white")
+    y = y_top - nas_h - 1.6
+    for skupina, tocke in skupine:
+        ax.text(x0 + 2, y, skupina, fontsize=6.5, fontweight="bold",
+                ha="left", va="center")
+        y -= vrst
+        for tocka in tocke:
+            ax.text(x0 + 4, y, tocka, fontsize=6.3, ha="left", va="center")
+            y -= vrst
+    return y_top - visina
+
+
 def montazni_sidranje(ax, x0, y_top, sirina=120):
     """Priporočene globine sidranja po podlagi — potrdi strokovnjak.
 
@@ -1259,33 +1284,45 @@ def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki,
                     fontsize=6.5, fontweight="bold")
         y -= 8
 
+    # načrt 10: vsak korak ima potrditveno polje (monter kljukira opravljeno)
+    koraki = [f"☐ {k}" for k in koraki]
     vrst_k = sum(len(textwrap.wrap(f"{i}. {o}", width=86) or [""])
                  for i, o in enumerate(koraki, 1))
     h_kor = 8.5 + vrst_k * 3.9 + 2
     if y - 6 - h_kor < 30 and sestava is None:
-        opombe_blok(ax, 288, 173, 120, koraki, naslov_t="MONTAŽNI KORAKI",
+        opombe_blok(ax, 288, 173, 120, koraki,
+                    naslov_t="MONTAŽNI KORAKI — potrdi ☐",
                     velikost=7.5, wrap=68)
     else:
-        opombe_blok(ax, 20, y - 6, 260, koraki, naslov_t="MONTAŽNI KORAKI")
+        opombe_blok(ax, 20, y - 6, 260, koraki,
+                    naslov_t="MONTAŽNI KORAKI — potrdi ☐")
 
-    kontrola = [
-        "□ preveri dejanske mere objekta",
-        "□ označi lege pritrditve (razmak)",
-        "□ preveri razvod inštalacij",
-        "□ sidranje po nosilnosti stene/plošče",
-        "□ statiko potrdil usposobljen strokovnjak",
-        "□ kontrola višine in ravni",
-        "□ slika končno izvedbo",
-    ]
-    opombe_blok(ax, 288, 256, 120, kontrola, naslov_t="KONTROLA NA TERENU")
+    # načrt 10: QC seznam — delavnica + teren, kriteriji vezani na risbo
+    # (zamenjuje 'KONTROLA NA TERENU'; vsebinsko premoženje je ohranjeno)
+    qc_blok(ax, 288, 256, 120, [
+        ("DELAVNICA", [
+            "☐ Mere in kote — str. 1, blok toleranc",
+            "☐ Material in barva — vzorec proizvajalca",
+            "☐ Kosi in nalepke — str. 2, rezalni načrt",
+            "☐ Sidranje: tip, globina — DETAJL 1",
+        ]),
+        ("TEREN", [
+            "☐ Dejanske mere, lege pritrditve, razvod",
+            "☐ Višina, raven (in delovanje vrat)",
+            "☐ Statiko potrdil strokovnjak — opomba 6",
+            "☐ Slika končne izvedbe",
+        ]),
+    ])
 
     montazni_sidranje(ax, 288, 214)
     if sestava:
         montazni_sestava(ax, 288, 180, 120, sestava)
 
-    for x0, w, ime in ((20, 126, "IZDELAL (podpis)"),
-                       (148, 126, "STRANKA (prejem dela)"),
-                       (276, 132, "DATUM MONTAŽE")):
+    # načrt 10: podpis kontrole (QC) — prej IZDELAL/STRANKA/DATUM
+    for x0, w, ime in ((20, 98, "IZDELAL (podpis)"),
+                       (122, 98, "KONTROLA (QC podpis)"),
+                       (224, 98, "STRANKA (prejem dela)"),
+                       (326, 82, "DATUM MONTAŽE")):
         pravokotnik(ax, x0, 12, w, 16, fill="none", lw=0.7)
         ax.text(x0 + 2, 24.5, ime, fontsize=6.5, color="#555555",
                 ha="left", va="center")
