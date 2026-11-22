@@ -5,6 +5,7 @@ F2 (issue #5): izločeno iz monolita risba.py BREZ spremembe vedenja.
 Vse količine štejejo iz ENEGA proizvodni_model (issue #6, §3).
 """
 import vrata as vrat
+import jedro
 
 from jedro import (fmt, razpored, razpored_pokoncna, razdeli_po_odprtinah,
                    pozicije_nosilcev, vrata_podatki)
@@ -413,3 +414,123 @@ def predracun_znesek(cene, postavke):
     return {"skupaj": skup, "vrstice": vrstice,
             "manjkajoce_cene": manjkajoce_cene,
             "vse_nic": vse_nic, "delno": delno}
+# ------------------------------------------------------ issue #14 (G/E) --- #
+# Rezni načrt iz dejanske zaloge: skupine kosov → primerjava strategij →
+# izbrani načrt (potrjen ali samodejen). En vir za GUI in montažni list.
+
+def rezne_skupine(c):
+    """Skupine kosov za rezni načrt — en vir za vmesnik in risbo.
+
+    Vrne [(ime_skupine, [(oznaka, dolzina)], barva, profil), ...].
+    Lamele: n kosov dolžine širine (ob odprtinah razrezane na segmente);
+    vrata: kosi okvirjev/kril (ločen profil). Opomba: informativni izračun
+    za primerjavo — montažni list uporablja svoje natanko izračunane kose.
+    """
+    m = c.get("mere") or {}
+    sir = float(m.get("sirina") or 0)
+    n = int(c.get("stevilo_lamel") or 0) or jedro.privzeto_stevilo_lamel(m)
+    vp = jedro.vrata_podatki(c)
+    barva = str(c.get("barva") or "")
+    profil = str(c.get("profil") or "")
+    if vp["odprtine"]:
+        kosi_l: list = []
+        for _ in range(max(1, n)):
+            for xa, xb in jedro.razdeli_po_odprtinah(0, sir, vp["odprtine"]):
+                kosi_l.append((f"L{len(kosi_l) + 1}", float(xb - xa)))
+    else:
+        kosi_l = [(f"L{i + 1}", float(sir)) for i in range(max(1, n))]
+    kosi_v: list = []
+    for enota in vp["vrata"] + vp["prehodi"]:
+        for ozn_k, dol, _sir_k, kol, _op, _kl in enota["kosovnica"]["izdelani"]:
+            for _ in range(int(kol)):
+                kosi_v.append((f"{enota['oznaka']}-{ozn_k}", float(dol)))
+    return [("LAMELE", kosi_l, barva, profil),
+            ("VRATA", kosi_v, barva, "vrata")]
+
+
+def _zaloga_iz_cfg(c, barva, profil):
+    """Zaloga za skupino: tovarniške dolžine (neomejeno) + skladišče ostankov
+    (omejeno, vir='ostanek' — enkratna poraba, sledljivost ohranjena)."""
+    from razrez import ZalogovnaPostavka, nalozi_ostanke
+    dolzine = c.get("dolzine_deske") or [c.get("dolzina_palice") or 5800]
+    zaloga = []
+    for d in dolzine:
+        try:
+            fd = float(d)
+        except (TypeError, ValueError):
+            continue
+        if fd > 0:
+            zaloga.append(ZalogovnaPostavka(
+                fd, kolicina=None, barva=barva, profil=profil))
+    for o in nalozi_ostanke():
+        try:
+            od = float(o.get("dolzina") or 0)
+        except (TypeError, ValueError):
+            continue
+        if od <= 0:
+            continue
+        zaloga.append(ZalogovnaPostavka(
+            od, kolicina=1,
+            barva=str(o.get("barva") or ""), profil=str(o.get("profil") or ""),
+            vir="ostanek", oznaka=str(o.get("oznaka") or o.get("ime") or "")))
+    return zaloga
+
+
+def rezni_nacrt(skupine, c):
+    """Issue #14: napredni rezni načrt — primerjava + izbrani načrt.
+
+    ``skupine``: [(ime, kosi, barva, profil), ...] (iz rezne_skupine ali
+    natanko izračunanih kosov risbe). Vrne dict:
+      - skupine: [{ime, tabela, izbran (metrike), viz_traki, bilanca}],
+      - kriterij (politika), izbrani_nacrt, status_izbire
+        ("potrjen" | "samodejno — NI potrjen"),
+      - tabela_vse: vrstice za GUI (skupina + primerjava).
+    Izbrani načrt pride iz cfg["optimizacija"]["nacrt"] — sistem ga NE
+    zamenja tiho; brez izbire velja najboljši po kriteriju in je označen
+    kot NEPOTRJEN.
+    """
+    from razrez import OmejitveReza, primerjaj_nacrte
+    opt = c.get("optimizacija") or {}
+    if not isinstance(opt, dict):
+        opt = {}
+    politika = str(opt.get("kriterij") or "odpad")
+    izbrano = str(opt.get("nacrt") or "")
+    o = OmejitveReza(kerf=float(c.get("kerf") or 3.0), politika=politika,
+                     cene_palice=(opt.get("cene_palice")
+                                  if politika == "cena" else None))
+    izhod_skupine: list = []
+    izhod_tabela: list = []
+    for ime, kosi, barva, profil in skupine:
+        if not kosi:
+            continue
+        zaloga = _zaloga_iz_cfg(c, barva, profil)
+        pr = primerjaj_nacrte(kosi, zaloga, o)
+        izbran = None
+        for n in pr["nacrti"]:
+            if izbrano and n.strategija == izbrano:
+                izbran = n
+                break
+        if izbran is None and pr["nacrti"]:
+            izbran = pr["nacrti"][0]        # najboljši po kriteriju
+        viz: list = []
+        bilanca = {"odrez_mm": 0.0, "kerf_mm": 0.0, "ostanek_mm": 0.0,
+                   "odpad_mm": 0.0}
+        if izbran is not None:
+            viz = [(t.dolzina, list(t.kosi)) for t in izbran.traki]
+            m = izbran.metrike()
+            bilanca = {"odrez_mm": m["odrez_mm"], "kerf_mm": m["kerf_mm"],
+                       "ostanek_mm": m["ostanek_mm"], "odpad_mm": m["odpad_mm"]}
+        izhod_skupine.append({
+            "ime": ime,
+            "tabela": pr["tabela"],
+            "izbran": (izbran.metrike() if izbran is not None else None),
+            "viz_traki": viz,
+            "bilanca": bilanca,
+        })
+        for vrstica in pr["tabela"]:
+            izhod_tabela.append({"skupina": ime, **vrstica})
+    return {"kriterij": politika, "skupine": izhod_skupine,
+            "tabela_vse": izhod_tabela,
+            "izbrani_nacrt": izbrano or "samodejno",
+            "status_izbire": "potrjen" if izbrano
+                             else "samodejno — NI potrjen"}

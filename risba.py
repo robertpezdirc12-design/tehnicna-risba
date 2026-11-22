@@ -47,7 +47,8 @@ from jedro import (odsteni, barva_hex, fmt, traki_nabava,
 from proizvodnja import (izracunaj_kolicine, predracun_znesek,
                          vrata_vrstice_potrebscine,
                          vrata_vrstice_kolicin as vrata_vrstice_kolicin,
-                         proizvodni_model)
+                         proizvodni_model,
+                         rezni_nacrt as rezni_nacrt_izracun)
 import vrata as vrata
 from matplotlib.patches import Circle, Polygon, Rectangle
 
@@ -1234,8 +1235,35 @@ def _primerjava_reza(skupine_kosov, c):
             f"{rocno / 1000:.2f} m → prihranek {prihranek / 1000:.2f} m")
 
 
+def _rezni_nacrt_izracun_montazni(skupine, c):
+    """Napredni rezni načrt (issue #14); ob napaki None — brez škode."""
+    try:
+        return rezni_nacrt_izracun(skupine, c)
+    except Exception:
+        return None
+
+
+def _rezni_nacrt_vpliva(rn, pot_rows, viz_traki):
+    """Le POTRJEN načrt upravlja razporeditev in nabavo (issue #14).
+
+    Sistem ne zamenja potrjenega načrta tiho; nepotrjenega (samodejnega)
+    pa ne vsili — ta ostane informativen (primerjava v meniju Orodja).
+    """
+    if not rn or rn.get("status_izbire") != "potrjen":
+        return viz_traki
+    viz_nov = [t for s in rn.get("skupine") or [] for t in s["viz_traki"]]
+    if viz_nov:
+        viz_traki = viz_nov
+        if pot_rows and pot_rows[0]:
+            pot_rows[0][1] = (" + ".join(f"{t} × {fmt(B)} mm"
+                                        for B, t in traki_nabava(viz_nov))
+                              or pot_rows[0][1])
+            pot_rows[0][2] = f"{len(viz_nov)} kos"
+    return viz_traki
+
+
 def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki,
-                    sestava=None, primerjava=""):
+                    sestava=None, primerjava="", rezni_nacrt=None):
     """Skupni izgled montažnega lista (stran 2) za vse predloge."""
     iso_okvir(ax)
     oznaka(ax, 20, 286, "MONTAŽNI LIST (LIST 2/2) — POTREBŠČINE")
@@ -1275,6 +1303,22 @@ def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki,
     kerf = c.get("kerf", 3.0)
     b_lam = barva_hex(c.get("barva"))
     y = y_rez_konec - 21
+    if rezni_nacrt:
+        izb = rezni_nacrt.get("izbrani_nacrt") or "samodejno"
+        kit = rezni_nacrt.get("kriterij") or "odpad"
+        st_izb = rezni_nacrt.get("status_izbire") or ""
+        bil = {"odrez_mm": 0.0, "kerf_mm": 0.0, "ostanek_mm": 0.0,
+               "odpad_mm": 0.0}
+        for s in rezni_nacrt.get("skupine") or []:
+            for k in bil:
+                bil[k] += (s.get("bilanca") or {}).get(k) or 0.0
+        ax.text(20, y + 10,
+                f"NAČRT RAZREZA: {izb} • kriterij: {kit} • {st_izb} • "
+                f"bilanca trakov: odrez {fmt(bil['odrez_mm'])} + kerf "
+                f"{fmt(bil['kerf_mm'])} + uporabni ostanki "
+                f"{fmt(bil['ostanek_mm'])} + odpad "
+                f"{fmt(bil['odpad_mm'])} mm",
+                fontsize=6.5, color="#555555", ha="left", va="center")
     if viz_traki:
         maxdl = max(dl for dl, _ in viz_traki)
         sk = 260.0 / maxdl
@@ -1441,6 +1485,13 @@ def narisi_montazni_list(ax, c):
                        f"{kos_iz_ost} kos", "ni nabave"])
     pot += vrata_vrstice_potrebscine(vp)   # VRATA/PREHODI (issue #3)
 
+    # issue #14: napredni rezni načrt — le POTRJEN upravlja vizijo/nabavo
+    rn = _rezni_nacrt_izracun_montazni(
+        [("LAMELE", kosi_lamel, c.get("barva") or "",
+          c.get("profil") or ""),
+         ("VRATA", kosi_vrat, c.get("barva") or "", "vrata")], c)
+    viz_traki = _rezni_nacrt_vpliva(rn, pot, viz_traki)
+
     koraki = [
         "Preveri dejanske mere objekta in primerjaj z risbo.",
         f"Označi lego nosilcev (razmak največ {fmt(raz)} mm, dejanski "
@@ -1456,7 +1507,8 @@ def narisi_montazni_list(ax, c):
         "stranke.",
     ]
     montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki,
-                    primerjava=primerjava)
+                    primerjava=primerjava,
+                    rezni_nacrt=(rn if rn else None))
 
     # izračun višine + poraba/odpad (viden na montažnem listu)
     cona_z = zg[0] - sp[1]
@@ -1555,6 +1607,13 @@ def narisi_montazni_pokoncna(ax, c):
         pot.insert(1, ["Uporabljeni ostanki (iz skladišča)", "—",
                        f"{kos_iz_ost} kos", "ni nabave"])
 
+    # issue #14: napredni rezni načrt — le POTRJEN upravlja vizijo/nabavo
+    rn = _rezni_nacrt_izracun_montazni(
+        [("DESKE", kosi_desk, c.get("barva") or "",
+          c.get("profil") or ""),
+         ("VRATA", kosi_vrat, c.get("barva") or "", "vrata")], c)
+    viz_traki = _rezni_nacrt_vpliva(rn, pot, viz_traki)
+
     koraki = [
         "Preveri dejanske mere objekta in primerjaj z risbo.",
         f"Označi lege stebrov (razmak največ {fmt(m['razmak_stebrov'])} mm); "
@@ -1577,7 +1636,8 @@ def narisi_montazni_pokoncna(ax, c):
          f"{vijak_nosilec_naziv} × 2"),
     ]
     montazni_osnova(ax, c, pot, rez_rows, viz_traki, koraki, sestava=sestava,
-                    primerjava=primerjava)
+                    primerjava=primerjava,
+                    rezni_nacrt=(rn if rn else None))
 
     n_vrst_r = min(len(rez_rows) - 1, 11) if rez_rows else 0
     y_iz = 197 - (8.5 + 7 + n_vrst_r * 7) - 5.5

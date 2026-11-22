@@ -660,6 +660,7 @@ class OmejitveReza:
     min_ostanek: float = MIN_OSTANKA
     min_dolzina_kosa: float = 0.0
     max_dolzina_kosa: Optional[float] = None
+    max_rezov: Optional[int] = None    # strojna omejitev (največ rezov/trak)
     toleranca: float = 0.0
     politika: str = "odpad"     # "odpad"|"palice"|"cena"|"cas"|"ostanki"
     cene_palice: Optional[Dict[float, float]] = None
@@ -711,11 +712,22 @@ def preveri_omejitve(o: OmejitveReza) -> None:
         raise ValueError("toleranca ne sme biti negativna.")
     if o.max_dolzina_kosa is not None and o.max_dolzina_kosa <= 0:
         raise ValueError("max_dolzina_kosa mora biti pozitivna.")
+    if o.max_rezov is not None and o.max_rezov < 1:
+        raise ValueError("max_rezov mora biti vsaj 1.")
     if o.politika not in ("odpad", "palice", "cena", "cas", "ostanki"):
         raise ValueError(f"Neznana politika optimizacije: {o.politika!r}.")
     if o.politika == "cena" and not o.cene_palice:
         raise ValueError("Politika 'cena' zahteva cene_palice "
                          "{dolzina: cena}.")
+
+
+def _rezov_dovoljeno(o: OmejitveReza, n_kosov: int) -> bool:
+    """Strojna omejitev rezov (B): konservativno — n kosov = do n rezov.
+
+    Flush primer (n−1 rezov) je tako tudi dovoljen; omejitev nikoli ne
+    dopusti več rezov, kot jih stroj zmore.
+    """
+    return o.max_rezov is None or n_kosov <= o.max_rezov
 
 
 def _zapri_trak(trak: Trak, o: OmejitveReza) -> Trak:
@@ -748,6 +760,10 @@ def _zapri_trak(trak: Trak, o: OmejitveReza) -> Trak:
         else:
             trak.ostanek_mm = 0.0
             trak.odpad_mm = max(0.0, rep)
+    if not _rezov_dovoljeno(o, trak.rezi):
+        raise ValueError(
+            f"Trak potrebuje {trak.rezi} rezov, stroj pa dopušča največ "
+            f"{o.max_rezov} (max_rezov).")
     return trak
 
 
@@ -998,6 +1014,8 @@ def _greedy_nacrt(kosi: List[Kos], stanje: _ZalogaStanje,
         for ti, t in enumerate(traki):
             if not zdruzljivo(t.zaloga, kos):
                 continue
+            if not _rezov_dovoljeno(o, len(t.kosi) + 1):
+                continue
             p = _preostanek_traku(t, o)
             # dodan kos: + kos.dolzina + kerf (novi medrezni rez)
             nov_p = p - kos.dolzina - o.kerf
@@ -1022,6 +1040,8 @@ def _greedy_nacrt(kosi: List[Kos], stanje: _ZalogaStanje,
         moznosti = []
         for i, postavka in enumerate(stanje.postavke):
             if not stanje.na_voljo(i) or not zdruzljivo(postavka, kos):
+                continue
+            if not _rezov_dovoljeno(o, 1):
                 continue
             prostor = postavka.dolzina - o.zacetni_odrez - o.koncni_odrez
             if prostor + 1e-9 < kos.dolzina:
@@ -1196,6 +1216,8 @@ def ekstaktni_nacrt(kosi, zaloga, omejitve=OmejitveReza(),
         for t in traki:
             if not zdruzljivo(t.zaloga, kos):
                 continue
+            if not _rezov_dovoljeno(o, len(t.kosi) + 1):
+                continue
             p = _preostanek_traku(t, o)
             nov_p = p - kos.dolzina - o.kerf
             if nov_p < -1e-9:
@@ -1211,6 +1233,8 @@ def ekstaktni_nacrt(kosi, zaloga, omejitve=OmejitveReza(),
         videne = set()
         for ix, postavka in enumerate(stanje.postavke):
             if not stanje.na_voljo(ix) or not zdruzljivo(postavka, kos):
+                continue
+            if not _rezov_dovoljeno(o, 1):
                 continue
             kljuc = (postavka.dolzina, postavka.material, postavka.profil,
                      postavka.barva, postavka.serija)

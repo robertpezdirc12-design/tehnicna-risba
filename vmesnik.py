@@ -614,6 +614,7 @@ class App(tk.Tk):
         self.vrata_sez = []           # vrata/prehodi (issue #3)
         self.revizije = []            # revizije risbe (načrt 7)
         self.rev_snapshot = None      # stanje ob zadnji reviziji (diff)
+        self.optimizacija = None      # issue #14: izbrani rezni načrt
         self.st_preprost = tk.BooleanVar(value=True)   # preprosti način
         # UI/UX Plan A: živi povzetek (debounce osveževanje)
         self.st_zivo = tk.BooleanVar(value=True)
@@ -1460,6 +1461,8 @@ class App(tk.Tk):
             "preprost_nacin": bool(self.st_preprost.get()),
             "vrata": [dict(v) for v in self.vrata_sez],
             "revizije": (list(self.revizije) if self.revizije else None),
+            "optimizacija": (dict(self.optimizacija)
+                             if self.optimizacija else None),
             "rev_snapshot": self.rev_snapshot,
         }
         if cene:
@@ -1633,6 +1636,8 @@ class App(tk.Tk):
         o.add_command(label="Statični pregled", command=self._statika_pregled)
         o.add_command(label="Nova vrsta (pilot)…",
                       command=self._nova_vrsta_okno)
+        o.add_command(label="Primerjaj načrte razreza…",
+                      command=self._rezni_nacrt_dialog)
         o.add_separator()
         self.btn_ost = self._meni_postavka(
             o, "Odpiši ostanke", self._odpisi_ostanke, stanje="disabled")
@@ -2025,6 +2030,8 @@ class App(tk.Tk):
         self.rev_snapshot = (dict(cfg["rev_snapshot"])
                              if isinstance(cfg.get("rev_snapshot"), dict)
                              else None)
+        opt = cfg.get("optimizacija")
+        self.optimizacija = dict(opt) if isinstance(opt, dict) else None
         # Načrt 11: status dokumenta (tok V DELU → ZA POTRDITEV → IZVEDENO)
         nast("status_dokumenta", cfg.get("status_dokumenta") or "V DELU")
         self._status_prejsnji = (self.v["status_dokumenta"].get()
@@ -2091,6 +2098,82 @@ class App(tk.Tk):
                 return
         self._status_prejsnji = nov
         self.status.config(text=f"Status dokumenta: {nov}", fg="#1b5e20")
+
+    def _rezni_nacrt_dialog(self):
+        """Primerjava načrtov razreza (issue #14 D) — uporabnik izbere.
+
+        Sistem izbranega načrta NE zamenja tiho; brez izbire velja
+        samodejni načrt, označen kot „NI potrjen“.
+        """
+        try:
+            cfg = self._zberi_cfg()
+            rn = proizvodnja.rezni_nacrt(proizvodnja.rezne_skupine(cfg),
+                                         cfg)
+        except ValueError as e:
+            messagebox.showerror("Rezni načrt", str(e))
+            return
+        except Exception as e:
+            messagebox.showerror("Rezni načrt", f"Izračun ni uspel: {e}")
+            return
+        okno = tk.Toplevel(self)
+        okno.title("Primerjava načrtov razreza")
+        okno.geometry("940x430")
+        okno.transient(self)
+        ttk.Label(okno, text=f"Kriterij optimizacije: {rn['kriterij']} • "
+                  f"trenutna izbira: {rn['izbrani_nacrt']} "
+                  f"({rn['status_izbire']})",
+                  font=("Segoe UI", 10, "bold")).pack(
+                      anchor="w", padx=10, pady=(10, 4))
+        ttk.Label(okno, text="Vsak načrt vsebuje konkretno razporeditev "
+                  "kosov po trakovih (vidna na montažnem listu). Izbira se "
+                  "shrani v projekt — sistema ne zamenja izbranega načrta "
+                  "tiho.", wraplength=900, justify="left").pack(
+                      anchor="w", padx=10)
+        stolpci = ("skupina", "nacrt", "status", "traki", "poraba_mm",
+                   "kerf_mm", "odrez_mm", "ostanek_mm", "odpad_mm",
+                   "vrzel_mm")
+        naslovi = ("Skupina", "Načrt", "Status", "Trakov", "Poraba (mm)",
+                   "Kerf", "Odrez", "Ostanki", "Odpad", "Vrzel do meje")
+        tree = ttk.Treeview(okno, columns=stolpci, show="headings",
+                            height=14)
+        for s, n in zip(stolpci, naslovi):
+            tree.heading(s, text=n)
+            tree.column(s, width=90, anchor="w")
+        tree.pack(fill="both", expand=True, padx=10, pady=6)
+        for v in rn["tabela_vse"]:
+            tree.insert("", "end", values=(
+                v["skupina"], v["ime"], v["status"], v["st_trakov"],
+                jedro.fmt(v["poraba_mm"]), jedro.fmt(v["kerf_mm"]),
+                jedro.fmt(v["odrez_mm"]), jedro.fmt(v["ostanek_mm"]),
+                jedro.fmt(v["odpad_mm"]),
+                (jedro.fmt(v["vrzel_mm"])
+                 if v["vrzel_mm"] is not None else "—")))
+
+        def uporabi():
+            izbira = tree.selection()
+            if not izbira:
+                messagebox.showinfo("Rezni načrt", "Najprej izberi vrstico.")
+                return
+            vrednosti = tree.item(izbira[0], "values")
+            self.optimizacija = {"nacrt": str(vrednosti[1]),
+                                 "kriterij": rn["kriterij"]}
+            self.status.config(text=f"Rezni načrt: {vrednosti[1]} "
+                                    f"(kriterij {rn['kriterij']}) — "
+                                    "POTRJEN", fg="#1b5e20")
+            okno.destroy()
+
+        def odstrani():
+            self.optimizacija = None
+            self.status.config(text="Rezni načrt: samodejno (NI potrjen).")
+            okno.destroy()
+
+        g = ttk.Frame(okno)
+        g.pack(fill="x", padx=10, pady=(0, 10))
+        ttk.Button(g, text="Uporabi izbrani načrt",
+                   command=uporabi).pack(side="left")
+        ttk.Button(g, text="Odstrani izbiro (samodejno)",
+                   command=odstrani).pack(side="left", padx=8)
+        ttk.Button(g, text="Zapri", command=okno.destroy).pack(side="right")
 
     def _nova_revizija(self):
         """Nova revizija z diff povzetkom (načrt 7) — „en model — ena revizija“.

@@ -51,7 +51,8 @@ PRICAKOVANO = {
                "Preprosti način", "Preklopi temo"],
     "Orodja": ["Izberi fotografijo…", "Meri s slike (pomožno merjenje)",
                "Avtomatska skica (iz foto)", "Statični pregled",
-               "Nova vrsta (pilot)…", "Odpiši ostanke"],
+               "Nova vrsta (pilot)…", "Primerjaj načrte razreza…",
+               "Odpiši ostanke"],
     "Pomoč": ["Čarovnik (voden vnos)", "Preveri posodobitev", "O programu"],
 }
 

@@ -318,3 +318,19 @@ def test_bilanca_vseh_strategij():
         n.preveri_bilanco()                       # AssertionError = kršitev
         for t in n.traki:
             assert abs(t.bilanca_napaka()) < 1e-6
+
+def test_strojna_omejitev_rezov():
+    """max_rezov: konservativno — n kosov na trak ≤ max_rezov (B)."""
+    o = OmejitveReza(kerf=3, max_rezov=2)
+    n = razrez_nacrt([("K1", 400), ("K2", 400), ("K3", 400), ("K4", 400),
+                      ("K5", 400)], [2000], o)
+    _bilanca(n)
+    for t in n.traki:
+        assert len(t.kosi) <= 2
+        assert t.rezi <= 2
+    o1 = OmejitveReza(kerf=3, max_rezov=1)
+    n1 = razrez_nacrt([("K1", 400), ("K2", 400)], [2000], o1)
+    for t in n1.traki:
+        assert len(t.kosi) == 1             # vsak kos svoj trak
+    with pytest.raises(ValueError, match="max_rezov"):
+        razrez_nacrt([("K1", 100)], [2000], OmejitveReza(max_rezov=0))
