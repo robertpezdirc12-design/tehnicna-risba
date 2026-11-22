@@ -298,3 +298,51 @@ def test_nova_vrsta_pilot_okno(tmp_path, monkeypatch):
                                            "nova_vrsta_predogled.png"))
     finally:
         app.destroy()
+
+
+def test_meni_vsebuje_vse_funkcije():
+    """Zahteva uporabnika: funkcije v SPUSTNIH MENIJIH, ne razmetane po
+    ekranu — a vse morajo ostati dosegljive."""
+    import tkinter as tk
+    try:
+        app = vmesnik.App()
+    except tk.TclError:
+        pytest.skip("Tk okolje ni na voljo")
+    try:
+        meni = app.nametowidget(app.cget("menu"))
+        nizi = [meni.entrycget(i, "label")
+                for i in range(meni.index("end") + 1)
+                if meni.type(i) == "cascade"]
+        assert nizi == ["Datoteka", "Urejanje", "Pogled", "Orodja", "Pomoč"]
+        vsebina = {}
+        for i in range(meni.index("end") + 1):
+            if meni.type(i) != "cascade":
+                continue
+            pod = app.nametowidget(meni.entrycget(i, "menu"))
+            vsebina[meni.entrycget(i, "label")] = [
+                pod.entrycget(j, "label")
+                for j in range(pod.index("end") + 1)
+                if pod.type(j) == "command"]
+        nujne = {
+            "Datoteka": ["Odpri projekt…", "Shrani projekt (.yaml)",
+                         "NARIŠI RISBO", "Odpri PDF", "Izvozi DXF",
+                         "CNC (CSV + G-code)", "Naročilo (kopiraj)",
+                         "Ponudba (PDF)"],
+            "Urejanje": ["Razveljavi", "Ponovi"],
+            "Pogled": ["Cel zaslon", "3D predogled", "Preklopi temo"],
+            "Orodja": ["Meri s slike (pomožno merjenje)",
+                       "Avtomatska skica (iz foto)", "Statični pregled",
+                       "Nova vrsta (pilot)…", "Odpiši ostanke"],
+            "Pomoč": ["Čarovnik (voden vnos)", "Preveri posodobitev",
+                      "O programu"],
+        }
+        for kljuc, seznam in nujne.items():
+            for n in seznam:
+                assert n in vsebina[kljuc], f"{kljuc} manjka: {n}"
+        # upravljanje stanja deluje prek adapterjev (kot prej pri gumbih)
+        assert app.btn_ost["state"] == "disabled"
+        app.btn_ost.config(state="normal")
+        assert app.btn_ost["state"] == "normal"
+        app.btn_ost.config(state="disabled")
+    finally:
+        app.destroy()

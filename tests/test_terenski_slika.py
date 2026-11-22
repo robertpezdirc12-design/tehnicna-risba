@@ -222,3 +222,32 @@ def test_gumb_vstavi_sliko(tmp_path):
     finally:
         fd.askopenfilename = stara
         u.destroy()
+
+
+def test_terenski_meni():
+    """Datotečne/urejevalne funkcije so v menijih (ne razmetane po ekranu)."""
+    import tkinter as tk
+    try:
+        import terenski_gui as tg
+        u = tg.Urejevalnik()
+    except tk.TclError:
+        pytest.skip("Tk okolje ni na voljo")
+    try:
+        meni = u.nametowidget(u.cget("menu"))
+        vsebina = {}
+        for i in range(meni.index("end") + 1):
+            if meni.type(i) != "cascade":
+                continue
+            pod = u.nametowidget(meni.entrycget(i, "menu"))
+            vsebina[meni.entrycget(i, "label")] = [
+                pod.entrycget(j, "label")
+                for j in range(pod.index("end") + 1)
+                if pod.type(j) == "command"]
+        assert vsebina["Datoteka"] == ["Nova", "Odpri…", "Shrani",
+                                       "Shrani kot…", "PDF…", "Predogled",
+                                       "Tiskaj"]
+        assert "Vstavi sliko…" in vsebina["Vstavi"]
+        assert "Razveljavi" in vsebina["Urejanje"]
+        assert "Zavrti 45°" in vsebina["Urejanje"]
+    finally:
+        u.destroy()

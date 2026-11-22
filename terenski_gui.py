@@ -59,11 +59,47 @@ class Urejevalnik(tk.Tk):
         self._zacetni_element = None
         self._zadnja_tocka = None
 
+        self._zgradi_meni()
         self._zgradi_ui()
         self._narisi()
         self.protocol("WM_DELETE_WINDOW", self._zapri)
 
     # ------------------------------------------------------------------ UI
+    def _zgradi_meni(self):
+        """Spustni meniji — datotečne in urejevalne funkcije NISO več
+        razmetane po orodnih vrsticah (odpre se tisto, kar potrebuješ)."""
+        meni = tk.Menu(self)
+
+        d = tk.Menu(meni, tearoff=0)
+        d.add_command(label="Nova", command=self._nova)
+        d.add_command(label="Odpri…", command=self._odpri)
+        d.add_command(label="Shrani", command=self._shrani)
+        d.add_command(label="Shrani kot…", command=self._shrani_kot)
+        d.add_separator()
+        d.add_command(label="PDF…", command=self._pdf)
+        d.add_command(label="Predogled", command=self._predogled)
+        d.add_command(label="Tiskaj", command=self._tiskaj)
+        meni.add_cascade(label="Datoteka", menu=d)
+
+        u = tk.Menu(meni, tearoff=0)
+        u.add_command(label="Razveljavi", accelerator="Ctrl+Z",
+                      command=self._razveljavi)
+        u.add_command(label="Ponovi", command=self._ponovi)
+        u.add_separator()
+        u.add_command(label="Podvoji", command=self._podvoji)
+        u.add_command(label="Izbriši", command=self._izbrisi)
+        u.add_separator()
+        u.add_command(label="Zavrti 45°", command=self._zavrti)
+        u.add_command(label="Večje", command=lambda: self._spremeni(1.25))
+        u.add_command(label="Manjše", command=lambda: self._spremeni(0.8))
+        meni.add_cascade(label="Urejanje", menu=u)
+
+        v = tk.Menu(meni, tearoff=0)
+        v.add_command(label="Vstavi sliko…", command=self._vstavi_sliko)
+        meni.add_cascade(label="Vstavi", menu=v)
+
+        self.config(menu=meni)
+
     def _zgradi_ui(self):
         pas = tk.Frame(self)
         pas.pack(side="top", fill="x", padx=4, pady=2)
@@ -78,15 +114,9 @@ class Urejevalnik(tk.Tk):
         tk.Label(pas2, text="Barva:").pack(side="left")
         ttk.Combobox(pas2, textvariable=self.barva, values=list(tl.BARVE),
                      width=8, state="readonly").pack(side="left")
-        tk.Button(pas2, text="Vstavi sliko…", command=self._vstavi_sliko)\
-            .pack(side="left", padx=2)
-        tk.Button(pas2, text="Razveljavi", command=self._razveljavi).pack(side="left", padx=2)
-        tk.Button(pas2, text="Ponovi", command=self._ponovi).pack(side="left")
-        tk.Button(pas2, text="Podvoji", command=self._podvoji).pack(side="left", padx=2)
-        tk.Button(pas2, text="Zavrti 45°", command=self._zavrti).pack(side="left")
-        tk.Button(pas2, text="Večje", command=lambda: self._spremeni(1.25)).pack(side="left", padx=2)
-        tk.Button(pas2, text="Manjše", command=lambda: self._spremeni(0.8)).pack(side="left")
-        tk.Button(pas2, text="Izbriši", command=self._izbrisi).pack(side="left", padx=2)
+        tk.Label(pas2, text="(datotečne in urejevalne funkcije so v "
+                 "menijih: Datoteka • Urejanje • Vstavi)",
+                 fg="#888888").pack(side="left", padx=10)
 
         pas3 = tk.Frame(self)
         pas3.pack(side="top", fill="x", padx=4, pady=2)
@@ -120,14 +150,6 @@ class Urejevalnik(tk.Tk):
                        command=self._nastavitve).pack(side="left")
         tk.Checkbutton(pas3, text="Okvir", variable=self.okvir,
                        command=self._nastavitve).pack(side="left")
-
-        pas4 = tk.Frame(self)
-        pas4.pack(side="top", fill="x", padx=4, pady=2)
-        for bes, ukaz in [("Nova", self._nova), ("Odpri…", self._odpri),
-                          ("Shrani", self._shrani), ("Shrani kot…", self._shrani_kot),
-                          ("PDF…", self._pdf), ("Predogled", self._predogled),
-                          ("Tiskaj", self._tiskaj)]:
-            tk.Button(pas4, text=bes, command=ukaz).pack(side="left", padx=2)
 
         self.platno = tk.Canvas(self, bg="white", highlightthickness=1,
                                 highlightbackground="#888888")

@@ -474,6 +474,41 @@ class Carovnik(tk.Toplevel):
             self._pokazi()
 
 
+class MeniPostavka:
+    """Menijska postavka, ki se vede kot gumb (.config(state/text), ["state"]).
+
+    Logika omogočanja/onemogočanja (btn_pdf, btn_cel, btn_nar, btn_ost)
+    ostane NESPREMENJENA — le da cilj ni gumb na ekranu, ampak postavka
+    v spustnem meniju (zahteva: „nič razmetanega po ekranu").
+    """
+
+    def __init__(self, meni, indeks):
+        self.meni = meni
+        self.indeks = indeks
+
+    def config(self, **kw):
+        if "state" in kw:
+            self.meni.entryconfig(self.indeks, state=kw["state"])
+        if "text" in kw:
+            self.meni.entryconfig(self.indeks, label=kw["text"])
+
+    configure = config
+
+    def __getitem__(self, kljuc):
+        if kljuc == "state":
+            return str(self.meni.entrycget(self.indeks, "state"))
+        raise KeyError(kljuc)
+
+    # preklop načina kliče grid()/grid_remove() — za meni to pomeni
+    # omogočeno/onemogočeno postavko (v preprostem načinu napredne
+    # funkcije niso na voljo)
+    def grid(self, **kw):
+        self.meni.entryconfig(self.indeks, state="normal")
+
+    def grid_remove(self):
+        self.meni.entryconfig(self.indeks, state="disabled")
+
+
 class NovaVrstaOkno(tk.Toplevel):
     """Pilot novih vrst ograj (F4, issue #5): LESENA VERTIKALNA.
 
@@ -596,6 +631,7 @@ class App(tk.Tk):
 
     # ------------------------------------------------------------- gradnja
     def _zgradi(self):
+        self._zgradi_meni()
         tk.Label(self, text="GENERATOR TEHNIČNE RISBE",
                  font=("Segoe UI", 15, "bold")).pack(pady=(12, 0))
         tk.Label(self, text="Balkonska ograja iz lamel — vpiši mere in nariši (A3 PDF za tisk)",
@@ -615,21 +651,6 @@ class App(tk.Tk):
                         "(mere, fotografija, NARIŠI)",
                         variable=self.st_preprost,
                         command=self._preklopi_nacin).pack(side="right")
-        # Plan D: undo/redo
-        self.btn_ponovi = ttk.Button(fr_p, text="↪ Ponovi",
-                                     command=self._ponovi, width=9)
-        self.btn_ponovi.pack(side="right", padx=(0, 6))
-        self.btn_razveljavi = ttk.Button(fr_p, text="↩ Razveljavi",
-                                         command=self._razveljavi, width=11)
-        self.btn_razveljavi.pack(side="right", padx=(0, 2))
-        ttk.Button(fr_p, text="✦ ČAROVNIK",
-                   command=self._carovnik).pack(side="right", padx=(0, 8))
-        # Plan 5: preverjanje posodobitev (GitHub Releases, neblokirajoče)
-        ttk.Button(fr_p, text="⟳ Posodobitev", command=self._preveri_posodobitev,
-                   width=13).pack(side="right", padx=(0, 6))
-        # Plan 4: preklop teme (svetla/temna)
-        ttk.Button(fr_p, text="◐ Tema", command=self._preklopi_temo,
-                   width=8).pack(side="right", padx=(0, 6))
 
         zg = ttk.Frame(self, padding=(14, 4))
         zg.pack(fill="x")
@@ -775,39 +796,12 @@ class App(tk.Tk):
             activeforeground="white", font=("Segoe UI", 11, "bold"),
             padx=18, pady=6, relief="flat", cursor="hand2")
         self.btn_narisi.pack(side="left")
-        self.btn_pdf = tk.Button(
-            fb, text="ODPRI PDF", command=self._odpri_pdf, state="disabled",
-            font=("Segoe UI", 10, "bold"), padx=14, pady=6, cursor="hand2")
-        self.btn_pdf.pack(side="left", padx=10)
-        self.btn_nar = ttk.Button(fb, text="NAROČILO (kopiraj)",
-                                  state="disabled",
-                                  command=self._narocilo_kopiraj)
-        self.btn_nar.pack(side="right", padx=8)
-        ttk.Button(fb, text="PONUDBA (PDF)",
-                   command=self._ponudba_pdf).pack(side="right", padx=(0, 4))
-        ttk.Button(fb, text="3D PREDGLED",
-                   command=self._3d_predogled).pack(side="right", padx=(0, 4))
-        ttk.Button(fb, text="STATIČNI PREGLED",
-                   command=self._statika_pregled).pack(side="right", padx=(0, 4))
-        ttk.Button(fb, text="NOVA VRSTA (pilot)",
-                   command=self._nova_vrsta_okno).pack(side="right", padx=(0, 4))
-        self.btn_ost = ttk.Button(fb, text="ODPIŠI OSTANKE", state="disabled",
-                                  command=self._odpisi_ostanke)
-        self.btn_ost.pack(side="right")
-        ttk.Button(fb, text="SHRANI PROJEKT (.yaml)",
-                   command=self._shrani_projekt).pack(side="right")
-        ttk.Button(fb, text="ODPRI PROJEKT…",
-                   command=self._odpri_projekt).pack(side="right", padx=(0, 4))
-        ttk.Button(fb, text="IZVOZI DXF", command=self._izvozi_dxf)\
-            .pack(side="right", padx=(0, 6))
-        ttk.Button(fb, text="CNC (CSV + G-code)",
-                   command=self._cnc_izvoz).pack(side="right", padx=(0, 4))
-        self.btn_cel = ttk.Button(fb, text="CEL ZASLON", state="disabled",
-                                  command=self._cel_zaslon)
-        self.btn_cel.pack(side="right", padx=10)
         self.status = tk.Label(fb, text="Pripravljen.", fg="#555555",
                                font=("Segoe UI", 9))
         self.status.pack(side="right", padx=14)
+        tk.Label(fb, text="Ostalo je v menijih zgoraj: Datoteka • Urejanje • "
+                 "Pogled • Orodja • Pomoč",
+                 fg="#888888", font=("Segoe UI", 8)).pack(side="left", padx=12)
 
         # ---- ŽIVI POVZETEK (UI/UX Plan A) ----
         fz = ttk.LabelFrame(zg, text="ŽIVI POVZETEK", padding=8)
@@ -1517,6 +1511,106 @@ class App(tk.Tk):
         if "razmak_nosilcev" in self.polja:
             self.polja["razmak_nosilcev"][0].config(
                 text="Razmak stebrov (mm):" if pok else "Razmak nosilcev (mm):")
+
+    def _meni_postavka(self, meni, label, ukaz, pospesek=None,
+                       stanje="normal"):
+        """Dodaj postavko v meni in vrni adapter (state/text kot pri gumbu)."""
+        kw = {"label": label, "command": ukaz, "state": stanje}
+        if pospesek:
+            kw["accelerator"] = pospesek
+        meni.add_command(**kw)
+        return MeniPostavka(meni, meni.index("end"))
+
+    def _zgradi_meni(self):
+        """Spustni meniji — vse funkcije po logiki, nič razmetanega po ekranu.
+
+        Datoteka = izdelava/izpisi • Urejanje = razveljavi/ponovi •
+        Pogled = prikaz in tema • Orodja = meritve, statika, piloti •
+        Pomoč = čarovnik, posodobitve, o programu.
+        """
+        meni = tk.Menu(self)
+
+        # ---- Datoteka: projekt in izpisi ----
+        d = tk.Menu(meni, tearoff=0)
+        d.add_command(label="Odpri projekt…", accelerator="Ctrl+O",
+                      command=self._odpri_projekt)
+        d.add_command(label="Shrani projekt (.yaml)", accelerator="Ctrl+S",
+                      command=self._shrani_projekt)
+        d.add_separator()
+        d.add_command(label="NARIŠI RISBO", accelerator="Ctrl+N",
+                      command=self._narisi)
+        d.add_separator()
+        self.btn_pdf = self._meni_postavka(
+            d, "Odpri PDF", self._odpri_pdf, "Ctrl+P", stanje="disabled")
+        d.add_command(label="Izvozi DXF", accelerator="Ctrl+E",
+                      command=self._izvozi_dxf)
+        d.add_command(label="CNC (CSV + G-code)", command=self._cnc_izvoz)
+        self.btn_nar = self._meni_postavka(
+            d, "Naročilo (kopiraj)", self._narocilo_kopiraj,
+            stanje="disabled")
+        d.add_command(label="Ponudba (PDF)", command=self._ponudba_pdf)
+        d.add_separator()
+        d.add_command(label="Izhod", command=self.destroy)
+        meni.add_cascade(label="Datoteka", menu=d)
+
+        # ---- Urejanje: zgodovina ----
+        u = tk.Menu(meni, tearoff=0)
+        self.btn_razveljavi = self._meni_postavka(
+            u, "Razveljavi", self._razveljavi, "Ctrl+Z", stanje="disabled")
+        self.btn_ponovi = self._meni_postavka(
+            u, "Ponovi", self._ponovi, "Ctrl+Y", stanje="disabled")
+        meni.add_cascade(label="Urejanje", menu=u)
+
+        # ---- Pogled: prikaz ----
+        p = tk.Menu(meni, tearoff=0)
+        self.btn_cel = self._meni_postavka(
+            p, "Cel zaslon", self._cel_zaslon, stanje="disabled")
+        p.add_command(label="3D predogled", command=self._3d_predogled)
+        p.add_separator()
+        p.add_command(label="Preklopi temo", command=self._preklopi_temo)
+        meni.add_cascade(label="Pogled", menu=p)
+
+        # ---- Orodja: meritve, analize, skladišče ----
+        o = tk.Menu(meni, tearoff=0)
+        self.polja.setdefault("meri_slike", []).append(
+            self._meni_postavka(o, "Meri s slike (pomožno merjenje)",
+                                self._meri_slike))
+        self.polja.setdefault("meri_slike", []).append(
+            self._meni_postavka(o, "Avtomatska skica (iz foto)",
+                                self._avtomatska_skica))
+        o.add_separator()
+        o.add_command(label="Statični pregled", command=self._statika_pregled)
+        o.add_command(label="Nova vrsta (pilot)…",
+                      command=self._nova_vrsta_okno)
+        o.add_separator()
+        self.btn_ost = self._meni_postavka(
+            o, "Odpiši ostanke", self._odpisi_ostanke, stanje="disabled")
+        meni.add_cascade(label="Orodja", menu=o)
+
+        # ---- Pomoč ----
+        po = tk.Menu(meni, tearoff=0)
+        po.add_command(label="Čarovnik (voden vnos)", command=self._carovnik)
+        po.add_command(label="Preveri posodobitev",
+                       command=self._preveri_posodobitev)
+        po.add_separator()
+        po.add_command(label="O programu", command=self._o_programu)
+        meni.add_cascade(label="Pomoč", menu=po)
+
+        self.config(menu=meni)
+
+    def _o_programu(self):
+        try:
+            import posodobitev
+            verzija = posodobitev.VERZIJA
+        except Exception:
+            verzija = "?"
+        messagebox.showinfo(
+            "O programu",
+            "TehnicnaRisba — generator tehničnih risb\n"
+            f"Verzija: {verzija}\n\n"
+            "Risbe, DXF, CNC, ponudbe — vse lokalno, brez povezave.\n"
+            "Mere so označene z zaupanjem: izmerjeno / izračunano / "
+            "ocenjeno.")
 
     def _preklopi_nacin(self):
         """Preprosti način: skrije napredna polja, pokaže samo osnovno."""
