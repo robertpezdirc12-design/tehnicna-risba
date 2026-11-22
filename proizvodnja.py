@@ -121,7 +121,8 @@ def izracunaj_kolicine(c, rp=None):
     Formule so izločene iz risba.py brez spremembe.
 
     rp: že izračunani razrez (če ga klicatelj ima) — sicer se izračuna.
-    Vrne {"postavke", "narocilo", "ostanki_posodobitev", "kosovnica"}.
+    Vrne {"postavke", "narocilo", "ostanki_posodobitev", "kosovnica",
+    "skupine_reza" (kosi po profilih za CNC), "kerf"}.
     """
     import datetime
     from jedro import traki_nabava
@@ -157,14 +158,15 @@ def izracunaj_kolicine(c, rp=None):
             n_eff = len(kosi_d)
         else:
             n_eff = n_d
+            kosi_d = [(f"D{i + 1}", float(deska_h)) for i in range(n_eff)]
         model = proizvodni_model(c)
         if rp is None:
             rp = razrez_podatki(deska_h, n_eff, c, oznaka="D",
                                 glava="DESKE ŠT.")
         traki = rp["traki"]
         kos_iz_ost = rp["iz_ost_kos"]
+        kos_v: list = []
         if vp["vrata"] or vp["prehodi"]:
-            kos_v = []
             for enota in vp["vrata"] + vp["prehodi"]:
                 for ozn_k, dol, _s, kol, _op, _kl in \
                         enota["kosovnica"]["izdelani"]:
@@ -215,6 +217,8 @@ def izracunaj_kolicine(c, rp=None):
                 for _ in range(int(kol)):
                     kosovnica.append((f"{enota['oznaka']}-{ozn_k}", dol,
                                       "vrata", barva))
+        skupine_reza = [{"oznaka": "DESKE", "kosi": list(kosi_d)},
+                        {"oznaka": "VRATA", "kosi": list(kos_v)}]
         return {"postavke": [
             (f"WPC deske {profil} (nabava: "
              + " + ".join(wpc_postavke) + ")",
@@ -231,7 +235,9 @@ def izracunaj_kolicine(c, rp=None):
                 for vr in vrata_vrstice_potrebscine(vp)))
                 if vp["vrata"] or vp["prehodi"] else ""),
             "ostanki_posodobitev": rp["ostanki_posodobitev"],
-            "kosovnica": kosovnica}
+            "kosovnica": kosovnica,
+            "skupine_reza": skupine_reza,
+            "kerf": kerf}
 
     # ---- prečna (ograja) ----
     sir = m["sirina"]
@@ -256,10 +262,12 @@ def izracunaj_kolicine(c, rp=None):
                                       glava="LAMELE ŠT.")
     elif rp is None:
         rp = razrez_podatki(sir, n, c, oznaka="L", glava="LAMELE ŠT.")
+    if not vp["vrata"] and not vp["prehodi"]:
+        kosi_l = [(f"L{i + 1}", float(sir)) for i in range(n)]
     traki = rp["traki"]
     kos_iz_ost = rp["iz_ost_kos"]
+    kos_v = []                       # tip je naveden že zgoraj (ista funkcija)
     if vp["vrata"] or vp["prehodi"]:
-        kos_v = []
         for enota in vp["vrata"] + vp["prehodi"]:
             for ozn_k, dol, _s, kol, _op, _kl in \
                     enota["kosovnica"]["izdelani"]:
@@ -310,6 +318,8 @@ def izracunaj_kolicine(c, rp=None):
                                   barva))
     wpc_postavke = [f"{B / 1000:.1f} m ({t} kos)"
                     for B, t in traki_nabava(traki)]
+    skupine_reza = [{"oznaka": "LAMELE", "kosi": list(kosi_l)},
+                    {"oznaka": "VRATA", "kosi": list(kos_v)}]
     kolicine = {"postavke": [
         (f"WPC deske {profil} (nabava: " + " + ".join(wpc_postavke) + ")",
          f"{fmt(por_m)} m", "m", "wpc_deska_m", por_m),
@@ -323,6 +333,8 @@ def izracunaj_kolicine(c, rp=None):
         "narocilo": "\n".join(nar),
         "ostanki_posodobitev": rp["ostanki_posodobitev"],
         "kosovnica": kosovnica,
+        "skupine_reza": skupine_reza,
+        "kerf": kerf,
     }
     if vp["vrata"] or vp["prehodi"]:
         kolicine["postavke"] += vrata_vrstice_kolicin(vp)
@@ -331,7 +343,9 @@ def izracunaj_kolicine(c, rp=None):
             for vr in vrata_vrstice_potrebscine(vp))
     return {"postavke": kolicine["postavke"], "narocilo": kolicine["narocilo"],
             "ostanki_posodobitev": kolicine["ostanki_posodobitev"],
-            "kosovnica": kolicine["kosovnica"]}
+            "kosovnica": kolicine["kosovnica"],
+            "skupine_reza": kolicine["skupine_reza"],
+            "kerf": kolicine["kerf"]}
 
 
 def kolicina_z_enoto(kol_str, enota):

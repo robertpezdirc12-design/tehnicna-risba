@@ -175,3 +175,126 @@ def test_meri_slike_dvojna_korenina(tmp_path):
         m.destroy()
     finally:
         app.destroy()
+
+
+def test_odpri_projekt_roundtrip(tmp_path):
+    """Projekt je bil doslej mogoče le SHRANITI — vmesnik ga ni mogel
+    znova odpreti. Zdaj: _zberi_cfg -> YAML -> _odpri_projekt -> polja."""
+    import tkinter as tk
+    import tkinter.filedialog as fd
+    import tkinter.messagebox as mb
+    import yaml
+    try:
+        app = vmesnik.App()
+    except tk.TclError:
+        pytest.skip("Tk okolje ni na voljo")
+    stare = (fd.askopenfilename, mb.showinfo)
+    try:
+        app.v["ime"].set("Projekt X")
+        app.v["sirina"].set("3333")
+        app.vrata_sez = [{"tip": "enokrilna", "x": 100, "sirina": 900,
+                          "visina": 1500, "smer": "desno-navzven",
+                          "tip_rocaja": "kljukica",
+                          "tip_kljucavnice": "cilinder"}]
+        cfg = app._zberi_cfg()
+        pot = str(tmp_path / "projekt.yaml")
+        with open(pot, "w", encoding="utf-8") as f:
+            yaml.safe_dump(cfg, f, allow_unicode=True, sort_keys=False)
+        # "umazan" vnos pred odpiranjem
+        app.v["sirina"].set("1111")
+        app.v["ime"].set("Drugo")
+        app.vrata_sez = []
+        fd.askopenfilename = lambda *a, **k: pot
+        mb.showinfo = lambda *a, **k: "ok"
+        app._odpri_projekt()
+        app.update()
+        assert app.v["sirina"].get() == "3333", "polja morajo biti obnovljena"
+        assert app.v["ime"].get() == "Projekt X"
+        assert len(app.vrata_sez) == 1, "vrata morajo biti obnovljena"
+    finally:
+        fd.askopenfilename, mb.showinfo = stare
+        app.destroy()
+
+
+def test_cnc_izvoz_iz_vmesnika(tmp_path):
+    """CNC izvoz (CSV + G-code) iz vmesnika — skupine LOČENE po profilih
+    (modul cnc.py je bil prej popolnoma nedosegljiv iz vmesnika)."""
+    import os
+    import tkinter as tk
+    import tkinter.messagebox as mb
+    try:
+        app = vmesnik.App()
+    except tk.TclError:
+        pytest.skip("Tk okolje ni na voljo")
+    stare = (mb.showinfo, mb.showerror)
+    try:
+        base = str(tmp_path / "CNC-001")
+        app.v["izhod"].set(base + ".pdf")
+        app.v["sirina"].set("3000")
+        app.v["visina"].set("1850")
+        app.v["odcep"].set("250")
+        app.vrata_sez = [{"tip": "enokrilna", "x": 200, "sirina": 900,
+                          "visina": 1500, "smer": "desno-navzven",
+                          "tip_rocaja": "kljukica",
+                          "tip_kljucavnice": "cilinder"}]
+        mb.showinfo = lambda *a, **k: "ok"
+        mb.showerror = lambda *a, **k: (_ for _ in ()).throw(
+            AssertionError(a))
+        app._cnc_izvoz()
+        app.update()
+        for ozn in ("lamele", "vrata"):
+            assert os.path.isfile(f"{base}-cnc-{ozn}.csv"), ozn
+            assert os.path.isfile(f"{base}-cnc-{ozn}.nc"), ozn
+        with open(f"{base}-cnc-lamele.nc", encoding="utf-8") as f:
+            nc = f.read()
+        assert "G21" in nc, "G-code mora biti v mm"
+        assert "informativni" in nc.lower(), "pošteno opozorilo operaterju"
+        with open(f"{base}-cnc-vrata.csv", encoding="utf-8") as f:
+            vrata = f.read()
+        with open(f"{base}-cnc-lamele.csv", encoding="utf-8") as f:
+            lamele = f.read()
+        assert "V1-" in vrata, "vratni kosi morajo biti v svojem CSV"
+        assert "V1-" not in lamele, "profila se NE smeta mešati"
+    finally:
+        mb.showinfo, mb.showerror = stare
+        app.destroy()
+
+
+def test_nova_vrsta_pilot_okno(tmp_path, monkeypatch):
+    """Pilot 'lesena vertikalna' (F4, issue #5) je bil nedosegljiv iz
+    vmesnika — zdaj ima okno s polji iz deklarativnih opisov (U3)."""
+    import os
+    import tkinter as tk
+    import tkinter.messagebox as mb
+    try:
+        app = vmesnik.App()
+    except tk.TclError:
+        pytest.skip("Tk okolje ni na voljo")
+    try:
+        import nova_vrsta
+        okno = vmesnik.NovaVrstaOkno(app)
+        okno.update()
+        assert set(okno.v) == {p[0] for p in nova_vrsta.POLJA}, \
+            "polja morajo priti iz opisov POLJA"
+        sporocila = []
+        stare = (mb.showinfo, mb.showerror)
+
+        def _info(*a, **k):
+            sporocila.append(str(a[-1]))
+            return "ok"
+
+        def _napaka(*a, **k):
+            sporocila.append("NAPAKA: " + str(a[-1]))
+
+        mb.showinfo = _info
+        mb.showerror = _napaka
+        try:
+            okno._pokazi_kolicine()
+            assert any("Deske:" in s for s in sporocila), "količine morajo priti"
+            okno._predogled()
+        finally:
+            mb.showinfo, mb.showerror = stare
+        assert os.path.isfile(os.path.join(os.environ.get("TEMP", "."),
+                                           "nova_vrsta_predogled.png"))
+    finally:
+        app.destroy()

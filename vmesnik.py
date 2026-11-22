@@ -474,6 +474,82 @@ class Carovnik(tk.Toplevel):
             self._pokazi()
 
 
+class NovaVrstaOkno(tk.Toplevel):
+    """Pilot novih vrst ograj (F4, issue #5): LESENA VERTIKALNA.
+
+    Polja se generirajo iz deklarativnih opisov nova_vrsta.POLJA —
+    nič polj brez oznak (U3). Pilot je namenoma ločen od glavnih predlog
+    in ne spreminja cevovoda risbe; tukaj je VIDEN in preizkusljiv.
+    """
+
+    def __init__(self, master, zacetne_mere=None):
+        super().__init__(master)
+        self.title("Nova vrsta (pilot) — lesena vertikalna")
+        self.resizable(False, False)
+        import nova_vrsta
+        self.nv = nova_vrsta
+        self.v = {}
+        okvir = ttk.LabelFrame(
+            self, text="MERE (oznake generirane iz opisa polj)", padding=8)
+        okvir.pack(fill="x", padx=10, pady=8)
+        zacetne = zacetne_mere or {}
+        for i, (ime, oznaka, enota, privzeto, opis) in enumerate(
+                nova_vrsta.POLJA):
+            ttk.Label(okvir, text=f"{oznaka} [{enota}]").grid(
+                row=i, column=0, sticky="w", pady=1)
+            var = tk.StringVar(value=str(zacetne.get(ime, privzeto)))
+            self.v[ime] = var
+            ttk.Entry(okvir, textvariable=var, width=10).grid(
+                row=i, column=1, padx=4)
+            ttk.Label(okvir, text=opis, foreground="#888888").grid(
+                row=i, column=2, sticky="w")
+        gumbi = ttk.Frame(self)
+        gumbi.pack(fill="x", padx=10, pady=(0, 10))
+        ttk.Button(gumbi, text="KOLIČINE",
+                   command=self._pokazi_kolicine).pack(side="left")
+        ttk.Button(gumbi, text="PREDLOGLED (PNG)",
+                   command=self._predogled).pack(side="left", padx=6)
+
+    def _mere(self):
+        mere = {}
+        for (ime, _o, _e, _p, _op) in self.nv.POLJA:
+            try:
+                mere[ime] = float(self.v[ime].get().replace(",", "."))
+            except ValueError:
+                pass                        # preveri() javi manjkajoče/napačno
+        return mere
+
+    def _pokazi_kolicine(self):
+        napake = self.nv.preveri(self._mere())
+        if napake:
+            messagebox.showerror(
+                "Preveri vnose", "\n".join(str(n) for n in napake),
+                parent=self)
+            return
+        k = self.nv.kolicine(self._mere())
+        vrstice = [
+            f"Deske: {k['n_desk']} kos",
+            f"Polja: {k['n_polj']} • stebri: {k['n_stebrov']}",
+            f"Letve: {k['n_letvi']} kos (skupaj "
+            f"{k['dolzina_letve_skupaj_mm'] / 1000:.2f} m)",
+            f"Vijaki: {k['vijaki']} kos • sidra: {k['sidra']} kos",
+        ]
+        messagebox.showinfo("Količine (pilot)", "\n".join(vrstice),
+                            parent=self)
+
+    def _predogled(self):
+        napake = self.nv.preveri(self._mere())
+        if napake:
+            messagebox.showerror(
+                "Preveri vnose", "\n".join(str(n) for n in napake),
+                parent=self)
+            return
+        pot = os.path.join(os.environ.get("TEMP", "."),
+                           "nova_vrsta_predogled.png")
+        self.nv.preview(self._mere(), pot)
+        CelZaslon(self.master, pot)
+
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -713,13 +789,19 @@ class App(tk.Tk):
                    command=self._3d_predogled).pack(side="right", padx=(0, 4))
         ttk.Button(fb, text="STATIČNI PREGLED",
                    command=self._statika_pregled).pack(side="right", padx=(0, 4))
+        ttk.Button(fb, text="NOVA VRSTA (pilot)",
+                   command=self._nova_vrsta_okno).pack(side="right", padx=(0, 4))
         self.btn_ost = ttk.Button(fb, text="ODPIŠI OSTANKE", state="disabled",
                                   command=self._odpisi_ostanke)
         self.btn_ost.pack(side="right")
         ttk.Button(fb, text="SHRANI PROJEKT (.yaml)",
                    command=self._shrani_projekt).pack(side="right")
+        ttk.Button(fb, text="ODPRI PROJEKT…",
+                   command=self._odpri_projekt).pack(side="right", padx=(0, 4))
         ttk.Button(fb, text="IZVOZI DXF", command=self._izvozi_dxf)\
             .pack(side="right", padx=(0, 6))
+        ttk.Button(fb, text="CNC (CSV + G-code)",
+                   command=self._cnc_izvoz).pack(side="right", padx=(0, 4))
         self.btn_cel = ttk.Button(fb, text="CEL ZASLON", state="disabled",
                                   command=self._cel_zaslon)
         self.btn_cel.pack(side="right", padx=10)
@@ -783,6 +865,7 @@ class App(tk.Tk):
         self.bind_all("<Control-n>", lambda e: self._narisi())
         self.bind_all("<Control-p>", lambda e: self._odpri_pdf())
         self.bind_all("<Control-s>", lambda e: self._shrani_projekt())
+        self.bind_all("<Control-o>", lambda e: self._odpri_projekt())
         self.bind_all("<Control-e>", lambda e: self._izvozi_dxf())
         self.bind_all("<F1>", lambda e: self._pomoc())
 
@@ -1632,6 +1715,79 @@ class App(tk.Tk):
                             "Konture so nominalne (brez kompenzacije "
                             "orodja/kerfa); DXF ne vsebuje G-code.")
 
+    def _cnc_izvoz(self):
+        """Izvoz CNC podatkov: CSV seznami rezov + G-code za žago.
+
+        Skupine kosov pridejo iz proizvodnja.izracunaj_kolicine (EN VIR
+        RESNICE — vsak profil zase, brez mešanja). G-code je INFORMATIVEN
+        in ga mora operater prilagoditi svoji žagi.
+        """
+        try:
+            import cnc
+        except ImportError:
+            messagebox.showerror(
+                "Manjka modul",
+                "Modul cnc.py ni dosegljiv (preveri namestitev).")
+            return
+        try:
+            cfg = self._zberi_cfg()
+        except ValueError as e:
+            messagebox.showerror("Napaka pri vnosu", str(e))
+            return
+        try:
+            kolicine = proizvodnja.izracunaj_kolicine(cfg)
+        except Exception as e:
+            messagebox.showerror("Napaka", f"Izračun kosov ni uspel: {e}")
+            return
+        zaloga = cfg.get("dolzine_deske") or [cfg.get("dolzina_deske", 5800)]
+        kerf = float(cfg.get("kerf", 3.0) or 0.0)
+        base = os.path.splitext(cfg.get("izhod") or "projekt.pdf")[0]
+        barva = cfg.get("barva") or ""
+        narejeno = []
+        for sk in (kolicine.get("skupine_reza") or []):
+            if not sk.get("kosi"):
+                continue
+            ozn = sk["oznaka"].lower()
+            csv_pot = f"{base}-cnc-{ozn}.csv"
+            nc_pot = f"{base}-cnc-{ozn}.nc"
+            try:
+                cnc.izvozi_cutlist(sk["kosi"], zaloga, kerf, csv_pot,
+                                   barva=barva, profil=sk["oznaka"])
+                cnc.izvozi_gcode(sk["kosi"], zaloga, kerf, nc_pot,
+                                 barva=barva, profil=sk["oznaka"])
+            except Exception as e:
+                messagebox.showerror("Napaka", f"CNC izvoz ni uspel: {e}")
+                return
+            narejeno += [csv_pot, nc_pot]
+        if not narejeno:
+            messagebox.showinfo("CNC", "Ni kosov za izvoz.")
+            return
+        self.status.config(
+            text="CNC izvoz: " + ", ".join(os.path.basename(p)
+                                          for p in narejeno))
+        messagebox.showinfo(
+            "CNC izvoz",
+            "Izvoženo:\n" + "\n".join(narejeno) +
+            "\n\nPOZOR: G-code je INFORMATIVEN — operater ga mora "
+            "prilagoditi svoji žagi (ni univerzalnega standarda za "
+            "tračne žage). Konture so nominalne (brez kompenzacije orodja).")
+
+    def _nova_vrsta_okno(self):
+        """Pilot novih vrst ograj (F4, issue #5) — lesena vertikalna."""
+        try:
+            import nova_vrsta  # noqa: F401
+        except ImportError as e:
+            messagebox.showerror("Manjka modul",
+                                 f"nova_vrsta ni dosegljiva: {e}")
+            return
+        zacetne = {}
+        for k, privzeto in (("sirina", 6000.0), ("visina", 1800.0)):
+            try:
+                zacetne[k] = float(self.v[k].get() or privzeto)
+            except ValueError:
+                pass
+        NovaVrstaOkno(self, zacetne_mere=zacetne)
+
     def _klik_predogled(self, e=None):
         """Klik na predogled odpre cel zaslon samo, če je kljukica označena."""
         if self.st_klik.get():
@@ -1676,9 +1832,19 @@ class App(tk.Tk):
             return
         if not isinstance(cfg, dict):
             return
+        self._nalozi_cfg_v_polja(cfg)
+
+    def _nalozi_cfg_v_polja(self, cfg):
+        """Konfiguracija (YAML) → polja vmesnika.
+
+        Skupna pot za obnovitev seje (_nalozi_zadnje) in za odpiranje
+        shranjenega projekta (_odpri_projekt) — ena logika, brez podvajanja.
+        """
 
         def nast(kljuc, vrednost):
             if vrednost is not None and kljuc in self.v:
+                if isinstance(vrednost, float) and vrednost.is_integer():
+                    vrednost = int(vrednost)   # 3333.0 -> '3333', ne '3333.0'
                 self.v[kljuc].set(str(vrednost))
 
         for k in ("ime", "risba_st", "izdelal", "podjetje", "pregledal",
@@ -1766,6 +1932,36 @@ class App(tk.Tk):
             "Shranjeno",
             f"Nastavitve shranjene:\n{pot}\n\nIsto risbo narediš tudi iz "
             f"ukazne vrstice:\npython risba.py {os.path.basename(pot)}")
+
+    def _odpri_projekt(self):
+        """Odpri shranjen projekt (.yaml) — povratna pot '_shrani_projekt'.
+
+        Prej je bilo mogoče projekt le SHRANITI — vmesnik ga ni mogel
+        znova odpreti (le ukazna vrstica 'python risba.py projekt.yaml').
+        """
+        pot = filedialog.askopenfilename(
+            filetypes=[("Projekt (YAML)", "*.yaml *.yml")],
+            title="Odpri projekt")
+        if not pot:
+            return
+        try:
+            with open(pot, encoding="utf-8") as f:
+                cfg = yaml.safe_load(f) or {}
+        except Exception as e:
+            messagebox.showerror("Napaka", f"Projekta ni mogoče prebrati: {e}")
+            return
+        if not isinstance(cfg, dict):
+            messagebox.showerror(
+                "Napaka", "Datoteka ni veljaven projekt (.yaml).")
+            return
+        self._nalozi_cfg_v_polja(cfg)
+        self._zivi_osvezi()
+        self.status.config(text=f"Naložen projekt: {os.path.basename(pot)}",
+                           fg="#1b5e20")
+        messagebox.showinfo(
+            "Projekt naložen",
+            f"Nastavitve naložene iz:\n{pot}\n\n"
+            "Za izdelavo risbe klikni NARIŠI RISBO.")
 
 
 if __name__ == "__main__":
