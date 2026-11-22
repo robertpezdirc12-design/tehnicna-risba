@@ -95,3 +95,32 @@ vnosna polja, ne funkcije.
 **Regresijska zaščita:** `tests/test_meni_popolnost.py` — statično
 križanje (noben `command=self.X` brez poti v meniju) + realno menijsko
 drevo obeh vmesnikov.
+
+## Tretji pregled (2026-11-22) — nič lebdečega, vse v opravilni vrstici
+
+Uporabnik: *„vse mora bit v opravilni vrstici, ne lebdeče — vse skrito.“*
+
+**Odstranjeni lebdeči gumbi (vse njihove funkcije so ostale v menijih):**
+
+| Gumb / kontrola | Prej | Zdaj |
+|---|---|---|
+| NARIŠI RISBO | velik gumb na obrazcu | Datoteka → NARIŠI RISBO (Ctrl+N) |
+| Prebrskaj… (fotografija) | gumb | Orodja → Izberi fotografijo… |
+| MERI S SLIKE / AVTOMATSKA SKICA | gumba | Orodja |
+| Dodaj / Uredi / Odstrani vrata | gumbi pod tabelo | Urejanje |
+| Osveži (živ povzetek) | gumb | Pogled → Osveži živ povzetek |
+| Preprosti način | checkbox | Pogled → ✓ Preprosti način |
+| Živo osveževanje | checkbox | Pogled → ✓ Živo osveževanje povzetka |
+| Klik na risbo odpre cel zaslon | checkbox | Pogled → ✓ Klik na risbo… |
+| Terenski: 12 orodij | lebdeča orodna vrstica | Vstavi (radijske, živa kljukica) |
+| Terenski: Barva | lebdeča vrstica | Vstavi → Barva elementa |
+| Terenski: Stran/Orientacija/Merilo/Mreža/Vodila/Okvir | lebdeča vrstica | Pogled (podmeniji + kljukice) |
+
+**Ostaja na obrazcu (so PODATKI, ne funkcije):** vsa vnosna polja,
+comboboxi (Predloga, Barva lamel, Status), tabela VRATA, checkbox
+„Uporabi skladišče ostankov“ (ključ cfg + namig), izpisi (ŽIVI POVZEK,
+PREDGLED) in vrstica stanja.
+
+Menijske kljukice so ŽIVE (isti BooleanVar kot prejšnji checkboxi) —
+preverjeno na posnetku: „✓ Živo osveževanje povzetka“ se ujema s
+stanjem okna.

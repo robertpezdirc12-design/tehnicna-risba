@@ -617,6 +617,8 @@ class App(tk.Tk):
         self.st_preprost = tk.BooleanVar(value=True)   # preprosti način
         # UI/UX Plan A: živi povzetek (debounce osveževanje)
         self.st_zivo = tk.BooleanVar(value=True)
+        # PREDGLED: klik na risbo odpre cel zaslon (meni Pogled)
+        self.st_klik = tk.BooleanVar(value=False)
         self._zivi_id = None
         # UI/UX Plan D: zgodovina (undo/redo)
         self._zgodovina = []
@@ -685,7 +687,8 @@ class App(tk.Tk):
                      lambda e: platno.unbind_all("<MouseWheel>"))
         tk.Label(vsebina, text="GENERATOR TEHNIČNE RISBE",
                  font=("Segoe UI", 15, "bold")).pack(pady=(12, 0))
-        tk.Label(vsebina, text="Balkonska ograja iz lamel — vpiši mere in nariši (A3 PDF za tisk)",
+        tk.Label(vsebina, text="Balkonska ograja iz lamel — vpiši mere in "
+                 "izberi Datoteka → NARIŠI RISBO (A3 PDF za tisk)",
                  fg="#555555").pack(pady=(0, 4))
         fr_p = ttk.Frame(vsebina)
         fr_p.pack(fill="x", padx=14, pady=(0, 4))
@@ -698,10 +701,6 @@ class App(tk.Tk):
         self.cb_pred.pack(side="left")
         self.cb_pred.bind("<<ComboboxSelected>>",
                           lambda e: self._preklopi_predlogo())
-        ttk.Checkbutton(fr_p, text="Preprosti način — pokaži samo osnovno "
-                        "(mere, fotografija, NARIŠI)",
-                        variable=self.st_preprost,
-                        command=self._preklopi_nacin).pack(side="right")
 
         zg = ttk.Frame(vsebina, padding=(14, 4))
         zg.pack(fill="x")
@@ -791,13 +790,7 @@ class App(tk.Tk):
         f3 = ttk.LabelFrame(zg, text="FOTOGRAFIJA IN IZHOD", padding=8)
         f3.grid(row=3, column=0, sticky="ew")
         self._polje(f3, 0, 0, "foto", 52)
-        ttk.Button(f3, text="Prebrskaj…", command=self._brskaj_foto)\
-            .grid(row=0, column=2, sticky="w", padx=4)
         self._polje(f3, 1, 0, "izhod", 52)
-        btn_m = ttk.Button(f3, text="MERI S SLIKE (pomožno merjenje)",
-                           command=self._meri_slike)
-        btn_m.grid(row=1, column=2, sticky="w", padx=4)
-        self.polja.setdefault("meri_slike", []).append(btn_m)
         # predogled vstavljene fotografije (uporabnik vidi, kaj je vnesel)
         self._foto_tk = None
         self.foto_predogled = tk.Label(
@@ -806,10 +799,6 @@ class App(tk.Tk):
             compound="center", justify="center")
         self.foto_predogled.grid(row=0, column=3, rowspan=2, padx=8)
         self.v["foto"].trace_add("write", self._osvezi_foto_predogled)
-        btn_skica = ttk.Button(f3, text="AVTOMATSKA SKICA (iz foto)",
-                               command=self._avtomatska_skica)
-        btn_skica.grid(row=2, column=2, sticky="w", padx=4, pady=(4, 0))
-        self.polja.setdefault("meri_slike", []).append(btn_skica)
         tk.Label(f3, text="avtomatska skica: mere iz fotografije so označene "
                  "z zaupanjem — pred izdelavo PREVERI na objektu",
                  fg="#888888").grid(row=2, column=0, columnspan=2,
@@ -841,43 +830,23 @@ class App(tk.Tk):
             self.tv_vrata.column(sk, width=100 if sk != "tip" else 120,
                                  anchor="w")
         self.tv_vrata.grid(row=0, column=0, columnspan=4, sticky="ew")
-        fb_v = ttk.Frame(self.fv)
-        fb_v.grid(row=1, column=0, columnspan=4, sticky="w", pady=(4, 0))
-        ttk.Button(fb_v, text="Dodaj vrata/prehod",
-                   command=self._vrata_dodaj).pack(side="left")
-        ttk.Button(fb_v, text="Uredi",
-                   command=self._vrata_uredi).pack(side="left", padx=6)
-        ttk.Button(fb_v, text="Odstrani", command=self._vrata_odstrani)\
-            .pack(side="left")
         self.lbl_vrata = tk.Label(self.fv, text="", fg="#b26a00",
                                   wraplength=620, justify="left")
         self.lbl_vrata.grid(row=2, column=0, columnspan=4, sticky="w")
 
-        # ---- GUMBI ----
+        # ---- VRSTICA STANJA (vse akcije so v opravilni vrstici zgoraj) ----
         fb = ttk.Frame(zg, padding=(0, 10))
         fb.grid(row=5, column=0, sticky="ew")
-        self.btn_narisi = tk.Button(
-            fb, text="NARIŠI RISBO", command=self._narisi,
-            bg="#2e7d32", fg="white", activebackground="#1b5e20",
-            activeforeground="white", font=("Segoe UI", 11, "bold"),
-            padx=18, pady=6, relief="flat", cursor="hand2")
-        self.btn_narisi.pack(side="left")
         self.status = tk.Label(fb, text="Pripravljen.", fg="#555555",
                                font=("Segoe UI", 9))
-        self.status.pack(side="right", padx=14)
-        tk.Label(fb, text="Ostalo je v menijih zgoraj: Datoteka • Urejanje • "
-                 "Pogled • Orodja • Pomoč",
-                 fg="#888888", font=("Segoe UI", 8)).pack(side="left", padx=12)
+        self.status.pack(side="left")
+        tk.Label(fb, text="Vse funkcije so v opravilni vrstici: Datoteka • "
+                 "Urejanje • Pogled • Orodja • Pomoč",
+                 fg="#888888", font=("Segoe UI", 8)).pack(side="right", padx=12)
 
         # ---- ŽIVI POVZETEK (UI/UX Plan A) ----
         fz = ttk.LabelFrame(zg, text="ŽIVI POVZETEK", padding=8)
         fz.grid(row=0, column=1, rowspan=6, sticky="n", padx=(12, 0))
-        fr_z = ttk.Frame(fz)
-        fr_z.pack(fill="x")
-        ttk.Checkbutton(fr_z, text="Živo osveževanje",
-                        variable=self.st_zivo).pack(side="left")
-        ttk.Button(fr_z, text="Osveži",
-                   command=self._zivi_osvezi).pack(side="right")
         self.zivi_platno = tk.Canvas(fz, width=280, height=210,
                                      bg="white", highlightthickness=1,
                                      highlightbackground="#cccccc")
@@ -901,10 +870,6 @@ class App(tk.Tk):
         # ---- PREDGLED ----
         self.fp = ttk.LabelFrame(vsebina, text="PREDGLED RISBE", padding=6)
         self.fp.pack(fill="both", expand=True, padx=14, pady=(0, 12))
-        self.st_klik = tk.BooleanVar(value=False)
-        ttk.Checkbutton(self.fp, text="Klik na risbo odpre cel zaslon",
-                        variable=self.st_klik).pack(side="top", anchor="e",
-                                                    padx=6)
         self.predogled = PredogledCanvas(self.fp)
         self.predogled.pack(fill="both", expand=True)
         self.predogled.sporocilo(
@@ -1507,7 +1472,6 @@ class App(tk.Tk):
         except ValueError as e:
             messagebox.showerror("Napaka pri vnosu", str(e))
             return
-        self.btn_narisi.config(state="disabled", text="NARISUJEM…")
         self.status.config(text="Narišem risbo…", fg="#555555")
         threading.Thread(target=self._narisi_nit, args=(cfg,),
                          daemon=True).start()
@@ -1524,7 +1488,6 @@ class App(tk.Tk):
         self.after(0, self._koncano, izhod, png, dodatni, kolicine)
 
     def _napaka(self, sporocilo):
-        self.btn_narisi.config(state="normal", text="NARIŠI RISBO")
         self.status.config(text="Napaka.", fg="#b00020")
         messagebox.showerror("Napaka", sporocilo)
 
@@ -1542,7 +1505,6 @@ class App(tk.Tk):
             self.btn_ost.config(state="normal")
         else:
             self.btn_ost.config(state="disabled")
-        self.btn_narisi.config(state="normal", text="NARIŠI RISBO")
         dok = " + ".join(os.path.basename(p) for p in dodatni)
         opozorila = list(getattr(risba, "ZADNJA_OPOZORILA", []))
         self.status.config(text=f"Napisano: {os.path.basename(izhod)} • {dok} "
@@ -1647,8 +1609,14 @@ class App(tk.Tk):
         p.add_command(label="3D predogled", command=self._3d_predogled)
         p.add_command(label="Osveži živ povzetek", command=self._zivi_osvezi)
         p.add_separator()
-        p.add_command(label="Preklopi preprosti način",
-                      command=self._preklopi_nacin)
+        p.add_checkbutton(label="Živo osveževanje povzetka",
+                          variable=self.st_zivo)
+        p.add_checkbutton(label="Klik na risbo odpre cel zaslon",
+                          variable=self.st_klik)
+        p.add_separator()
+        p.add_checkbutton(label="Preprosti način",
+                          variable=self.st_preprost,
+                          command=self._preklopi_nacin)
         p.add_command(label="Preklopi temo", command=self._preklopi_temo)
         meni.add_cascade(label="Pogled", menu=p)
 
@@ -1710,8 +1678,8 @@ class App(tk.Tk):
             else:
                 f.grid()
         if preprost:
-            self.status.config(text="Preprosti način — kljukica zgoraj "
-                                    "prikaže napredne možnosti.")
+            self.status.config(text="Preprosti način — odkljukaj ga v meniju "
+                                    "Pogled za napredne možnosti.")
         self._zgodovina_odlozi()          # Plan D
 
     # ------------------------------------------------- vrata in prehodi (issue #3)

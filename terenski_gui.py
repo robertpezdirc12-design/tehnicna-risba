@@ -10,7 +10,6 @@ import os
 import tempfile
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog
-from tkinter import ttk
 
 import terenski_list as tl
 
@@ -48,6 +47,14 @@ class Urejevalnik(tk.Tk):
         self.umazano = False
         self.orodje = tk.StringVar(value="izberi")
         self.barva = tk.StringVar(value="crna")
+        # nastavitve strani/pogleda (meni Pogled) — prej v lebdeči vrstici
+        self.stran = tk.StringVar(value=self.dok["nastavitve"]["stran"])
+        self.orientacija = tk.StringVar(
+            value=self.dok["nastavitve"]["orientacija"])
+        self.merilo = tk.StringVar(value=self.dok["nastavitve"]["merilo"])
+        self.mreza = tk.BooleanVar(value=False)
+        self.vodila = tk.BooleanVar(value=False)
+        self.okvir = tk.BooleanVar(value=False)
         self.izbran = None
         self._tk_slike = []          # reference PhotoImage (GC zaščita)
 
@@ -106,61 +113,46 @@ class Urejevalnik(tk.Tk):
             v.add_radiobutton(label=opis, value=oznaka,
                               variable=self.orodje,
                               command=self._zamenjaj_orodje)
+        v.add_separator()
+        b = tk.Menu(v, tearoff=0)
+        for barva in tl.BARVE:
+            b.add_radiobutton(label=barva, value=barva, variable=self.barva)
+        v.add_cascade(label="Barva elementa", menu=b)
         meni.add_cascade(label="Vstavi", menu=v)
+
+        # Pogled: stran, orientacija, merilo, prikazne možnosti (načrt:
+        # nič lebdečih kontrol — vse v opravilni vrstici)
+        p = tk.Menu(meni, tearoff=0)
+        s = tk.Menu(p, tearoff=0)
+        for oznaka in tl.STRANI:
+            s.add_radiobutton(label=oznaka, value=oznaka,
+                              variable=self.stran, command=self._nastavitve)
+        p.add_cascade(label="Stran", menu=s)
+        ori = tk.Menu(p, tearoff=0)
+        for oznaka in tl.ORIENTACIJE:
+            ori.add_radiobutton(label=oznaka, value=oznaka,
+                                variable=self.orientacija,
+                                command=self._nastavitve)
+        p.add_cascade(label="Orientacija", menu=ori)
+        mer = tk.Menu(p, tearoff=0)
+        for oznaka in tl.MERILA:
+            mer.add_radiobutton(label=oznaka, value=oznaka,
+                                variable=self.merilo, command=self._nastavitve)
+        p.add_cascade(label="Merilo", menu=mer)
+        p.add_separator()
+        p.add_checkbutton(label="Mreža", variable=self.mreza,
+                          command=self._nastavitve)
+        p.add_checkbutton(label="Vodila", variable=self.vodila,
+                          command=self._nastavitve)
+        p.add_checkbutton(label="Okvir", variable=self.okvir,
+                          command=self._nastavitve)
+        meni.add_cascade(label="Pogled", menu=p)
 
         self.config(menu=meni)
 
     def _zgradi_ui(self):
-        pas = tk.Frame(self)
-        pas.pack(side="top", fill="x", padx=4, pady=2)
-        tk.Label(pas, text="Orodje:").pack(side="left")
-        for oznaka, opis in ORODJA:
-            tk.Radiobutton(pas, text=opis, value=oznaka, variable=self.orodje,
-                           indicatoron=False, width=12, pady=2,
-                           command=self._zamenjaj_orodje).pack(side="left", padx=1)
-
-        pas2 = tk.Frame(self)
-        pas2.pack(side="top", fill="x", padx=4, pady=2)
-        tk.Label(pas2, text="Barva:").pack(side="left")
-        ttk.Combobox(pas2, textvariable=self.barva, values=list(tl.BARVE),
-                     width=8, state="readonly").pack(side="left")
-        tk.Label(pas2, text="(datotečne in urejevalne funkcije so v "
-                 "menijih: Datoteka • Urejanje • Vstavi)",
-                 fg="#888888").pack(side="left", padx=10)
-
-        pas3 = tk.Frame(self)
-        pas3.pack(side="top", fill="x", padx=4, pady=2)
-        tk.Label(pas3, text="Stran:").pack(side="left")
-        self.stran = tk.StringVar(value=self.dok["nastavitve"]["stran"])
-        self._stran = ttk.Combobox(pas3, textvariable=self.stran, values=list(tl.STRANI),
-                                   width=5, state="readonly")
-        self._stran.pack(side="left")
-        tk.Label(pas3, text="Orientacija:").pack(side="left")
-        self.orientacija = tk.StringVar(value=self.dok["nastavitve"]["orientacija"])
-        self._orientacija = ttk.Combobox(pas3, textvariable=self.orientacija,
-                                         values=list(tl.ORIENTACIJE),
-                                         width=10, state="readonly")
-        self._orientacija.pack(side="left")
-        tk.Label(pas3, text="Merilo:").pack(side="left")
-        self.merilo = tk.StringVar(value=self.dok["nastavitve"]["merilo"])
-        self._merilo = ttk.Combobox(pas3, textvariable=self.merilo, values=list(tl.MERILA),
-                                    width=10, state="readonly")
-        self._merilo.pack(side="left")
-        # sprememba izbire → takoj v dokument (ttk.Combobox v tem okolju nima
-        # možnosti -command; <<ComboboxSelected>> se ne sproži pri programskem
-        # set(), zato _sinhroniziraj_nastavitve ne povzroča povratnih zank)
-        for kombi in (self._stran, self._orientacija, self._merilo):
-            kombi.bind("<<ComboboxSelected>>", self._nastavitve)
-        self.mreza = tk.BooleanVar(value=False)
-        self.vodila = tk.BooleanVar(value=False)
-        self.okvir = tk.BooleanVar(value=False)
-        tk.Checkbutton(pas3, text="Mreža", variable=self.mreza,
-                       command=self._nastavitve).pack(side="left")
-        tk.Checkbutton(pas3, text="Vodila", variable=self.vodila,
-                       command=self._nastavitve).pack(side="left")
-        tk.Checkbutton(pas3, text="Okvir", variable=self.okvir,
-                       command=self._nastavitve).pack(side="left")
-
+        # Vse funkcije in nastavitve so v opravilni vrstici (meniji);
+        # pod platnom ostane le vrstica stanja z opozorilom o merah.
         self.platno = tk.Canvas(self, bg="white", highlightthickness=1,
                                 highlightbackground="#888888")
         self.platno.pack(fill="both", expand=True, padx=4, pady=4)
