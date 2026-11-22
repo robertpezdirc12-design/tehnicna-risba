@@ -242,6 +242,37 @@ def tabela(ax, x0, y_top, sirine, vh, vrste, naslov=None, fs=8.5):
     return y
 
 
+# Splošne tolerance — vrednosti ISO 2768-1, razred m (srednji).
+# JAVNO OBJAVLJENE vrednosti standarda (vir naveden na listu),
+# ne naše meritve — nič se ne izmišlja.
+TOL_LINE = (
+    ("0.5–3", "±0.1", "120–400", "±0.5"),
+    ("3–6", "±0.1", "400–1000", "±0.8"),
+    ("6–30", "±0.2", "1000–2000", "±1.2"),
+    ("30–120", "±0.3", "2000–4000", "±2"),
+)
+TOL_KOTI = ("Koti (kratka stranica): ≤10 ±1° | 10–50 ±0°30′ | "
+            "50–120 ±0°20′ | 120–400 ±0°10′ | >400 ±5′")
+
+
+def blok_toleranc(ax, x0, y_top, sirina=128):
+    """Blok splošnih toleranc (načrt 9) — kota brez ± ni določena.
+
+    Vrednosti: ISO 2768-1, razred m (srednji) — objavljene vrednosti
+    standarda. Kote brez oznake tolerance veljajo po tem bloku.
+    """
+    stolpci = [sirina * 0.34, sirina * 0.16, sirina * 0.34, sirina * 0.16]
+    vrste = [("Mere (mm)", "±", "Mere (mm)", "±")] + list(TOL_LINE)
+    y = tabela(ax, x0, y_top, stolpci, 4.8, vrste,
+               naslov="SPLOŠNE TOLERANCE (ISO 2768-m)", fs=7.5)
+    ax.text(x0 + 1, y - 3.4, TOL_KOTI, fontsize=6.5, ha="left", va="center")
+    ax.text(x0 + 1, y - 7.6,
+            "Kote brez oznake tolerance veljajo po tem bloku "
+            "(vir: ISO 2768-1).",
+            fontsize=6.5, ha="left", va="center", color="#555555")
+    return y - 10.5
+
+
 def opombe_blok(ax, x0, y_top, sirina, opombe,
                 naslov_t="TEHNIČNI PODATKI IN OPOMBE",
                 velikost=8.5, wrap=None):
@@ -692,8 +723,8 @@ def narisi_pokoncna(ax, c):
 
     # ==================== OPOMBE ====================
     opombe = c.get("opombe") or [
-        "Vse mere v mm (tolerance ISO 2768-m); pred izdelavo preveri "
-        "dejanske mere na objektu.",
+        "Vse mere v mm (tolerance ISO 2768-m — glej blok SPLOŠNE "
+        "TOLERANCE); pred izdelavo preveri dejanske mere na objektu.",
         f"Deske: {profil} — WPC (bambus + HDPE), pritrditev z 2 vijaki na "
         "rob deske na nosilno konstrukcijo (pokončna: montažne letve za "
         "deskami); predrtje Ø + 1 mm.",
@@ -706,6 +737,7 @@ def narisi_pokoncna(ax, c):
         "preveri usposobljen strokovnjak.",
     ]
     opombe_blok(ax, 246, 74, 162, opombe)
+    blok_toleranc(ax, 120, 172)          # načrt 9: kota brez ± ni določena
 
     # ==================== ISO NASLOVNI BLOK + REVIZIJE ====================
     datum = c.get("datum") or datetime.date.today().strftime("%d.%m.%Y")
@@ -965,8 +997,8 @@ def narisi_ogrado(ax, c):
 
     # ==================== OPOMBE ====================
     opombe = c.get("opombe") or [
-        "Vse mere v mm (tolerance ISO 2768-m); pred izdelavo preveri "
-        "dejanske mere na objektu.",
+        "Vse mere v mm (tolerance ISO 2768-m — glej blok SPLOŠNE "
+        "TOLERANCE); pred izdelavo preveri dejanske mere na objektu.",
         f"Lamele: {profil} — WPC (bambus + HDPE), 15 let garancije, brez barvanja.",
         "Profili/nosilci: aluminij, prašno barvano (RAL po dogovoru, privzeto RAL 7016).",
         f"Pritrditev: {pritrditev} — pritrdilni material prilagodi "
@@ -977,6 +1009,7 @@ def narisi_ogrado(ax, c):
         "preveri usposobljen strokovnjak.",
     ]
     opombe_blok(ax, 246, 74, 162, opombe)
+    blok_toleranc(ax, 120, 172)          # načrt 9: kota brez ± ni določena
 
     # ==================== ISO NASLOVNI BLOK + REVIZIJE ====================
     datum = c.get("datum") or datetime.date.today().strftime("%d.%m.%Y")
