@@ -343,8 +343,27 @@ def _iso_cel(ax, x, y, w, h, oznaka, vrednost, fs=8.5):
             fontweight="bold", ha="left", va="center", zorder=6)
 
 
+def status_vodni_zig(ax, status):
+    """Statusni žig čez list (načrt 11) — loči osnutek/potrditev od izvedbe.
+
+    Profesionalni listi nosijo žig stanja (FOR APPROVAL / NOT FOR
+    CONSTRUCTION), da se osnutek ne zamenja za izvedbeno risbo.
+    Žig je prosojen (alpha 0.12) in ne moti branja risbe.
+    """
+    zigi = {
+        "V DELU": ("V DELU — OSNUTEK", "#555555", 40),
+        "ZA POTRDITEV": ("ZA POTRDITEV — NI ZA IZDELAVO", "#b00020", 30),
+    }
+    if status in zigi:
+        besedilo, barva, fs = zigi[status]
+        ax.text(210, 148, besedilo, fontsize=fs, color=barva, alpha=0.12,
+                ha="center", va="center", rotation=18, fontweight="bold",
+                zorder=20)
+
+
 def naslovni_blok(ax, p):
     """Glava risbe po vzoru ISO 7200 (desni spodnji kot)."""
+    status_vodni_zig(ax, (p.get("status") or "V DELU").upper())
     x0, x1 = 250, 410
     pravokotnik(ax, x0, 10, x1 - x0, 28, fill="white", lw=1.2)
     # vrstica 4: podjetje | risba št. + revizija
@@ -1221,10 +1240,16 @@ def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki,
     iso_okvir(ax)
     oznaka(ax, 20, 286, "MONTAŽNI LIST (LIST 2/2) — POTREBŠČINE")
     datum = c.get("datum") or datetime.date.today().strftime("%d.%m.%Y")
+    # načrt 11: status/revizija vidna tudi v delavnici in na terenu
+    status_ml = (c.get("status_dokumenta") or "V DELU").upper()
+    rev_ml = (c.get("revizije") or [["A"]])[-1][0]
+    status_vodni_zig(ax, status_ml)
     ax.text(20, 278, f"Naloga: {c['risba_st']}   •   Datum: {datum}",
             fontsize=9, ha="left", va="center")
     ax.text(20, 272, f"Stranka: {c.get('stranka') or '—'}   •   Objekt: "
             f"{c.get('objekt') or '—'}", fontsize=9, ha="left", va="center")
+    ax.text(20, 266, f"STATUS: {status_ml}   •   REV. {rev_ml}",
+            fontsize=9, ha="left", va="center", fontweight="bold")
 
     tabela(ax, 20, 256, [90, 60, 35, 75], 7.0,
            [["NAZIV", "SPECIFIKACIJA", "KOLIČINA", "OPOMBA"], *pot_rows],

@@ -14,6 +14,7 @@ from tkinter import ttk, filedialog, messagebox
 
 import yaml
 
+import jedro
 import proizvodnja
 import posodobitev
 import revizija
@@ -730,6 +731,21 @@ class App(tk.Tk):
         self._polje(f1, 3, 0, "podjetje", 30)
         self._polje(f1, 3, 1, "pregledal", 14)
         self._polje(f1, 3, 2, "odobril", 14)
+        # Status dokumenta (načrt 11) — tok V DELU → ZA POTRDITEV → IZVEDENO;
+        # vrednosti iz jedro.DOVOLJENI_STATUSI (en vir resnice)
+        if "status_dokumenta" not in self.v:
+            self.v["status_dokumenta"] = tk.StringVar(value="V DELU")
+        lbl_s = ttk.Label(f1, text="Status:")
+        lbl_s.grid(row=3, column=6, sticky="e", padx=(0, 4), pady=2)
+        self.cb_status = ttk.Combobox(
+            f1, width=16, state="readonly",
+            textvariable=self.v["status_dokumenta"],
+            values=list(jedro.DOVOLJENI_STATUSI))
+        self.cb_status.grid(row=3, column=7, sticky="w", padx=(0, 12), pady=2)
+        self.cb_status.bind("<<ComboboxSelected>>", self._status_spremenjen)
+        self.polja.setdefault("status_dokumenta", []).extend(
+            [lbl_s, self.cb_status])
+        self._status_prejsnji = "V DELU"
         self._polje(f1, 4, 0, "stranka", 26)
         self._polje(f1, 4, 1, "objekt", 26)
         self._polje(f1, 4, 2, "dobavitelj", 14)
@@ -1458,6 +1474,7 @@ class App(tk.Tk):
             "pregledal": self.v["pregledal"].get().strip() or None,
             "odobril": self.v["odobril"].get().strip() or None,
             "datum": "", "merilo": "auto", "format": "A3",
+            "status_dokumenta": (self.v["status_dokumenta"].get() or None),
             "izhod": izhod, "foto": foto,
             "barva": self.v["barva"].get() or None,
             "profil": self.v["profil"].get().strip() or None,
@@ -2030,6 +2047,10 @@ class App(tk.Tk):
         self.rev_snapshot = (dict(cfg["rev_snapshot"])
                              if isinstance(cfg.get("rev_snapshot"), dict)
                              else None)
+        # Načrt 11: status dokumenta (tok V DELU → ZA POTRDITEV → IZVEDENO)
+        nast("status_dokumenta", cfg.get("status_dokumenta") or "V DELU")
+        self._status_prejsnji = (self.v["status_dokumenta"].get()
+                                 or "V DELU").upper()
         if "predloga" in cfg:
             pl = str(cfg["predloga"]).strip().lower()
             self.v["predloga"].set("pokončna" if pl == "pokončna" else "ograja")
@@ -2070,6 +2091,28 @@ class App(tk.Tk):
     def _odpri_pdf(self):
         if self.pdf_pot:
             os.startfile(self.pdf_pot)
+
+    def _status_spremenjen(self, _e=None):
+        """Statusni tok (načrt 11): IZVEDENO je izjava odgovorne osebe.
+
+        Javni speci: shop risbo odgovorna oseba POTRDI PRED izdelavo;
+        'IZVEDENO' velja šele po terenski potrditvi. Program dejanske
+        izvedbe NE MORE preveriti — zato zahteva izrecno potrditev
+        uporabnika in brez nje status povrne.
+        """
+        nov = (self.v["status_dokumenta"].get() or "").upper()
+        if nov == "IZVEDENO":
+            potrdi = messagebox.askyesno(
+                "Status IZVEDENO",
+                "Status IZVEDENO pomeni, da je delo IZVEDENO in terensko "
+                "PREVERJENO.\n\n"
+                "To je izjava odgovorne osebe — program tega ne more "
+                "preveriti.\n\nAli res potrjuješ izvedbo?")
+            if not potrdi:
+                self.v["status_dokumenta"].set(self._status_prejsnji)
+                return
+        self._status_prejsnji = nov
+        self.status.config(text=f"Status dokumenta: {nov}", fg="#1b5e20")
 
     def _nova_revizija(self):
         """Nova revizija z diff povzetkom (načrt 7) — „en model — ena revizija“.
