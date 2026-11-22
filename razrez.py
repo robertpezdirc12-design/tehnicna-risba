@@ -20,6 +20,8 @@ import os
 import shutil
 import sys
 import tempfile
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple
 
 import yaml
 
@@ -605,3 +607,727 @@ def razrez_kosov_podatki(kosi, c, oznaka="KOS", glava="KOSI ŠT."):
             "kosovnica": r["kosovnica"], "iz_ost_kos": 0,
             "ostanki_posodobitev": posodobitev,
             "preost_kosov": 0, "st_kosov": r["st_kosov"]}
+
+# ============================================================ issue #14 === #
+# Napredni razrez: model dejanske zaloge (A), proizvodne omejitve (B),
+# spodnja meja in status optimalnosti (C), primerjava načrtov (D),
+# skladišče ostankov (E).
+#
+# FIZIČNI MODEL (dokaz — glej docs/issue-14-nacrt.md):
+#   trak B: kosi p1..pn, rezi = n−1 (flush) ALI n (ločen ostanek/odpad).
+#   Bilanca: B = zacetni_odrez + koncni_odrez + Σkosi + rezi·kerf
+#              + ostanek + odpad   (vsota vedno natanko B).
+#   Obstojeci model („vsak kos nosi svoj rez“) je natanko primer z
+#   ločenim ostankom (n rezov) — NOVA definicija odpada NI uvedena:
+#   „odpad_skupaj“ = poraba − Σkosi (kot metrika_reza), razčlenitev na
+#   kerf/odrez/ostanek/odpad pa je ločeno poročana.
+# ======================================================================== #
+
+
+@dataclass(frozen=True)
+class ZalogovnaPostavka:
+    """Postavka dejanske zaloge (issue #14 A) — količinsko omejena."""
+
+    dolzina: float
+    kolicina: Optional[int] = None      # None = neomejeno (nazaj združljivo)
+    material: str = ""
+    profil: str = ""
+    barva: str = ""
+    serija: str = ""
+    vir: str = "zaloga"                 # "zaloga" | "ostanek"
+    oznaka: str = ""
+
+
+@dataclass(frozen=True)
+class Kos:
+    """Kos za razrez — lastnosti določajo združljive surovce."""
+
+    oznaka: str
+    dolzina: float
+    material: str = ""
+    profil: str = ""
+    barva: str = ""
+    serija: str = ""
+
+
+@dataclass(frozen=True)
+class OmejitveReza:
+    """Proizvodne omejitve (issue #14 B) — vezane na stroj/material."""
+
+    kerf: float = 3.0
+    zacetni_odrez: float = 0.0
+    koncni_odrez: float = 0.0
+    min_ostanek: float = MIN_OSTANKA
+    min_dolzina_kosa: float = 0.0
+    max_dolzina_kosa: Optional[float] = None
+    toleranca: float = 0.0
+    politika: str = "odpad"     # "odpad"|"palice"|"cena"|"cas"|"ostanki"
+    cene_palice: Optional[Dict[float, float]] = None
+    cas_reza_mm: float = 0.0
+    cas_menjave: float = 0.0
+
+
+@dataclass
+class Trak:
+    """En surovec v načrtu — sledljivost do zalogovne postavke."""
+
+    zaloga: ZalogovnaPostavka
+    kosi: List[Tuple[str, float]] = field(default_factory=list)
+    zacetni_odrez: float = 0.0
+    koncni_odrez: float = 0.0
+    rezi: int = 0
+    kerf_skupaj: float = 0.0
+    ostanek_mm: float = 0.0
+    odpad_mm: float = 0.0
+
+    @property
+    def dolzina(self) -> float:
+        return self.zaloga.dolzina
+
+    def bilanca_napaka(self) -> float:
+        """B − (odrezi + kosi + kerf + ostanek + odpad); mora biti 0."""
+        return (self.dolzina - self.zacetni_odrez - self.koncni_odrez
+                - sum(d for _o, d in self.kosi) - self.kerf_skupaj
+                - self.ostanek_mm - self.odpad_mm)
+
+
+def zdruzljivo(a, b) -> bool:
+    """Združljivost lastnosti (material/profil/barva/serija); '' = karkoli."""
+    for kljuc in ("material", "profil", "barva", "serija"):
+        av = getattr(a, kljuc, "") or ""
+        bv = getattr(b, kljuc, "") or ""
+        if av and bv and av != bv:
+            return False
+    return True
+
+
+def preveri_omejitve(o: OmejitveReza) -> None:
+    """Validacija omejitev (Varni privzeti — napake javimo, ne tiho popravimo)."""
+    if o.kerf < 0 or o.zacetni_odrez < 0 or o.koncni_odrez < 0:
+        raise ValueError("Kerf in odrezi ne smejo biti negativni.")
+    if o.min_ostanek < 0:
+        raise ValueError("min_ostanek ne sme biti negativen.")
+    if o.toleranca < 0:
+        raise ValueError("toleranca ne sme biti negativna.")
+    if o.max_dolzina_kosa is not None and o.max_dolzina_kosa <= 0:
+        raise ValueError("max_dolzina_kosa mora biti pozitivna.")
+    if o.politika not in ("odpad", "palice", "cena", "cas", "ostanki"):
+        raise ValueError(f"Neznana politika optimizacije: {o.politika!r}.")
+    if o.politika == "cena" and not o.cene_palice:
+        raise ValueError("Politika 'cena' zahteva cene_palice "
+                         "{dolzina: cena}.")
+
+
+def _zapri_trak(trak: Trak, o: OmejitveReza) -> Trak:
+    """Zapre trak po fizičnem modelu: rezi n−1 (flush) ali n (ločen rep)."""
+    n = len(trak.kosi)
+    if n == 0:
+        trak.rezi = 0
+        trak.kerf_skupaj = 0.0
+        trak.ostanek_mm = 0.0
+        trak.odpad_mm = (trak.dolzina - trak.zacetni_odrez - trak.koncni_odrez)
+        return trak
+    preostanek = (trak.dolzina - trak.zacetni_odrez - trak.koncni_odrez
+                  - sum(d for _oz, d in trak.kosi) - (n - 1) * o.kerf)
+    if abs(preostanek) <= 1e-9:
+        trak.rezi = n - 1                    # flush — zadnji kos do roba
+        trak.kerf_skupaj = (n - 1) * o.kerf
+        trak.ostanek_mm = 0.0
+        trak.odpad_mm = 0.0
+    else:
+        trak.rezi = n                        # zadnji rez loči rep
+        trak.kerf_skupaj = n * o.kerf
+        rep = preostanek - o.kerf
+        if rep < -1e-9:
+            raise ValueError(
+                "Trak ne zapre bilance: za zadnji rez manjka "
+                f"{fmt(-rep)} mm (kerf {fmt(o.kerf)}).")
+        if rep >= o.min_ostanek:
+            trak.ostanek_mm = rep
+            trak.odpad_mm = 0.0
+        else:
+            trak.ostanek_mm = 0.0
+            trak.odpad_mm = max(0.0, rep)
+    return trak
+
+
+def _preostanek_traku(trak: Trak, o: OmejitveReza) -> float:
+    """Prostor po kosih in medreznih kerfih (brez zadnjega reza)."""
+    n = len(trak.kosi)
+    if n == 0:
+        return trak.dolzina - trak.zacetni_odrez - trak.koncni_odrez
+    return (trak.dolzina - trak.zacetni_odrez - trak.koncni_odrez
+            - sum(d for _oz, d in trak.kosi) - (n - 1) * o.kerf)
+
+
+def _lahko_zaprem(trak: Trak, o: OmejitveReza) -> bool:
+    """Trak je zapirljiv: flush ali dovolj prostora za zadnji rez."""
+    p = _preostanek_traku(trak, o)
+    return abs(p) <= 1e-9 or p + 1e-9 >= o.kerf
+
+
+def _strosek(trak: Trak, o: OmejitveReza) -> float:
+    """Cena traku za politiko 'cena' (neznana dolžina = napaka)."""
+    if not o.cene_palice:
+        return 0.0
+    cena = o.cene_palice.get(float(trak.dolzina))
+    if cena is None:
+        raise ValueError(f"Za dolžino {fmt(trak.dolzina)} mm ni cene palice.")
+    return float(cena)
+
+
+def _strosek_nacrta(traki: List[Trak], o: OmejitveReza):
+    """Leksikografski cilj glede na politiko (determinističen, primerljiv)."""
+    poraba = sum(t.dolzina for t in traki)
+    st = len(traki)
+    ostanek = sum(t.ostanek_mm for t in traki)
+    if o.politika == "palice":
+        return (st, poraba)
+    if o.politika == "cena":
+        return (sum(_strosek(t, o) for t in traki), poraba)
+    if o.politika == "cas":
+        rezov = sum(t.rezi for t in traki)
+        return (rezov * o.cas_reza_mm + st * o.cas_menjave, poraba)
+    if o.politika == "ostanki":
+        return (poraba, -ostanek)
+    return (poraba, st)                       # "odpad" (≡ poraba − Σkosi)
+
+
+@dataclass
+class Nacrt:
+    """Rezalni načrt z razporeditvijo kosov po trakovih (issue #14 C/D)."""
+
+    ime: str
+    strategija: str
+    politika: str
+    traki: List[Trak]
+    status: str = "optimalnost ni dokazana"   # | dokazano optimalno |
+                                              # | omejen izračun | neizvedljivo
+    spodnja_meja_mm: Optional[float] = None
+    opomba: str = ""
+
+    def metrike(self) -> dict:
+        """Ključne številke načrta z IZRECNO definicijo vsakega odtoka."""
+        zahtevano = sum(d for t in self.traki for _o, d in t.kosi)
+        poraba = sum(t.dolzina for t in self.traki)
+        kerf = sum(t.kerf_skupaj for t in self.traki)
+        odrez = sum(t.zacetni_odrez + t.koncni_odrez for t in self.traki)
+        ostanek = sum(t.ostanek_mm for t in self.traki)
+        odpad = sum(t.odpad_mm for t in self.traki)
+        return {
+            "ime": self.ime,
+            "strategija": self.strategija,
+            "politika": self.politika,
+            "status": self.status,
+            "st_kosov": sum(len(t.kosi) for t in self.traki),
+            "zahtevano_mm": zahtevano,
+            "poraba_mm": poraba,
+            "st_trakov": len(self.traki),
+            "kerf_mm": kerf,
+            "odrez_mm": odrez,
+            "ostanek_mm": ostanek,
+            "odpad_mm": odpad,
+            # stara definicija (kot metrika_reza) — NI nova:
+            "odpad_skupaj_mm": poraba - zahtevano,
+            "izkoristek": (zahtevano / poraba) if poraba else 0.0,
+            "delez_odpada": ((poraba - zahtevano) / poraba) if poraba else 0.0,
+            "novi_ostanki": self._novi_ostanki(),
+            "spodnja_meja_mm": self.spodnja_meja_mm,
+        }
+
+    def _novi_ostanki(self) -> List[Tuple[str, float]]:
+        """Ostanki tega načrta — označeni kot NEVPISANI v skladišče."""
+        izhod = []
+        i = 0
+        for t in self.traki:
+            if t.ostanek_mm > 0:
+                i += 1
+                izhod.append((f"O-{i}", t.ostanek_mm))
+        return izhod
+
+    def preveri_bilanco(self) -> None:
+        """Invariata: B = odrezi + kosi + kerf + ostanek + odpad (vsak trak)."""
+        for t in self.traki:
+            napaka = t.bilanca_napaka()
+            if abs(napaka) > 1e-6:
+                raise AssertionError(
+                    f"Trak {fmt(t.dolzina)} mm: bilanca zaprta za "
+                    f"{fmt(napaka)} mm.")
+
+
+# ------------------------------------------------------------------- A/B --- #
+
+def _normaliziraj_zalogo(zaloga) -> List[ZalogovnaPostavka]:
+    """Seznam/dict/tuple → postavke; preveri količine in dolžine."""
+    if isinstance(zaloga, ZalogovnaPostavka):
+        postavke = [zaloga]
+    elif isinstance(zaloga, dict):
+        postavke = []
+        for dolzina, kolicina in zaloga.items():
+            postavke.append(ZalogovnaPostavka(dolzina=float(dolzina),
+                                              kolicina=kolicina))
+    else:
+        postavke = []
+        for p in (zaloga or []):
+            if isinstance(p, ZalogovnaPostavka):
+                postavke.append(p)
+            elif isinstance(p, dict):
+                postavke.append(ZalogovnaPostavka(**p))
+            else:
+                dolzina = float(p)
+                postavke.append(ZalogovnaPostavka(dolzina=dolzina))
+    if not postavke:
+        raise ValueError("Zaloga je prazna — ni dovoljenih dolžin zaloge.")
+    for p in postavke:
+        if p.dolzina <= 0:
+            raise ValueError(f"Zalogovna postavka {fmt(p.dolzina)} mm "
+                             "ni pozitivna.")
+        if p.kolicina is not None and p.kolicina < 0:
+            raise ValueError("Količina zaloge ne sme biti negativna.")
+    return postavke
+
+
+def _normaliziraj_kose(kosi) -> List[Kos]:
+    izhod = []
+    for k in (kosi or []):
+        if isinstance(k, Kos):
+            kos = k
+        elif isinstance(k, dict):
+            kos = Kos(**k)
+        else:
+            oznaka, dolzina = k[0], k[1]
+            kos = Kos(oznaka=str(oznaka), dolzina=float(dolzina))
+        if kos.dolzina <= 0:
+            raise ValueError(f"Kos {kos.oznaka} ima neveljavno dolžino "
+                             f"{fmt(kos.dolzina)}.")
+        izhod.append(kos)
+    return izhod
+
+
+def _preveri_kose(kosi: List[Kos], o: OmejitveReza) -> None:
+    for k in kosi:
+        if k.dolzina < o.min_dolzina_kosa - 1e-9:
+            raise ValueError(
+                f"Kos {k.oznaka} ({fmt(k.dolzina)} mm) je krajši od "
+                f"najmanjše dovoljene dolžine {fmt(o.min_dolzina_kosa)} mm.")
+        if o.max_dolzina_kosa is not None and \
+                k.dolzina > o.max_dolzina_kosa + o.toleranca + 1e-9:
+            raise ValueError(
+                f"Kos {k.oznaka} ({fmt(k.dolzina)} mm) presega največjo "
+                f"dovoljeno dolžino {fmt(o.max_dolzina_kosa)} mm.")
+
+
+def _preveri_zalogo(kosi: List[Kos], postavke: List[ZalogovnaPostavka],
+                    o: OmejitveReza) -> None:
+    """Vsak kos mora iti v natanko en trak; zaloga mora zadoščati.
+
+    Če zaloga ne zadošča, javimo ValueError z izpisom MANJKAJOČIH kosov —
+    nikoli tiho ne odpremo dodatne palice (issue #14 A).
+    """
+    for k in kosi:
+        primerni = [p for p in postavke
+                    if zdruzljivo(p, k)
+                    and p.dolzina + 1e-9 >= k.dolzina + o.zacetni_odrez
+                    + o.koncni_odrez
+                    and (p.dolzina - o.zacetni_odrez - o.koncni_odrez
+                         - k.dolzina) + 1e-9 >= 0]
+        if not primerni:
+            raise ValueError(
+                f"Kos {k.oznaka} ({fmt(k.dolzina)} mm) ne gre v noben "
+                "dovoljen surovec (dolžina/lastnosti).")
+    # groba količinska preveritev: kosi + najmanjši kerfi proti prostornini
+    potrebno = sum(k.dolzina for k in kosi) + max(0, len(kosi) - 1) * o.kerf
+    na_voljo = 0.0
+    for p in postavke:
+        if p.kolicina is None:
+            na_voljo = math.inf
+            break
+        na_voljo += p.kolicina * (p.dolzina - o.zacetni_odrez - o.koncni_odrez)
+    if na_voljo + 1e-6 < potrebno:
+        raise ValueError(
+            "Zaloga ne zadošča: potrebno vsaj "
+            f"{fmt(potrebno)} mm, na voljo {fmt(na_voljo)} mm. "
+            "Dodatnih palic NE odpiramo samodejno.")
+
+
+class _ZalogaStanje:
+    """Količinsko stanje zaloge z umikom/vrnitvijo (za iskanje)."""
+
+    def __init__(self, postavke: List[ZalogovnaPostavka]):
+        self.postavke = postavke
+        self.kolicine: List[Optional[int]] = [p.kolicina for p in postavke]
+
+    def na_voljo(self, i: int) -> bool:
+        return self.kolicine[i] is None or (self.kolicine[i] or 0) > 0
+
+    def umakni(self, i: int) -> bool:
+        if not self.na_voljo(i):
+            return False
+        if self.kolicine[i] is not None:
+            self.kolicine[i] = (self.kolicine[i] or 0) - 1
+        return True
+
+    def vrni(self, i: int) -> None:
+        if self.kolicine[i] is not None:
+            self.kolicine[i] = (self.kolicine[i] or 0) + 1
+
+    def kopija(self) -> "_ZalogaStanje":
+        novo = _ZalogaStanje(self.postavke)
+        novo.kolicine = list(self.kolicine)
+        return novo
+
+
+def _pripravi_trak(postavka: ZalogovnaPostavka, o: OmejitveReza) -> Trak:
+    return Trak(zaloga=postavka, zacetni_odrez=o.zacetni_odrez,
+                koncni_odrez=o.koncni_odrez)
+
+
+def _greedy_nacrt(kosi: List[Kos], stanje: _ZalogaStanje,
+                  o: OmejitveReza, strategija: str) -> Optional[Nacrt]:
+    """Hevristični načrt: ffd | bfd | najmanj-palic | najnizja-cena | rocno."""
+    traki: List[Trak] = []
+    if strategija == "rocno":
+        vrstni_red = list(kosi)
+    else:
+        vrstni_red = sorted(kosi, key=lambda k: (-k.dolzina, k.oznaka))
+
+    for kos in vrstni_red:
+        postavljen = False
+        # 1) obstoječi traki — izbira po strategiji
+        kandidati = []
+        for ti, t in enumerate(traki):
+            if not zdruzljivo(t.zaloga, kos):
+                continue
+            p = _preostanek_traku(t, o)
+            # dodan kos: + kos.dolzina + kerf (novi medrezni rez)
+            nov_p = p - kos.dolzina - o.kerf
+            if nov_p < -1e-9:
+                continue
+            # po dodajanju mora biti trak zapirljiv (flush ali ≥ kerf)
+            if not (abs(nov_p) <= 1e-9 or nov_p + 1e-9 >= o.kerf):
+                continue
+            kandidati.append((ti, nov_p))
+        if kandidati:
+            if strategija == "bfd":
+                ti = min(kandidati, key=lambda x: (x[1], x[0]))[0]
+            elif strategija == "najmanj-palic":
+                ti = max(kandidati, key=lambda x: (x[1], -x[0]))[0]
+            else:                             # ffd / rocno / najnizja-cena
+                ti = kandidati[0][0]
+            traki[ti].kosi.append((kos.oznaka, kos.dolzina))
+            postavljen = True
+        if postavljen:
+            continue
+        # 2) nov trak — izbira surovca po strategiji
+        moznosti = []
+        for i, postavka in enumerate(stanje.postavke):
+            if not stanje.na_voljo(i) or not zdruzljivo(postavka, kos):
+                continue
+            prostor = postavka.dolzina - o.zacetni_odrez - o.koncni_odrez
+            if prostor + 1e-9 < kos.dolzina:
+                continue
+            if not (abs(prostor - kos.dolzina) <= 1e-9
+                    or prostor - kos.dolzina + 1e-9 >= o.kerf):
+                continue
+            moznosti.append((i, postavka, prostor))
+        if not moznosti:
+            raise ValueError(
+                f"Kos {kos.oznaka} ({fmt(kos.dolzina)} mm) ne gre v noben "
+                "preostali surovec — zaloga ne zadošča.")
+        if strategija == "najmanj-palic":
+            i, postavka, _ = max(moznosti, key=lambda x: (x[1].dolzina, -x[0]))
+        elif strategija == "najnizja-cena":
+            if o.cene_palice:
+                i, postavka, _ = min(
+                    moznosti,
+                    key=lambda x: (o.cene_palice.get(  # type: ignore[union-attr]
+                        float(x[1].dolzina), math.inf), x[1].dolzina, x[0]))
+            else:
+                i, postavka, _ = min(moznosti,
+                                     key=lambda x: (x[1].dolzina, x[0]))
+        else:                                  # ffd / bfd / rocno
+            i, postavka, _ = min(moznosti, key=lambda x: (x[1].dolzina, x[0]))
+        if not stanje.umakni(i):
+            raise AssertionError("Zaloga se je izpraznila brez opozorila.")
+        t = _pripravi_trak(postavka, o)
+        t.kosi.append((kos.oznaka, kos.dolzina))
+        traki.append(t)
+
+    for t in traki:
+        _zapri_trak(t, o)
+    nacrt = Nacrt(ime=strategija, strategija=strategija,
+                  politika=o.politika, traki=traki)
+    nacrt.preveri_bilanco()
+    return nacrt
+
+
+# --------------------------------------------------------------------- C --- #
+
+def spodnja_meja(kosi, zaloga, omejitve=OmejitveReza()) -> dict:
+    """Veljavna spodnja meja porabe za ISTI model in omejitve.
+
+    LB = min_k max(f(k), lb2(k)) čez IZVEDLJIVE k:
+      f(k) = Σkosi + (N−k)·kerf + k·(zacetni+koncni)  — material, ki ga
+      vsak izvedljiv načrt s k palicami NUJNO porabi (rezov ≥ N−k);
+      lb2(k) = vsota k najmanjših primernih palic iz zaloge (upoštevaje
+      količine) — vsak načrt s k palicami porabi vsaj toliko;
+      izvedljiv k mora še zadostovati kapaciteti: Σ k najdaljših palic ≥ f(k).
+    Min prek vseh izvedljivih k velja za vsak načrt (njegov lastni k
+    vključi obe komponenti) — testi preverijo, da noben načrt ne pade
+    pod mejo. (Opomba: uporaba f(k*) pri najmanjšem k bi bila NEVELJAVNA,
+    kadar se f zmanjšuje s k — dokazano s protiprimerom v testih.)
+    """
+    o = omejitve
+    preveri_omejitve(o)
+    kos_sez = _normaliziraj_kose(kosi)
+    postavke = _normaliziraj_zalogo(zaloga)
+    _preveri_kose(kos_sez, o)
+    if not kos_sez:
+        return {"spodnja_meja_mm": 0.0, "k_palice": 0,
+                "opis": "ni kosov"}
+    n = len(kos_sez)
+    skupaj = sum(k.dolzina for k in kos_sez)
+    trim = o.zacetni_odrez + o.koncni_odrez
+
+    def f(k: int) -> float:
+        return skupaj + (n - k) * o.kerf + k * trim
+
+    # količinsko: koliko palic je sploh na voljo (neomejeno = ∞)
+    neomejeno = any(p.kolicina is None for p in postavke)
+    dolge = sorted((p.dolzina for p in postavke), reverse=True)
+
+    def kapaciteta(k: int) -> float:
+        if neomejeno:
+            return k * (dolge[0] if dolge else 0.0)
+        # največja možna kapaciteta k palic iz omejene zaloge
+        zal = sorted(((p.dolzina, p.kolicina or 0) for p in postavke),
+                     key=lambda x: -x[0])
+        preostalo = k
+        vsota = 0.0
+        for dolzina, kol in zal:
+            vzemi = min(preostalo, kol)
+            vsota += vzemi * dolzina
+            preostalo -= vzemi
+            if preostalo <= 0:
+                break
+        return vsota
+
+    k_zvezdica = None
+    for k in range(1, n + 1):
+        if kapaciteta(k) + 1e-6 >= f(k):
+            k_zvezdica = k
+            break
+    if k_zvezdica is None:
+        return {"spodnja_meja_mm": math.inf, "k_palice": None,
+                "opis": "zaloga ne zadošča (ni izvedljivega načrta)"}
+
+    # lb2(k) = vsota k najmanjših primernih palic (upoštevaje količine)
+    min_kos = min(k.dolzina for k in kos_sez)
+    primerne = sorted(p.dolzina for p in postavke
+                      if p.dolzina - trim + 1e-9 >= min_kos)
+
+    def lb2(k: int) -> float:
+        if neomejeno:
+            return k * (primerne[0] if primerne else 0.0)
+        if len(primerne) < k:
+            return math.inf
+        return sum(primerne[:k])
+
+    # veljavna meja: min prek izvedljivih k od max(f(k), lb2(k)) —
+    # vsak načrt s k palicami ima porabo ≥ max(f(k), lb2(k))
+    najboljsa = math.inf
+    for k in range(1, n + 1):
+        if kapaciteta(k) + 1e-6 < f(k):
+            continue                       # k palic kapacitetno ne zadošča
+        kandidat = max(f(k), lb2(k))
+        if kandidat < najboljsa:
+            najboljsa = kandidat
+    if najboljsa is math.inf:
+        return {"spodnja_meja_mm": math.inf, "k_palice": None,
+                "opis": "premalo primernih palic v zalogi"}
+    return {"spodnja_meja_mm": najboljsa, "k_palice": k_zvezdica,
+            "opis": "veljavna relaksacija (material + kapaciteta)"}
+
+
+def ekstaktni_nacrt(kosi, zaloga, omejitve=OmejitveReza(),
+                    max_stanj: int = 200000) -> Optional[Nacrt]:
+    """Eksaktni iskalnik (branch & bound) za majhne primere.
+
+    Vrne optimalni načrt (status „dokazano optimalno“) ali None, če je
+    bil izračun omejen z max_stanj (takrat hevristike NI dokazano
+    optimalne). Cilj je leksikografski glede na politiko.
+    """
+    o = omejitve
+    preveri_omejitve(o)
+    kos_sez = _normaliziraj_kose(kosi)
+    postavke = _normaliziraj_zalogo(zaloga)
+    _preveri_kose(kos_sez, o)
+    if len(kos_sez) > 14 or len(postavke) > 8:
+        return None                       # preveliko — pošteno: ni poskusa
+    _preveri_zalogo(kos_sez, postavke, o)
+    stanje = _ZalogaStanje(postavke)
+    vrstni_red = sorted(kos_sez, key=lambda k: (-k.dolzina, k.oznaka))
+    najboljsa: List[Trak] = []
+    naj_strosek = [None]                 # celica — gnezdena funkcija jo deli
+    stanja = [0]
+    omejeno = [False]
+
+    def racunaj(traki: List[Trak]):
+        return _strosek_nacrta(traki, o)
+
+    def isci(i: int, traki: List[Trak]):
+        if stanja[0] >= max_stanj:
+            omejeno[0] = True
+            return
+        stanja[0] += 1
+        if naj_strosek[0] is not None and racunaj(traki) > naj_strosek[0]:
+            return                            # odrez: slabši od najboljšega
+        if i == len(vrstni_red):
+            st = racunaj(traki)
+            if naj_strosek[0] is None or st < naj_strosek[0]:
+                naj_strosek[0] = st
+                najboljsa[:] = [
+                    Trak(zaloga=t.zaloga, kosi=list(t.kosi),
+                         zacetni_odrez=t.zacetni_odrez,
+                         koncni_odrez=t.koncni_odrez) for t in traki]
+            return
+        kos = vrstni_red[i]
+        # (a) obstoječi traki
+        for t in traki:
+            if not zdruzljivo(t.zaloga, kos):
+                continue
+            p = _preostanek_traku(t, o)
+            nov_p = p - kos.dolzina - o.kerf
+            if nov_p < -1e-9:
+                continue
+            if not (abs(nov_p) <= 1e-9 or nov_p + 1e-9 >= o.kerf):
+                continue
+            t.kosi.append((kos.oznaka, kos.dolzina))
+            isci(i + 1, traki)
+            t.kosi.pop()
+            if omejeno[0]:
+                return
+        # (b) novi trakovi — brez podvajanja enakih surovcev
+        videne = set()
+        for ix, postavka in enumerate(stanje.postavke):
+            if not stanje.na_voljo(ix) or not zdruzljivo(postavka, kos):
+                continue
+            kljuc = (postavka.dolzina, postavka.material, postavka.profil,
+                     postavka.barva, postavka.serija)
+            if kljuc in videne:
+                continue
+            videne.add(kljuc)
+            prostor = (postavka.dolzina - o.zacetni_odrez - o.koncni_odrez)
+            if prostor + 1e-9 < kos.dolzina:
+                continue
+            if not (abs(prostor - kos.dolzina) <= 1e-9
+                    or prostor - kos.dolzina + 1e-9 >= o.kerf):
+                continue
+            if not stanje.umakni(ix):
+                continue
+            t = _pripravi_trak(postavka, o)
+            t.kosi.append((kos.oznaka, kos.dolzina))
+            traki.append(t)
+            isci(i + 1, traki)
+            traki.pop()
+            stanje.vrni(ix)
+            if omejeno[0]:
+                return
+
+    isci(0, [])
+    if naj_strosek[0] is None:
+        raise ValueError("Ni izvedljivega načrta (zaloga ne zadošča).")
+    traki = najboljsa
+    for t in traki:
+        _zapri_trak(t, o)
+    nacrt = Nacrt(ime="ekstaktno", strategija="ekstaktno",
+                  politika=o.politika, traki=traki,
+                  status=("omejen izračun" if omejeno[0]
+                          else "dokazano optimalno"))
+    nacrt.preveri_bilanco()
+    return nacrt
+
+
+STRATEGIJE = ("rocno", "ffd", "bfd", "najmanj-palic", "najnizja-cena")
+
+
+def razrez_nacrt(kosi, zaloga, omejitve=OmejitveReza(),
+                 strategija: str = "ffd") -> Nacrt:
+    """En rezalni načrt z razporeditvijo kosov po trakovih.
+
+    ``kosi``: [(oznaka, dolzina), Kos ali dict]; ``zaloga``: seznam
+    ZalogovnaPostavka, dict {dolzina: količina} ali seznam dolžin
+    (neomejeno — nazaj združljivo).
+    """
+    if strategija not in STRATEGIJE:
+        raise ValueError(f"Neznana strategija: {strategija!r} "
+                         f"(dovoljene: {', '.join(STRATEGIJE)}).")
+    o = omejitve
+    preveri_omejitve(o)
+    kos_sez = _normaliziraj_kose(kosi)
+    postavke = _normaliziraj_zalogo(zaloga)
+    _preveri_kose(kos_sez, o)
+    _preveri_zalogo(kos_sez, postavke, o)
+    return _greedy_nacrt(kos_sez, _ZalogaStanje(postavke), o, strategija)  # type: ignore[return-value]
+
+
+def primerjaj_nacrte(kosi, zaloga, omejitve=OmejitveReza(),
+                     vkljuci_ekstaktno: bool = True) -> dict:
+    """Generira in primerja več načrtov (issue #14 D).
+
+    Vrne dict: nacrti (razvrščeni po politiki), spodnja_meja, tabela
+    (vrstice za prikaz), statusi. Uporabnik izbere načrt — klicatelj ga
+    shrani; sistem ga NE zamenja tiho.
+    """
+    o = omejitve
+    preveri_omejitve(o)
+    kos_sez = _normaliziraj_kose(kosi)
+    postavke = _normaliziraj_zalogo(zaloga)
+    _preveri_kose(kos_sez, o)
+    _preveri_zalogo(kos_sez, postavke, o)
+    meja = spodnja_meja(kos_sez, postavke, o)
+    nacrti: List[Nacrt] = []
+    for strategija in STRATEGIJE:
+        n = _greedy_nacrt(kos_sez, _ZalogaStanje(postavke), o, strategija)
+        if n is not None:
+            nacrti.append(n)
+    if vkljuci_ekstaktno and len(kos_sez) <= 12:
+        e = ekstaktni_nacrt(kos_sez, postavke, o)
+        if e is not None:
+            nacrti.append(e)
+    lb = meja.get("spodnja_meja_mm")
+    for n in nacrti:
+        m = n.metrike()
+        if n.status == "dokazano optimalno":
+            n.spodnja_meja_mm = m["poraba_mm"]   # optimum = meja
+        else:
+            n.spodnja_meja_mm = lb
+    nacrti.sort(key=lambda n: (_strosek_nacrta(n.traki, o), n.ime))
+    for n in nacrti:
+        if n.status == "dokazano optimalno":
+            continue
+        if any(x.status == "dokazano optimalno" for x in nacrti):
+            n.status = "optimalnost ni dokazana"
+    tabela = []
+    for n in nacrti:
+        m = n.metrike()
+        lb_n = n.spodnja_meja_mm
+        vrzel = (m["poraba_mm"] - lb_n) if lb_n not in (None, math.inf) else None
+        tabela.append({
+            "ime": n.ime,
+            "strategija": n.strategija,
+            "status": n.status,
+            "st_trakov": m["st_trakov"],
+            "poraba_mm": m["poraba_mm"],
+            "kerf_mm": m["kerf_mm"],
+            "odrez_mm": m["odrez_mm"],
+            "ostanek_mm": m["ostanek_mm"],
+            "odpad_mm": m["odpad_mm"],
+            "odpad_skupaj_mm": m["odpad_skupaj_mm"],
+            "izkoristek": m["izkoristek"],
+            "spodnja_meja_mm": lb_n,
+            "vrzel_mm": vrzel,
+            "vrzel_delez": (vrzel / lb_n) if (vrzel is not None and lb_n) else None,
+        })
+    return {"nacrti": nacrti, "spodnja_meja": meja, "tabela": tabela,
+            "kriterij": o.politika}
