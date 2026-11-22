@@ -604,10 +604,6 @@ class App(tk.Tk):
         self.title("Generator tehničnih risb — balkonska ograja")
         self.geometry("920x820")
         self.minsize(860, 760)
-        try:
-            self.state("zoomed")          # odpri povečano (celo okno)
-        except Exception:
-            pass
         self.pdf_pot = None
         self.png_pot = None
         self.kolicine = None
@@ -627,6 +623,21 @@ class App(tk.Tk):
         self._zgodovina_id = None
         self._obnavljam = False
         self._zgradi()
+        # prilagodljiva začetna geometrija: okno naj bo veliko toliko kot
+        # vsebina (platno ne posreduje mere — merimo _vsebina),
+        # a vedno znotraj zaslona (prej odrezana polja/gumbi)
+        try:
+            self.update_idletasks()
+            req_s = self._vsebina.winfo_reqwidth() + 30
+            req_v = self._vsebina.winfo_reqheight() + 30
+            sir = min(req_s, self.winfo_screenwidth() - 24)
+            vis = min(req_v, self.winfo_screenheight() - 60)
+            # centriraj — privzeta postavitev Tk lahko sega izven zaslona
+            px = max(0, (self.winfo_screenwidth() - sir) // 2)
+            py = max(0, (self.winfo_screenheight() - vis) // 2)
+            self.geometry(f"{max(sir, 860)}x{max(vis, 760)}+{px}+{py}")
+        except tk.TclError:
+            pass
         self._preklopi_nacin()
         self._nalozi_zadnje()
         self._izpolni_privzete()
@@ -635,11 +646,47 @@ class App(tk.Tk):
     # ------------------------------------------------------------- gradnja
     def _zgradi(self):
         self._zgradi_meni()
-        tk.Label(self, text="GENERATOR TEHNIČNE RISBE",
+        # Celotna vsebina v DRSEM območju (popravek 2026-11-22): zahtevana
+        # širina obrazca je bila 1524 px proti zaslonu 1280 — desna polja
+        # (Globina, Debelina …) in spodnji gumbi so bili odrezani. Zdaj se
+        # vsebina pomika v obe smeri, okno pa se odpre prilagojeno zaslonu.
+        platno = tk.Canvas(self, highlightthickness=0, borderwidth=0)
+        d_v = ttk.Scrollbar(self, orient="vertical", command=platno.yview)
+        d_s = ttk.Scrollbar(self, orient="horizontal", command=platno.xview)
+        platno.configure(yscrollcommand=d_v.set, xscrollcommand=d_s.set)
+        d_v.pack(side="right", fill="y")
+        d_s.pack(side="bottom", fill="x")
+        platno.pack(side="left", fill="both", expand=True)
+        vsebina = ttk.Frame(platno)
+        self._vsebina = vsebina          # za merjenje začetne geometrije
+        okno_id = platno.create_window((0, 0), window=vsebina, anchor="nw")
+
+        def osvezi_platno(_e=None):
+            """Širina okna = naravna širina vsebine (brez krožnega raztezanja)
+            + scrollregion. Varno pred zankami: spremeni le, če se razlikuje.
+            """
+            req = vsebina.winfo_reqwidth()
+            try:
+                if int(float(platno.itemcget(okno_id, "width") or 0)) != req:
+                    platno.itemconfig(okno_id, width=req)
+            except (tk.TclError, ValueError):
+                platno.itemconfig(okno_id, width=req)
+            platno.configure(scrollregion=platno.bbox("all"))
+
+        vsebina.bind("<Configure>", lambda e: osvezi_platno())
+
+        def _kolesce(e):
+            platno.yview_scroll(int(-1 * (e.delta / 120)), "units")
+
+        vsebina.bind("<Enter>", lambda e: platno.bind_all("<MouseWheel>",
+                                                           _kolesce))
+        vsebina.bind("<Leave>",
+                     lambda e: platno.unbind_all("<MouseWheel>"))
+        tk.Label(vsebina, text="GENERATOR TEHNIČNE RISBE",
                  font=("Segoe UI", 15, "bold")).pack(pady=(12, 0))
-        tk.Label(self, text="Balkonska ograja iz lamel — vpiši mere in nariši (A3 PDF za tisk)",
+        tk.Label(vsebina, text="Balkonska ograja iz lamel — vpiši mere in nariši (A3 PDF za tisk)",
                  fg="#555555").pack(pady=(0, 4))
-        fr_p = ttk.Frame(self)
+        fr_p = ttk.Frame(vsebina)
         fr_p.pack(fill="x", padx=14, pady=(0, 4))
         if "predloga" not in self.v:
             self.v["predloga"] = tk.StringVar(value="ograja")
@@ -655,20 +702,19 @@ class App(tk.Tk):
                         variable=self.st_preprost,
                         command=self._preklopi_nacin).pack(side="right")
 
-        zg = ttk.Frame(self, padding=(14, 4))
+        zg = ttk.Frame(vsebina, padding=(14, 4))
         zg.pack(fill="x")
         zg.columnconfigure(0, weight=1)
 
         # ---- PROJEKT ----
         f1 = ttk.LabelFrame(zg, text="PROJEKT", padding=8)
         f1.grid(row=0, column=0, sticky="ew")
-        self._polje(f1, 0, 0, "ime", 34)
+        self._polje(f1, 0, 0, "ime", 30)
         self._polje(f1, 0, 1, "risba_st", 12)
         self._polje(f1, 0, 2, "izdelal", 14)
-        self._polje(f1, 1, 0, "material", 30)
-        self._polje(f1, 1, 1, "profil", 14)
-        self._polje(f1, 1, 2, "material_lamel", 22)
-        self._polje(f1, 1, 3, "dobavitelj", 14)
+        self._polje(f1, 1, 0, "material", 26)
+        self._polje(f1, 1, 1, "profil", 12)
+        self._polje(f1, 1, 2, "material_lamel", 18)
         if "barva" not in self.v:
             self.v["barva"] = tk.StringVar()
         lbl_b = ttk.Label(f1, text="Barva lamel:")
@@ -677,15 +723,17 @@ class App(tk.Tk):
             f1, width=24, state="readonly", textvariable=self.v["barva"],
             values=list(risba.WPC_BARVE) + ["Po dogovoru"])
         self.cb_barva.grid(row=2, column=1, columnspan=2, sticky="w", pady=2)
-        op_b = tk.Label(f1, text="(odtenek vedno potrdi s vzorcem proizvajalca)",
+        op_b = tk.Label(f1, text="(odtenek potrdi s proizvajalcem)",
                         fg="#888888")
         op_b.grid(row=2, column=3, sticky="w")
         self.polja.setdefault("barva", []).extend([lbl_b, self.cb_barva, op_b])
         self._polje(f1, 3, 0, "podjetje", 30)
         self._polje(f1, 3, 1, "pregledal", 14)
         self._polje(f1, 3, 2, "odobril", 14)
-        self._polje(f1, 4, 0, "stranka", 30)
-        self._polje(f1, 4, 1, "objekt", 34)
+        self._polje(f1, 4, 0, "stranka", 26)
+        self._polje(f1, 4, 1, "objekt", 26)
+        self._polje(f1, 4, 2, "dobavitelj", 14)
+        self._polje(f1, 4, 2, "dobavitelj", 14)
 
         # ---- MERE ----
         f2 = ttk.LabelFrame(zg, text="MERE (mm)", padding=8)
@@ -704,7 +752,7 @@ class App(tk.Tk):
         self._polje(f2, 4, 1, "dolzina_palice", 10)
         self.st_ost = tk.BooleanVar(value=False)
         cb_ost = ttk.Checkbutton(
-            f2, text=f"Uporabi skladišče ostankov ({risba.pot_ostanki()})",
+            f2, text="Uporabi skladišče ostankov",
             variable=self.st_ost, command=self._zivi_sprememba)
         cb_ost.grid(row=4, column=2, columnspan=2, sticky="w")
         self.namigi["uporabi_ostanke"] = Namig(cb_ost, NAMIGI["uporabi_ostanke"])
@@ -720,8 +768,7 @@ class App(tk.Tk):
         self._polje(f4, 0, 1, "pritrditev_nacin", 14)
         self._polje(f4, 0, 2, "vijak_lamela", 30)
         self._polje(f4, 1, 0, "vijak_nosilec", 30)
-        tk.Label(f4, text="(vijak: prosto — npr. „RF M8×70 Inox“, "
-                         "„anker M12“, „fasadni Ø8×80 + tipli“ …)",
+        tk.Label(f4, text="(vijak: prosto — npr. „RF M8×70 Inox“ …)",
                  fg="#888888").grid(row=1, column=1, columnspan=2, sticky="w")
 
         # ---- FOTO + IZHOD ----
@@ -815,7 +862,7 @@ class App(tk.Tk):
                         variable=self.st_zivo).pack(side="left")
         ttk.Button(fr_z, text="Osveži",
                    command=self._zivi_osvezi).pack(side="right")
-        self.zivi_platno = tk.Canvas(fz, width=324, height=210,
+        self.zivi_platno = tk.Canvas(fz, width=280, height=210,
                                      bg="white", highlightthickness=1,
                                      highlightbackground="#cccccc")
         self.zivi_platno.pack(pady=(6, 4))
@@ -828,15 +875,15 @@ class App(tk.Tk):
         self.zivi_cena.pack(fill="x", pady=(4, 0))
         self.zivi_status = tk.Label(
             fz, text="", fg="#555555", font=("Segoe UI", 8), anchor="w",
-            wraplength=310, justify="left")
+            wraplength=270, justify="left")
         self.zivi_status.pack(fill="x")
         tk.Label(fz, text="(shematski prikaz in živa cena — natančna "
                           "risba ostane gumb NARIŠI RISBO)",
-                 fg="#888888", font=("Segoe UI", 8), wraplength=310,
+                 fg="#888888", font=("Segoe UI", 8), wraplength=270,
                  justify="left").pack(fill="x", pady=(4, 0))
 
         # ---- PREDGLED ----
-        self.fp = ttk.LabelFrame(self, text="PREDGLED RISBE", padding=6)
+        self.fp = ttk.LabelFrame(vsebina, text="PREDGLED RISBE", padding=6)
         self.fp.pack(fill="both", expand=True, padx=14, pady=(0, 12))
         self.st_klik = tk.BooleanVar(value=False)
         ttk.Checkbutton(self.fp, text="Klik na risbo odpre cel zaslon",
@@ -853,6 +900,8 @@ class App(tk.Tk):
         for _var in self.v.values():
             _var.trace_add("write", self._zivi_sprememba)
         self.after(300, self._zivi_osvezi)
+        # ko se žive oznake napolnijo, se vsebina lahko razširi — osveži platno
+        self.after(600, osvezi_platno)
 
         # Plan D: bližnjici undo/redo (delujeta tudi iz vnosnih polj)
         self.bind_all("<Control-z>", self._razveljavi)
