@@ -424,6 +424,19 @@ def preveri_cfg(cfg):
     if status and status.upper() not in DOVOLJENI_STATUSI:
         nap.append(f"Status dokumenta '{status}' ni dovoljen — dovoljeni: "
                    + ", ".join(DOVOLJENI_STATUSI) + ".")
+    # Načrt 7: revizije — oblika [[rev, datum, opis, izdelal], ...]
+    revizije = cfg.get("revizije")
+    if revizije is not None:
+        if not isinstance(revizije, list):
+            nap.append("'revizije' mora biti seznam revizijskih vnosov.")
+        else:
+            for i, v in enumerate(revizije):
+                if (not isinstance(v, (list, tuple)) or len(v) != 4
+                        or not str(v[0] or "").strip()):
+                    nap.append(
+                        f"Revizija {i + 1} mora biti [oznaka, datum, opis, "
+                        "izdelal] z izpolnjeno oznako.")
+                    break
     odcep = m.get("odcep", 0)
     if not isinstance(odcep, (int, float)) or odcep < 0:
         nap.append("Mera 'odcep' ne sme biti negativna.")

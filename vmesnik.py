@@ -16,6 +16,7 @@ import yaml
 
 import proizvodnja
 import posodobitev
+import revizija
 
 # v exe načinu se nastavitve shranjujejo poleg programa (ne v začasni mapi)
 if getattr(sys, "frozen", False):
@@ -614,6 +615,8 @@ class App(tk.Tk):
         self.polja = {}               # referenca polj za skrivanje/prikaz
         self.namigi = {}              # Plan F: namigi ob prehodu miške
         self.vrata_sez = []           # vrata/prehodi (issue #3)
+        self.revizije = []            # revizije risbe (načrt 7)
+        self.rev_snapshot = None      # stanje ob zadnji reviziji (diff)
         self.st_preprost = tk.BooleanVar(value=True)   # preprosti način
         # UI/UX Plan A: živi povzetek (debounce osveževanje)
         self.st_zivo = tk.BooleanVar(value=True)
@@ -1425,6 +1428,8 @@ class App(tk.Tk):
             "klik_cel_zaslon": bool(self.st_klik.get()),
             "preprost_nacin": bool(self.st_preprost.get()),
             "vrata": [dict(v) for v in self.vrata_sez],
+            "revizije": (list(self.revizije) if self.revizije else None),
+            "rev_snapshot": self.rev_snapshot,
         }
         if cene:
             cfg["cene"] = cene
@@ -1536,6 +1541,8 @@ class App(tk.Tk):
                       command=self._odpri_projekt)
         d.add_command(label="Shrani projekt (.yaml)", accelerator="Ctrl+S",
                       command=self._shrani_projekt)
+        d.add_command(label="Nova revizija…", accelerator="Ctrl+R",
+                      command=self._nova_revizija)
         d.add_separator()
         d.add_command(label="NARIŠI RISBO", accelerator="Ctrl+N",
                       command=self._narisi)
@@ -1968,6 +1975,12 @@ class App(tk.Tk):
             self.vrata_sez = [dict(v) for v in cfg["vrata"]
                               if isinstance(v, dict)]
             self._vrata_osvezi()
+        # Načrt 7: revizije + snapshot za diff (shranjeni v projektu)
+        self.revizije = [list(v) for v in (cfg.get("revizije") or [])
+                         if isinstance(v, (list, tuple)) and len(v) == 4]
+        self.rev_snapshot = (dict(cfg["rev_snapshot"])
+                             if isinstance(cfg.get("rev_snapshot"), dict)
+                             else None)
         if "predloga" in cfg:
             pl = str(cfg["predloga"]).strip().lower()
             self.v["predloga"].set("pokončna" if pl == "pokončna" else "ograja")
@@ -2008,6 +2021,69 @@ class App(tk.Tk):
     def _odpri_pdf(self):
         if self.pdf_pot:
             os.startfile(self.pdf_pot)
+
+    def _nova_revizija(self):
+        """Nova revizija z diff povzetkom (načrt 7) — „en model — ena revizija“.
+
+        Dialog pokaže, KAJ se je spremenilo od zadnje revizije (izračunan diff,
+        ne ročni opis — „revision clouds spregledajo spremembe“), in zapiše
+        revizijo v cfg (tabela revizij + REV. v naslovnem bloku se izrišeta
+        samodejno).
+        """
+        try:
+            cfg = self._zberi_cfg()
+        except ValueError as e:
+            messagebox.showerror("Napaka pri vnosu", str(e))
+            return
+        povzetek = revizija.diff_povzetek(self.rev_snapshot,
+                                          revizija.snapshot(cfg))
+        if not self.revizije:
+            povzetek = []          # prva izdaja — ni prejšnje za primerjavo
+        oznaka = revizija.naslednja_oznaka(self.revizije)
+        okno = tk.Toplevel(self)
+        okno.title(f"Nova revizija {oznaka}")
+        okno.transient(self)
+        ttk.Label(okno, text=f"Nova revizija: {oznaka}",
+                  font=("", 11, "bold")).pack(anchor="w", padx=12, pady=(10, 2))
+        ttk.Label(okno, text="Spremembe od zadnje revizije (diff):"
+                  ).pack(anchor="w", padx=12)
+        besedilo = tk.Text(okno, width=64, height=10, wrap="word")
+        besedilo.pack(fill="both", expand=True, padx=12, pady=4)
+        if not self.revizije:
+            besedilo.insert("end", "Prva izdaja — prejšnje revizije ni.")
+        elif povzetek:
+            besedilo.insert("end", "\n".join("• " + v for v in povzetek))
+        else:
+            besedilo.insert(
+                "end", "Brez sprememb od zadnje revizije.\n"
+                "(Revizijo lahko vseeno zabeležiš, npr. ob potrditvi ali "
+                "terenski spremembi.)")
+        besedilo.config(state="disabled")
+        ttk.Label(okno, text="Opis revizije (prazno = povzetek diffa):"
+                  ).pack(anchor="w", padx=12)
+        opis_var = tk.StringVar(value="; ".join(povzetek))
+        ttk.Entry(okno, textvariable=opis_var, width=64).pack(
+            fill="x", padx=12, pady=(0, 8))
+        g = ttk.Frame(okno)
+        g.pack(pady=(0, 10))
+
+        def shrani():
+            vnos, _ = revizija.nova_revizija(
+                cfg, opis_var.get(),
+                self.v["izdelal"].get().strip() or None)
+            self.revizije = cfg["revizije"]
+            self.rev_snapshot = cfg["rev_snapshot"]
+            okno.destroy()
+            self.status.config(
+                text=f"Revizija {vnos[0]} shranjena ({vnos[1]}).",
+                fg="#1b5e20")
+            self._zivi_osvezi()
+
+        ttk.Button(g, text="Shrani revizijo", command=shrani).pack(
+            side="left", padx=6)
+        ttk.Button(g, text="Prekliči", command=okno.destroy).pack(
+            side="left", padx=6)
+        okno.wait_window()
 
     def _shrani_projekt(self):
         try:
