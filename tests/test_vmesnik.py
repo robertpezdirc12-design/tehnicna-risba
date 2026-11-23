@@ -155,11 +155,17 @@ def test_foto_predogled(tmp_path):
         app.destroy()
 
 
-def test_meri_slike_dvojna_korenina(tmp_path):
+def test_meri_slike_dvojna_korenina(tmp_path, monkeypatch):
     """Napaka iz preverjanja vmesnikov: MERI S SLIKE odpre DRUGO Tk-korenino;
     ImageTk.PhotoImage brez master=self se veže na prvo in create_image
     vrne 'image pyimageN doesn't exist'."""
     import tkinter as tk
+    import tkinter.messagebox as mb
+    # slika je namerno majhna (200x120) -> merjenje javi 'mala slika' s
+    # MODALNIM dialogom; v testih ga nadomestimo, sicer test obtiči.
+    monkeypatch.setattr(mb, "showwarning", lambda *a, **k: None)
+    monkeypatch.setattr(mb, "showinfo", lambda *a, **k: None)
+    monkeypatch.setattr(mb, "showerror", lambda *a, **k: None)
     try:
         app = vmesnik.App()
     except tk.TclError:

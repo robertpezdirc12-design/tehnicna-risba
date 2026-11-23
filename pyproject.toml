@@ -28,7 +28,10 @@ python_version = "3.11"
 check_untyped_defs = true
 ignore_missing_imports = true
 warn_unused_ignores = true
-exclude = ["build/", "dist/"]
+# scripts/preizkusi_gui.py je testni voznik z NAMERNIM monkeypatchanjem
+# dialogov (filedialog/messagebox) — tipi se preverjajo v aplikacijskih
+# modulih, zato je voznik izključen iz mypy.
+exclude = ["build/", "dist/", "scripts/preizkusi_gui\\.py"]
 
 [tool.coverage.run]
 source = ["."]
