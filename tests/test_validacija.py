@@ -12,6 +12,9 @@ from conftest import osnovni_cfg, cfg_pokoncna
 import risba
 from razrez import kos_iz_vira
 
+# Počasnejši testi (večstransko generiranje PDF) — hitra zanka: -m "not pocasi"
+pytestmark = pytest.mark.pocasi
+
 
 # ------------------------------------------------------------ A2: dolžina kosa
 def test_ograja_kos_je_sirina_ne_lamela(tmp_path):

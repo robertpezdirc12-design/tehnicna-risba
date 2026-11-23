@@ -221,6 +221,15 @@ python -m pip install -r requirements-dev.txt
 python -m pytest tests/ -v
 ```
 
+Hitrejša razvojna zanka (vzporedno + brez počasnih PDF testov, marker
+`pocasi`; vzporedna varnost testov je preverjena — izhodi so v `tmp_path`):
+
+```bash
+python -m pytest tests/ -q -n auto -m "not pocasi"
+```
+
+`pytest-timeout` (600 s/test) varuje pred zataknjenimi teki tudi v CI.
+
 Testi (74) v mapi `tests/` pokrivajo vse popravke: življenjski cikel
 `PdfPages` in štetje strani s `pypdf`, dolžino kosa za obe predlogi,
 validacijo (kerf, dolžine, ročaj/palica), dvojno odštevanje ostankov,

@@ -12,6 +12,11 @@ from conftest import stevilo_strani, besedilo_strani, osnovni_cfg, cfg_pokoncna
 
 import risba
 
+import pytest
+
+# Počasnejši testi (večstransko generiranje PDF) — hitra zanka: -m "not pocasi"
+pytestmark = pytest.mark.pocasi
+
 
 CENE_PRIMER = {"wpc_deska_m": 24.5, "vijak_kos": 0.35, "fasadni_kos": 1.2,
                "osnova_kos": 12.0, "nosilec_kos": 9.5, "alu_m": 18.0,

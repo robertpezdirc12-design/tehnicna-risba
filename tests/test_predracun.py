@@ -8,6 +8,11 @@ from conftest import osnovni_cfg, stevilo_strani, besedilo_strani
 
 import risba
 
+import pytest
+
+# Počasnejši testi (večstransko generiranje PDF) — hitra zanka: -m "not pocasi"
+pytestmark = pytest.mark.pocasi
+
 
 def test_predracun_z_primer_cenikom_je_informativen(tmp_path):
     cfg = osnovni_cfg(tmp_path / "pr.pdf",

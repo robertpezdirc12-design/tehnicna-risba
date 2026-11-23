@@ -9,6 +9,11 @@ from pypdf import PdfReader
 import risba
 from conftest import osnovni_cfg, cfg_pokoncna
 
+import pytest
+
+# Počasnejši testi (večstransko generiranje PDF) — hitra zanka: -m "not pocasi"
+pytestmark = pytest.mark.pocasi
+
 
 def _besedilo(cfg):
     pdf, _p, _d, _k = risba.generiraj(cfg, dpi_png=30)

@@ -43,3 +43,10 @@ omit = ["tests/*", "build/*", "dist/*", "test_*", "_*"]
 # Dviguje se ročno, ko pokritost zraste — nikoli ne blokira PR-ja,
 # ki ne spremeni ničesar.
 fail_under = 65
+
+[tool.pytest.ini_options]
+# pytest-timeout: zaščita pred zataknjenimi testi (omejitev velja na test).
+timeout = 600
+markers = [
+    "pocasi: počasnejši testi (večstransko generiranje PDF) — hitra zanka: -m 'not pocasi'",
+]
