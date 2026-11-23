@@ -37,3 +37,8 @@ ostanki.yaml
 .test/
 
 _pyi_build.log
+
+# coverage artefakti
+.coverage
+.coverage.*
+htmlcov/
