@@ -108,3 +108,17 @@ iz konfiguracije z omejitvijo višine ograje).
   ostankov za porabo (nove ostanke ≥ 100 mm pa evidentira) — izmenjava
   ostankov med različnimi dolžinami je načrtovana optimizacija.
 - Kote v DXF so statične (ne asociativne DIMENSION entitete).
+## Dopolnilo: drsná vrata (2026-04-11)
+
+- tip `drsna`: eno krilo teče vzporedno z ograjo. **`preklop` (mm) je obvezen
+  vhod** (kolikor se krilo prekriva z zapornim stebrom) — ni privzete
+  vrednosti („brez ugibanja“); obvezna je tudi smer parkiranja
+  (`levo`/`desno`), kar zrcali lego krila na risbi.
+- geometrija: `w_k = S_o + preklop`, `h_k = H_o − r_tla − r_zgoraj`;
+  `teka` (potreben umik ob ograji) = `w_k`.
+- kosovnica: brez okvirja v odprtini in brez tečajev; krilo (stojala, letve,
+  prečke, diagonala) vodi ista pravila P5/P6 kot pri enokrilnih.
+  **Vodila/rolle in zaporni steber NISO v kosovnici** (ni kataloških
+  podatkov) — vnašajo se ročno; ne ugibamo.
+- elementi/DXF: pri zaprtju krilo sega čez odprtino za `preklop` na strani
+  zapornega stebra; izbris okvirja in tečajev je dosleden kosovnici.

@@ -2126,24 +2126,37 @@ class App(tk.Tk):
                           values=list(vrat.VRSTE_VRAT))
         cb.grid(row=0, column=1, sticky="w", pady=4)
         for vr, (kljuc, privzeto) in enumerate((
-                ("x", "0"), ("sirina", "900"), ("visina", "1500")), start=1):
+                ("x", "0"), ("sirina", "900"), ("visina", "1500"),
+                ("preklop", "")), start=1):
             ttk.Label(d, text={"x": "Položaj x (mm):", "sirina": "Širina (mm):",
-                               "visina": "Višina (mm):"}[kljuc]).grid(
+                               "visina": "Višina (mm):",
+                               "preklop": "Preklop (mm, drsna):"}[kljuc]).grid(
                 row=vr, column=0, sticky="e", padx=6, pady=4)
             e = ttk.Entry(d, width=12)
             e.insert(0, str((vnos or {}).get(kljuc, privzeto)))
             e.grid(row=vr, column=1, sticky="w", pady=4)
             polja[kljuc] = e
-        ttk.Label(d, text="Smer:").grid(row=4, column=0, sticky="e", padx=6)
+        ttk.Label(d, text="Smer:").grid(row=5, column=0, sticky="e", padx=6)
         v_smer = tk.StringVar(value=(vnos or {}).get("smer", "desno-navzven"))
-        ttk.Combobox(d, textvariable=v_smer, state="readonly", width=16,
-                     values=list(vrat.SMERI)).grid(row=4, column=1, sticky="w")
+        smer_cb = ttk.Combobox(d, textvariable=v_smer, state="readonly", width=16,
+                               values=list(vrat.SMERI))
+        smer_cb.grid(row=5, column=1, sticky="w")
+
+        def _posodobi_smer(_dogodek=None):
+            """Za drsna vrata je smer parkiranja (levo/desno), ne odpiranja."""
+            vrednosti = (list(vrat.SMERI_DRSNE) if vrsta_tip.get() == "drsna"
+                         else list(vrat.SMERI))
+            smer_cb["values"] = vrednosti
+            if v_smer.get() not in vrednosti:
+                v_smer.set(vrednosti[0])
+
+        cb.bind("<<ComboboxSelected>>", _posodobi_smer)
         v_diag = tk.BooleanVar(value=bool((vnos or {}).get("diagonala")))
         ttk.Checkbutton(d, text="Diagonala", variable=v_diag).grid(
-            row=5, column=1, sticky="w")
+            row=6, column=1, sticky="w")
         napaka_lbl = tk.Label(d, text="", fg="#b00020", wraplength=280,
                               justify="left")
-        napaka_lbl.grid(row=6, column=0, columnspan=2, sticky="w", padx=6)
+        napaka_lbl.grid(row=7, column=0, columnspan=2, sticky="w", padx=6)
         rezultat = {}
 
         def potrdi():
@@ -2153,6 +2166,7 @@ class App(tk.Tk):
                     "x": polja["x"].get(),
                     "sirina": polja["sirina"].get(),
                     "visina": polja["visina"].get(),
+                    "preklop": polja["preklop"].get() or None,
                     "smer": v_smer.get(),
                     "diagonala": bool(v_diag.get()),
                 })

@@ -277,3 +277,73 @@ def test_cenik_vsebuje_vse_kljuce_okovja_vrat():
         cene = yaml.safe_load(f)
     for kljuc in vrata.CENE_KLJUCI.values():
         assert kljuc in cene, f"v cene.yaml manjka ključ {kljuc!r}"
+
+
+# ---------------------------------------------------------------------------
+# Drsná vrata (preklop je obvezen vhod — "brez ugibanja")
+# ---------------------------------------------------------------------------
+
+def test_drsna_geometrija_preklop_in_teka():
+    g = vrata.geometrija_vrat({"tip": "drsna", "preklop": 150, "smer": "levo"},
+                              2000, 1800)
+    assert g["n_kril"] == 1
+    assert g["sirine_kril"] == [2150.0]      # odprtina + preklop
+    assert g["preklop"] == 150.0
+    assert g["teka"] == 2150.0               # umik = širina krila
+    assert g["st_tecajev"] == 0              # drsna vrata nimajo tečajev
+    assert g["h_k"] == 1800 - 50 - 5
+
+
+def test_drsna_brez_preklopa_je_eksplicitna_napaka():
+    with pytest.raises(ValueError, match="preklop"):
+        vrata.geometrija_vrat({"tip": "drsna", "smer": "levo"}, 2000, 1800)
+
+
+def test_drsna_negativen_preklop_je_napaka():
+    with pytest.raises(ValueError, match="Preklop"):
+        vrata.geometrija_vrat({"tip": "drsna", "preklop": -10, "smer": "levo"},
+                              2000, 1800)
+
+
+def test_drsna_zahteva_smer_parkiranja():
+    with pytest.raises(ValueError, match="smer parkiranja"):
+        vrata.geometrija_vrat({"tip": "drsna", "preklop": 100,
+                               "smer": "desno-navzven"}, 2000, 1800)
+    with pytest.raises(ValueError, match="smer parkiranja"):
+        vrata.geometrija_vrat({"tip": "drsna", "preklop": 100}, 2000, 1800)
+    g = vrata.geometrija_vrat({"tip": "drsna", "preklop": 100, "smer": "desno"},
+                              2000, 1800)
+    assert g["smer"] == "desno"
+
+
+def test_drsna_kosovnica_brez_okvirja_in_tecajev():
+    g = vrata.geometrija_vrat({"tip": "drsna", "preklop": 150, "smer": "levo"},
+                              2000, 1800)
+    k = vrata.kosovnica_vrat(g)
+    opisi = " ".join(vr[4] for vr in k["izdelani"])
+    assert "okvirja" not in opisi             # drsna nimajo okvirja v odprtini
+    assert "krila" in opisi                   # krilo je izdelano
+    oznake = [vr[0] for vr in k["kupljeni"]]
+    assert not any(o.startswith("TEČ") for o in oznake)   # brez tečajev
+    letev = next(vr for vr in k["izdelani"] if "letev" in vr[4])
+    assert letev[1] == 2150.0 - 2 * vrata.SIRINA_STOJALA
+
+
+def test_drsna_elementi_zrcaljenje_preklopa():
+    g_l = vrata.geometrija_vrat({"tip": "drsna", "preklop": 150, "smer": "levo"},
+                                2000, 1800)
+    g_d = vrata.geometrija_vrat({"tip": "drsna", "preklop": 150, "smer": "desno"},
+                                2000, 1800)
+
+    def krilo(g):
+        return [p for v, p, plast in vrata.elementi_vrat(g)
+                if v == "kvadrat" and plast == "OUTLINE"][0]
+
+    # levo: krilo [0, S_o + preklop]; desno zrcalno: [-preklop, S_o]
+    k_l, k_d = krilo(g_l), krilo(g_d)
+    assert (k_l[0], k_l[2]) == (0.0, 2150.0)
+    assert (k_d[0], k_d[2]) == (-150.0, 2150.0)
+    # brez tečajev (krogov) in brez okvirnih stojal v odprtini
+    for g in (g_l, g_d):
+        el = vrata.elementi_vrat(g)
+        assert not any(v == "krog" for v, _p, _plast in el)
