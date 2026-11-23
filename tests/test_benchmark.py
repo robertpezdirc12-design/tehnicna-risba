@@ -295,3 +295,91 @@ def test_cli_serija_in_primerjava(tmp_path):
     assert dokoncan.returncode == 0, dokoncan.stderr
     assert "razlika B - A: +0.000" in dokoncan.stdout
     assert "interval zaupanja vsebuje 0" in dokoncan.stdout
+
+
+# ------------------------------------------------ unit: povzetek in CLI
+
+
+def _serija(uspehi: list[bool]) -> dict:
+    return {"rezultati": [
+        {"naloga": f"n{i}", "uspesna": u, "status": RESEN if u else NI_RESEN}
+        for i, u in enumerate(uspehi)
+    ]}
+
+
+def test_povzetek_izracuna_deleze_in_pass_k():
+    from benchmark import tek
+
+    podatek = {
+        "agent": "test", "zrno": 1, "ponovitve": 2,
+        "serije": [_serija([True, False]), _serija([True, True])],
+    }
+    p = tek.povzetek(podatek)
+    assert p["stevilo_izvedb"] == 4
+    assert p["uspesnih"] == 3
+    assert p["delez"] == pytest.approx(0.75)
+    assert p["k"] == 2
+    # n=2 za vsako nalogo: n0 (1/2), n1 (2/2) -> pass@2 = (1.0 + 1.0)/2
+    assert p["pass_at_k"] == pytest.approx(1.0)
+    assert p["po_nalogi"] == {"n0": 1.0, "n1": 0.5}
+
+
+def test_povzetek_steje_onesnazene():
+    from benchmark import tek
+
+    podatek = {"agent": "t", "zrno": 0, "ponovitve": 1, "serije": [
+        {"rezultati": [{"naloga": "a", "uspesna": True,
+                        "status": ONESNAZENO}]}]}
+    assert tek.povzetek(podatek)["onesnazenih"] == 1
+
+
+def test_tek_main_seznam(capsys):
+    from benchmark import tek
+
+    assert tek.main(["--seznam"]) == 0
+    izhod = capsys.readouterr().out
+    assert "vsota" in izhod and "orodja" in izhod
+
+
+def test_tek_primerjaj_zapiše_json(tmp_path):
+    from benchmark import tek
+
+    def zapis(ime: str, uspehi: list[bool]) -> pathlib.Path:
+        pot = tmp_path / ime
+        pot.write_text(json.dumps({
+            "agent": ime, "zrno": 1, "ponovitve": 1,
+            "serije": [{"rezultati": [
+                {"naloga": f"n{i}", "uspesna": u, "status": RESEN}
+                for i, u in enumerate(uspehi)]}],
+        }), encoding="utf-8")
+        return pot
+
+    a = zapis("a.json", [True, False])
+    b = zapis("b.json", [True, True])
+    izhod = tmp_path / "primejava.json"
+    tek.primerjaj(a, b, zrno=1, izhod=izhod)
+    podatek = json.loads(izhod.read_text(encoding="utf-8"))
+    assert podatek["skupne_naloge"] == ["n0", "n1"]
+    assert podatek["razlika"] == pytest.approx(0.5)
+    assert podatek["p_mcnemar"] == pytest.approx(1.0)
+    assert podatek["dokazano"] is False
+
+
+def test_ponarejeni_agent_main_v_procesu(tmp_path):
+    import shutil
+
+    from benchmark import ponarejeni_agent
+
+    prostor = tmp_path / "p"
+    shutil.copytree(REPO / "benchmark" / "primeri" / "knjiznica3", prostor)
+    assert ponarejeni_agent.main(
+        ["--nacin", "ok", "--prostor", str(prostor)]) == 0
+    assert "return a + b" in (prostor / "vozlice.py").read_text(encoding="utf-8")
+    assert "sum(vrednosti)" in (prostor / "orodja.py").read_text(encoding="utf-8")
+
+    prostor2 = tmp_path / "q"
+    shutil.copytree(REPO / "benchmark" / "primeri" / "knjiznica", prostor2)
+    assert ponarejeni_agent.main(
+        ["--nacin", "pokvari", "--prostor", str(prostor2)]) == 0
+    assert 'return "pokvarjeno"' in (prostor2 / "vozlice.py").read_text(
+        encoding="utf-8")
