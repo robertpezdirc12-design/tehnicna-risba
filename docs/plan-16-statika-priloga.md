@@ -30,8 +30,19 @@ ga ne razglaša za izračun.
   `python statika.py --priloga projekt.yaml [-o STAT-priloga.pdf]`;
   blok `cfg["statika"]`: `f_MPa`, `E_MPa`, `veter_kN_m2`.
 - `vmesnik.py`: meni **Orodja → Statična priloga (PDF)** (shranjevanje PDF).
-- `tests/test_statika_priloga.py` (8): struktura, ročno preverjene zahteve,
-  veter (enote p·h), opozorilo o S235, JSON, PDF z eno stranjo.
+- `tests/test_statika_priloga.py` (14): struktura, ročno preverjene zahteve,
+  veter (enote p·h), opozorilo o S235, JSON, PDF z eno stranjo, kataloška
+  pritrdila (dimenzije + dokazilo + eksplicitne napake).
+
+## Pritrdila iz kataloga `mechanical/` (dopolnitev)
+
+Neobvezni seznam `cfg["pritrdila_katalog"]` — vsak vnos `designation`,
+`standard`, `profil` (+ `vloga`) se razreši prek `mechanical.resolver.razresi`
+in v prilogi izpiše kot **dimenzije Z dokazilom** (standard, oznaka, mere iz
+kataloga, vir + datum dostopa, status, katalogska datoteka). Prosta polja
+(`pritrditev`, `vijak_lamela`, `vijak_nosilec`) ostanejo, a so označena kot
+**brez kataloškega vira**. Neznana/manjkajoča vrstica je eksplicitna napaka
+(`NapakaKataloga` s podrazredi) — mere se nikoli ne izmislijo.
 
 ## Omejitve (označene tudi v prilogi)
 - priloga je **povpraševanje (demand)** — nikoli ne trdi o zmogljivosti;

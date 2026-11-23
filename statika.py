@@ -184,6 +184,94 @@ def _zahteva(kategorija, q_kN_m, razmak, h_rocaja, f_MPa, E_MPa):
     }
 
 
+# ---------- Pritrdila iz kataloga mechanical/ (dimenzije Z dokazilom) ----------
+
+# Znane dimenzije -> kratke oznake; ostalo se izpiše surovo (brez ugibanja).
+_OZNAKE_DIMENZIJ = {
+    "thread_pitch_P_mm": "P",
+    "width_across_flats_s_mm": "s",
+    "head_height_k_mm": "k",
+    "width_across_corners_e_mm": "e",
+}
+
+
+def _mera(vrednost):
+    """Eno dimenzijo kataloga v berljiv zapis (nominal/min/max, številka, niz)."""
+    if isinstance(vrednost, dict):
+        for kljuc, predpona in (("nominal", ""), ("min", "min"), ("max", "max")):
+            if isinstance(vrednost.get(kljuc), (int, float)):
+                return ("%s %g" % (predpona, vrednost[kljuc])).strip()
+        return "; ".join("%s=%s" % (k, vrednost[k]) for k in sorted(vrednost))
+    if isinstance(vrednost, (int, float)):
+        return "%g" % vrednost
+    return str(vrednost)
+
+
+def _povzetek_dimenzij(vrstica):
+    """Kratek povzetek mer katalogske vrstice — LE podatki iz kataloga."""
+    deli = []
+    if vrstica.get("nominal_diameter"):
+        deli.append(str(vrstica["nominal_diameter"]))
+    if vrstica.get("length_mm") is not None:
+        deli.append("L %g mm" % vrstica["length_mm"])
+    dim = vrstica.get("dimenzije") or {}
+    for kljuc in _OZNAKE_DIMENZIJ:
+        if kljuc in dim:
+            deli.append("%s %s mm" % (_OZNAKE_DIMENZIJ[kljuc], _mera(dim[kljuc])))
+    for kljuc in sorted(dim):
+        if kljuc not in _OZNAKE_DIMENZIJ:
+            deli.append("%s %s" % (kljuc, _mera(dim[kljuc])))
+    return "; ".join(deli) or "—"
+
+
+def _provenenca_vrstic(vrstica):
+    """Provenenca katalogske vrstice za prilogo (vir + datum dostopa)."""
+    return [{"name": v.get("name"), "url": v.get("url"),
+             "accessed": v.get("accessed")}
+            for v in vrstica.get("provenenca") or []]
+
+
+def _pritrdila_iz_kataloga(vnosi):
+    """Razreši ``cfg["pritrdila_katalog"]`` prek ``mechanical.resolver``.
+
+    Vsak vnos: ``designation``, ``standard``, ``profil`` (+ neobvezna ``vloga``).
+    Neznana/manjkajoča vrstica je EKSPlicitna napaka (``NapakaKataloga``) —
+    dimenzije pritrdil se nikoli ne izmislijo.
+    """
+    from mechanical.resolver import NapakaKataloga, razresi   # leniv uvoz
+
+    izhod = []
+    for i, vnos in enumerate(vnosi or []):
+        if not isinstance(vnos, dict):
+            raise NapakaKataloga(
+                "pritrdila_katalog[%d]: vnos mora biti objekt z "
+                "polji designation/standard/profil" % i)
+        vloga = vnos.get("vloga") or "—"
+        manjkajoce = [k for k in ("designation", "standard", "profil")
+                      if not vnos.get(k)]
+        if manjkajoce:
+            raise NapakaKataloga(
+                "pritrdila_katalog[%d] (vloga %r): manjkajo polja %s"
+                % (i, vloga, ", ".join(manjkajoce)))
+        try:
+            vrstica = razresi(vnos["designation"], vnos["standard"], vnos["profil"])
+        except NapakaKataloga as napaka:
+            raise type(napaka)(
+                "pritrdila_katalog[%d] (vloga %r): %s" % (i, vloga, napaka)
+            ) from napaka
+        izhod.append({
+            "vloga": vloga,
+            "profil": vrstica["profil"],
+            "standard": vrstica["standard"],
+            "designation": vrstica["designation"],
+            "mere": _povzetek_dimenzij(vrstica),
+            "provenenca": _provenenca_vrstic(vrstica),
+            "status": vrstica["status"],
+            "vir": vrstica["vir"],
+        })
+    return izhod
+
+
 def priloga_podatki(cfg=None, f_MPa=None, E_MPa=None,
                     kategorije=("bivalno", "javno")):
     """Sestavi podatke statične priloge iz konfiguracije projekta (JSON-prijazno).
@@ -191,6 +279,9 @@ def priloga_podatki(cfg=None, f_MPa=None, E_MPa=None,
     ``cfg`` je običajna konfiguracija projekta (mere, stranka, objekt …).
     Neobvezen blok ``cfg["statika"]``: ``f_MPa``, ``E_MPa`` in
     ``veter_kN_m2`` (tlak, ki ga VNESE uporabnik — NI izračun po EN 1991-1-4).
+    Neobvezni seznam ``cfg["pritrdila_katalog"]``: vnosi z
+    ``designation``/``standard``/``profil`` (+ ``vloga``), razrešeni prek
+    ``mechanical.resolver`` → dimenzije pritrdil Z dokazilom (vir + datum).
     """
     cfg = cfg or {}
     m = cfg.get("mere") or {}
@@ -257,6 +348,7 @@ def priloga_podatki(cfg=None, f_MPa=None, E_MPa=None,
             "podlaga": cfg.get("podlaga") or "—",
             "vijak_lamela": cfg.get("vijak_lamela") or "privzeti",
             "vijak_nosilec": cfg.get("vijak_nosilec") or "privzeti",
+            "katalog": _pritrdila_iz_kataloga(cfg.get("pritrdila_katalog")),
         },
         "podpis": {"izdelal": cfg.get("izdelal") or "—",
                    "pregledal": "", "odobril": ""},
@@ -305,10 +397,27 @@ def pripis_priloge(podatki):
     vrstice.extend("  [ ] " + o for o in podatki["odprto_za_inzenirja"])
     p = podatki["pritrdila"]
     vrstice.append("")
-    vrstice.append("PRITRDILA (iz konfiguracije): pritrditev %s; podlaga %s; "
+    vrstice.append("PRITRDILA (prosta konfiguracija — brez kataloškega vira): "
+                   "pritrditev %s; podlaga %s; "
                    "vijak lamela↔profil: %s; vijak nosilec↔podlaga: %s"
                    % (p["pritrditev"], p["podlaga"], p["vijak_lamela"],
                       p["vijak_nosilec"]))
+    vrstice.append("")
+    if p.get("katalog"):
+        vrstice.append("PRITRDILA (katalog mechanical/ — dimenzije Z dokazilom):")
+        for vr in p["katalog"]:
+            vrstice.append("  • %s: %s %s — %s"
+                           % (vr["vloga"], vr["standard"], vr["designation"],
+                              vr["mere"]))
+            for vir in vr["provenenca"]:
+                vrstice.append("    vir: %s (dostopano %s)%s"
+                               % (vir["name"], vir["accessed"],
+                                  "; %s" % vir["url"] if vir.get("url") else ""))
+            vrstice.append("    status: %s (katalog: %s)"
+                           % (vr["status"], vr["vir"]))
+    else:
+        vrstice.append("PRITRDILA (katalog): brez kataloških vrstic — "
+                       "dimenzije pritrdil so brez kataloškega vira.")
     pod = podatki["podpis"]
     vrstice.append("")
     vrstice.append("PODPISI: Izdelal: %s | Pregledal (pooblaščeni inženir): "
@@ -405,13 +514,30 @@ def narisi_prilogo(pot_pdf, cfg=None, podatki=None):
         y = zavij(14, y, "[ ] " + o, 108, fs=7.0)
         y -= 0.6
 
-    # ---- pritrdila (iz konfiguracije) ----
+    # ---- pritrdila (prosta konfiguracija + katalog mechanical/) ----
     p = podatki["pritrdila"]
     y -= 2
-    y = zavij(12, y, "PRITRDILA (iz konfiguracije): pritrditev %s; podlaga %s; "
+    y = zavij(12, y, "PRITRDILA (prosta konfiguracija — brez kataloškega vira): "
+                    "pritrditev %s; podlaga %s; "
                     "vijak lamela↔profil: %s; vijak nosilec↔podlaga: %s"
               % (p["pritrditev"], p["podlaga"], p["vijak_lamela"],
                  p["vijak_nosilec"]), 118, fs=6.8, barva="#455a64")
+    if p.get("katalog"):
+        y = zavij(12, y - 1,
+                  "PRITRDILA (katalog mechanical/ — dimenzije Z dokazilom):",
+                  118, fs=6.8, barva="#455a64")
+        for vr in p["katalog"]:
+            y = zavij(14, y, "%s: %s %s — %s"
+                      % (vr["vloga"], vr["standard"], vr["designation"],
+                         vr["mere"]), 118, fs=6.6, barva="#455a64")
+            for vir in vr["provenenca"]:
+                y = zavij(16, y, "vir: %s (dostopano %s)"
+                          % (vir["name"], vir["accessed"]), 118, fs=6.2,
+                          barva="#607d8b")
+    else:
+        y = zavij(12, y - 1, "PRITRDILA (katalog): brez kataloških vrstic — "
+                             "dimenzije pritrdil so brez kataloškega vira.",
+                  118, fs=6.8, barva="#455a64")
 
     # ---- opombe inženirja (prostor za ročne zapise) ----
     y -= 5

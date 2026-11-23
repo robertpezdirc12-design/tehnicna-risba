@@ -92,7 +92,7 @@ Licence so odločilne, ker distribuiramo **MIT EXE s PyInstaller** (knjižnice s
 
 ## 6. Analiza treh naslednjih korakov ("naslednjič po moji logiki")
 
-### (a) Kataloške vrstice pritrdil iz `mechanical/` v statično prilogo
+### (a) Kataloške vrstice pritrdil iz `mechanical/` v statično prilogo — **izvedeno 2026-04-11**
 
 Trenutno `statika.py` bere pritrdila kot prosto besedilo (`cfg["pritrditev"]`). Predlog:
 

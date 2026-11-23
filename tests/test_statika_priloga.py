@@ -107,3 +107,80 @@ def test_priloga_pdf_ima_eno_stran(tmp_path):
     pot = str(tmp_path / "STAT-BO-100-priloga.pdf")
     statika.narisi_prilogo(pot, CFG)
     assert len(pypdf.PdfReader(pot).pages) == 1
+
+
+# ---- pritrdila iz kataloga mechanical/ (dimenzije Z dokazilom) ----
+
+CFG_KATALOG: dict = copy.deepcopy(CFG)
+CFG_KATALOG["pritrdila_katalog"] = [
+    {"vloga": "vijak lamela↔profil", "designation": "M10x35",
+     "standard": "ISO 4017", "profil": "iso"},
+    {"vloga": "matica nosilca↔podlaga", "designation": "M10",
+     "standard": "ISO 4032", "profil": "iso"},
+]
+
+
+def test_pritrdila_katalog_dimenzije_z_dokazilom():
+    p = statika.priloga_podatki(CFG_KATALOG)
+    k = p["pritrdila"]["katalog"]
+    assert [(v["standard"], v["designation"]) for v in k] == [
+        ("ISO 4017", "M10x35"), ("ISO 4032", "M10")]
+    vijak = k[0]
+    assert vijak["vloga"] == "vijak lamela↔profil"
+    # mere prihajajo iz kataloga (iso_4017_m10x35.yaml), ne izmišljene
+    assert vijak["mere"].startswith("M10")
+    assert "L 35 mm" in vijak["mere"] and "P 1.5 mm" in vijak["mere"]
+    vir = vijak["provenenca"][0]
+    assert "ISO 4017" in vir["name"]
+    assert vir["accessed"] == "2026-04-11"
+    assert vir["url"].startswith("https://")
+    assert vijak["vir"] == "iso_4017_m10x35.yaml"
+    # JSON-prijazno (isti test kot za ostale priloge)
+    assert json.loads(json.dumps(k, ensure_ascii=False)) == k
+
+
+def test_pripis_pritrdila_katalog_oznaci_tudi_prosti_vnos():
+    besedilo = statika.pripis_priloge(statika.priloga_podatki(CFG_KATALOG))
+    assert "ISO 4017" in besedilo and "M10x35" in besedilo
+    assert "dostopano 2026-04-11" in besedilo
+    assert "Fuller Fasteners" in besedilo
+    # prosta polja iz konfiguracije so OZNAČENA kot brez vira (brez ugibanja)
+    assert "brez kataloškega vira" in besedilo
+    assert "Inox vijak 6×60" in besedilo
+
+
+def test_pripis_brez_kataloga_opozori_na_manjkajoci_vir():
+    besedilo = statika.pripis_priloge(statika.priloga_podatki(CFG))
+    assert "brez kataloških vrstic" in besedilo
+    assert "brez kataloškega vira" in besedilo
+
+
+def test_pritrdila_katalog_neznan_vnos_je_eksplicitna_napaka():
+    from mechanical.resolver import ManjkajocaVarianta
+
+    cfg: dict = copy.deepcopy(CFG)
+    cfg["pritrdila_katalog"] = [
+        {"vloga": "test", "designation": "M99", "standard": "ISO 4017",
+         "profil": "iso"}]
+    with pytest.raises(ManjkajocaVarianta, match="pritrdila_katalog"):
+        statika.priloga_podatki(cfg)
+
+
+def test_pritrdila_katalog_manjkajoce_polje_je_eksplicitna_napaka():
+    from mechanical.resolver import NapakaKataloga
+
+    cfg: dict = copy.deepcopy(CFG)
+    cfg["pritrdila_katalog"] = [{"vloga": "test", "designation": "M10x35"}]
+    with pytest.raises(NapakaKataloga, match="manjkajo polja"):
+        statika.priloga_podatki(cfg)
+
+
+def test_priloga_pdf_katalog_vsebuje_dokazilo(tmp_path):
+    pypdf = pytest.importorskip("pypdf")
+    pot = str(tmp_path / "STAT-katalog-priloga.pdf")
+    statika.narisi_prilogo(pot, CFG_KATALOG)
+    bralnik = pypdf.PdfReader(pot)
+    assert len(bralnik.pages) == 1
+    besedilo = "\n".join(str(s.extract_text() or "") for s in bralnik.pages)
+    assert "ISO 4017" in besedilo
+    assert "dostopano 2026-04-11" in besedilo
