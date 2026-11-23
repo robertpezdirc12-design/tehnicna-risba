@@ -4,6 +4,9 @@ Preverja se vsebina (ne le odsotnost izjem): enote mm, različica R2010,
 fiksna shema plasti, zaprte konture brez ponovljene prve točke, realno
 merilo 1:1, odsotnost podvojenih entitet, round-trip z ezdxf.readfile.
 """
+# mypy: disable-error-code=attr-defined
+# (ezdxf stubs ne ožijo DXFEntity/DXFGraphic na LWPOLYLINE — get_points,
+#  plain_text, closed so legitimni atributi entitet ob izvedbi.)
 from __future__ import annotations
 
 import os

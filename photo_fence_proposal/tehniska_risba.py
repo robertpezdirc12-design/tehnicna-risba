@@ -46,7 +46,7 @@ def narisi_tehnisko_risbo(rezultat: Rezultat, pot: str) -> str:
 
     with PdfPages(pot) as pdf:
         fig = plt.figure(figsize=(16.54, 11.69))  # A3 ležeče (palcev)
-        ax = fig.add_axes([0.05, 0.18, 0.9, 0.62])
+        ax = fig.add_axes((0.05, 0.18, 0.9, 0.62))
         ax.set_aspect("equal")
         ax.axis("off")
 
@@ -88,7 +88,7 @@ def narisi_tehnisko_risbo(rezultat: Rezultat, pot: str) -> str:
         ax.set_title(naslov, fontsize=11, loc="left")
 
         # --- kosovnica ---
-        ax2 = fig.add_axes([0.05, 0.02, 0.55, 0.14])
+        ax2 = fig.add_axes((0.05, 0.02, 0.55, 0.14))
         ax2.axis("off")
         vrstice = [["Naziv", "Material", "Dimenzija", "Kol.", "Status mer"]]
         for p in rezultat.kosovnica:
@@ -103,7 +103,7 @@ def narisi_tehnisko_risbo(rezultat: Rezultat, pot: str) -> str:
                       fontsize=9, loc="left")
 
         # --- opozorila in legenda ---
-        ax3 = fig.add_axes([0.63, 0.02, 0.32, 0.14])
+        ax3 = fig.add_axes((0.63, 0.02, 0.32, 0.14))
         ax3.axis("off")
         besedilo = ["LEGENDA MER:",
                     "† izmerjeno (kalibrirano)   ‡ izračunano",

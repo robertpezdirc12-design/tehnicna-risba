@@ -92,7 +92,7 @@ def narisi_ponudbo(pot_pdf, c, moznosti=None):
     kol = izracunaj_kolicine(c)
 
     fig = plt.figure(figsize=(8.27, 11.69))          # A4 pokončno
-    ax = fig.add_axes([0, 0, 1, 1])
+    ax = fig.add_axes((0.0, 0.0, 1.0, 1.0))
     ax.set_xlim(0, 210)
     ax.set_ylim(0, 297)
     ax.axis("off")
@@ -120,7 +120,7 @@ def narisi_ponudbo(pot_pdf, c, moznosti=None):
     # ---- vključene količine ----
     ax.text(12, 238, "V CENO SO UPRAŠTEVANI (po izračunu količin):",
             fontsize=9.5, fontweight="bold")
-    y = 233
+    y = 233.0
     for (naziv, kol_str, enota, _k, _n) in kol["postavke"][:8]:
         ax.text(14, y, f"• {naziv}: {kolicina_z_enoto(kol_str, enota)}",
                 fontsize=7.8, va="top")

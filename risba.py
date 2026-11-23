@@ -67,7 +67,7 @@ C30 = math.cos(math.radians(30))
 def nov_list():
     """Prazna A3 krajinska stran; koordinate v mm (izvor spodaj levo)."""
     fig = plt.figure(figsize=(A3_W / 25.4, A3_H / 25.4))
-    ax = fig.add_axes([0, 0, 1, 1])
+    ax = fig.add_axes((0.0, 0.0, 1.0, 1.0))
     ax.set_xlim(0, A3_W)
     ax.set_ylim(0, A3_H)
     ax.set_aspect("equal")
@@ -1407,7 +1407,7 @@ def montazni_osnova(ax, c, pot_rows, rez_rows, viz_traki, koraki,
            [["NAZIV", "SPECIFIKACIJA", "KOLIČINA", "OPOMBA"], *pot_rows],
            naslov="POTREBŠČINE")
 
-    y_rez_konec = 197 - 20
+    y_rez_konec = 197.0 - 20
     if rez_rows:
         n_vrst_r = len(rez_rows) - 1
         vrstice_rez = rez_rows

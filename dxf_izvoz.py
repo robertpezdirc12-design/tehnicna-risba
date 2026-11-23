@@ -17,6 +17,7 @@ vrata.geometrija_vrat) — isti vir resnice kot risba in količine.
 from __future__ import annotations
 
 import os
+from typing import Any, cast
 
 import ezdxf
 from ezdxf import units as ez_units
@@ -148,7 +149,7 @@ def kota_v(msp, y1, y2, x, x_text, vrednost, layer="DIMENSIONS"):
 
 def _elementi_segmenta(mere, tip, vrata_sez=None, prehodi_sez=None):
     """2D elementi sprednjega pogleda segmenta (realni mm, od (0, 0))."""
-    el = []
+    el: list = []
     odcep = mere.get("odcep", 0.0)
     visina = mere["visina"]
     sirina = mere["sirina"]
@@ -380,12 +381,13 @@ def preveri_dxf(pot):
         layer = e.dxf.layer
         stevila[layer] = stevila.get(layer, 0) + 1
         if layer in PLASTI and PLASTI[layer][3] and e.dxftype() == "LWPOLYLINE":
-            if not e.closed:
+            lw = cast(Any, e)   # ezdxf stubs ne ožijo DXFGraphic → LWPOLYLINE
+            if not lw.closed:
                 napake.append(f"odprta kontura na {layer}")
-            tocke = list(e.get_points("xy"))
+            tocke = list(lw.get_points("xy"))
             if len(tocke) < 3:
                 napake.append(f"kontura z < 3 točkami na {layer}")
-            if tocke and tocke[0] == tocke[-1] and e.closed:
+            if tocke and tocke[0] == tocke[-1] and lw.closed:
                 napake.append(f"ponovljena prva točka na {layer}")
         kljuc = (e.dxftype(), layer, str(e.dxf.handle))
         if kljuc in videne:

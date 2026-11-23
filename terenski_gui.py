@@ -385,7 +385,8 @@ class Urejevalnik(tk.Tk):
             bx, by = self._v_platno(x, y)
             oris.create_line(ax, ay, bx, by, fill=BARVE_KANVAS[self.barva.get()],
                              width=max(1, 0.5 * self.lestvica))
-            if self._zacetna_tocka == self._zadnja_tocka:
+            if (self._zacetna_tocka is None
+                    or self._zacetna_tocka == self._zadnja_tocka):
                 self._zacetna_tocka = [self._zadnja_tocka, (x, y)]
             else:
                 self._zacetna_tocka.append((x, y))
@@ -658,7 +659,7 @@ class Urejevalnik(tk.Tk):
         okno.title("Predogled strani 1 (isti izris kot PDF)")
         slika = tk.PhotoImage(file=pot)
         oznaka = tk.Label(okno, image=slika)
-        oznaka.image = slika
+        oznaka.image = slika  # type: ignore[attr-defined]  # Tk vzorec zadržanja ref.
         oznaka.pack()
 
     def _tiskaj(self):

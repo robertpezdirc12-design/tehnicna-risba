@@ -201,7 +201,7 @@ class CelZaslon(tk.Toplevel):
         crop = self.img.crop((int(x0), int(y0), int(x1), int(y1)))
         dw = min(4000, max(1, int((x1 - x0) * sc)))
         dh = min(4000, max(1, int((y1 - y0) * sc)))
-        crop = crop.resize((dw, dh), Image.BILINEAR)
+        crop = crop.resize((dw, dh), Image.Resampling.BILINEAR)
         self._tk_img = ImageTk.PhotoImage(crop)
         self.canvas.delete("all")
         self.canvas.create_image(W / 2 + (x0 - scx) * sc + self.off[0],
@@ -254,7 +254,7 @@ class PredogledCanvas(tk.Canvas):
         self.na_klik = None
         self._izvirna = None
         self._photo = None
-        self._sporocilo = ""
+        self._sporocilo: str | None = ""
         self.faktor = 1.0
         self.ox = 0.0
         self.oy = 0.0
@@ -358,7 +358,7 @@ class PredogledCanvas(tk.Canvas):
             return
         W = max(int(self._izvirna.width * self.faktor), 1)
         H = max(int(self._izvirna.height * self.faktor), 1)
-        slika = self._izvirna.resize((W, H), Image.LANCZOS)
+        slika = self._izvirna.resize((W, H), Image.Resampling.LANCZOS)
         self._photo = ImageTk.PhotoImage(slika)
         self.create_image(cw // 2 + self.ox, ch // 2 + self.oy,
                           image=self._photo)
@@ -616,11 +616,14 @@ class App(tk.Tk):
         self._tema = None
         try:
             import ttkbootstrap as ttkb
-            self._ttkb = ttkb
             self._nastavi_temo("bootstrap-light")   # 2.0 ime teme
+            self._ttkb = ttkb
             self._tema = "svetla"
         except Exception:
-            pass
+            # Doslednost: če teme ne delujejo (npr. ttkbootstrap Style je
+            # vezan na uničen Tk root), so v celoti IZKLOPLJENE — ne polovično.
+            self._ttkb = None
+            self._tema = None
         self.title("Generator tehničnih risb — balkonska ograja")
         self.geometry("1100x780")
         self.minsize(720, 520)
@@ -2351,9 +2354,10 @@ class App(tk.Tk):
             t.configure(bg="black")
             t.attributes("-fullscreen", True)
             t.bind("<Escape>", lambda e: t.destroy())
-            img = tk.PhotoImage(file=self.png_pot, subsample=3)
+            # PhotoImage nima kwarg »subsample« — to je metoda (hrošč popravljen).
+            img = tk.PhotoImage(file=self.png_pot).subsample(3, 3)
             tk.Label(t, image=img, bg="black").pack(expand=True)
-            t._img = img
+            t._img = img  # type: ignore[attr-defined]  # Tk vzorec zadržanja ref.
 
     def _shrani_zadnje(self):
         """Samodejno shrani trenutne nastavitve (tiho, brez obvestil)."""

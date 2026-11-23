@@ -740,7 +740,7 @@ def test_izberi_vogale_interaktivni_tok_z_lupo():
 
     rgb = np.full((120, 160, 3), 200, dtype=np.uint8)
     fig, ax = plt.subplots()
-    lupa_ax = fig.add_axes([0.72, 0.72, 0.26, 0.26])
+    lupa_ax = fig.add_axes((0.72, 0.72, 0.26, 0.26))
     inter = ask._KlikVogalov(rgb, ax, lupa_ax, fig)
 
     for x, y in ((10, 10), (150, 10), (150, 110), (10, 110)):

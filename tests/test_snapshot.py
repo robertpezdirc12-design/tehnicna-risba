@@ -32,7 +32,7 @@ def _pricakuj(cfg):
 
 
 def _konfiguracije(tmp_path):
-    osn = {
+    osn: dict = {
         "ime": "SNAP", "risba_st": "SN-001", "stranka": "Test d.o.o.",
         "datum": "01.06.2026", "izhod": str(tmp_path / "s.pdf"),
         "merilo": "auto", "format": "A3",

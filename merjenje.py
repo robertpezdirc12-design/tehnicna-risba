@@ -20,6 +20,7 @@ Test brez okna: python merjenje.py slika.jpg --test
 import math
 import os
 import sys
+from typing import Any
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
@@ -239,7 +240,8 @@ def zaznaj_vijake(pot, roi=None, y_range=None):
         raise ValueError("Območje je premajhno — označi večje območje ograje.")
     pike = []
     for barva in (0, 255):
-        p = cv2.SimpleBlobDetector_Params()
+        # opencv stubs nimajo SimpleBlobDetector API (stubs so nepopolni).
+        p = cv2.SimpleBlobDetector_Params()  # type: ignore[attr-defined]
         p.minThreshold, p.maxThreshold, p.thresholdStep = 10, 240, 12
         p.filterByArea = True
         p.minArea = max(20, w * h * 2e-7)
@@ -249,7 +251,7 @@ def zaznaj_vijake(pot, roi=None, y_range=None):
         p.filterByConvexity = False
         p.filterByInertia = False
         p.blobColor = barva
-        det = cv2.SimpleBlobDetector_create(p)
+        det = cv2.SimpleBlobDetector_create(p)  # type: ignore[attr-defined]
         for kp in det.detect(g):
             y_abs = kp.pt[1] + by0
             if y_range and not (y_range[0] <= y_abs <= y_range[1]):
@@ -478,7 +480,7 @@ class App(tk.Tk):
         # pri umanjšavi BILINEAR (gladek prikaz).
         ostri = getattr(Image, "NEAREST", 0)     # PIL 0 = NEAREST
         crop = crop.resize((dw, dh),
-                           ostri if sc > 1.0 else Image.BILINEAR)
+                           ostri if sc > 1.0 else Image.Resampling.BILINEAR)
         dr = ImageDraw.Draw(crop)
 
         def S(sx, sy):
@@ -712,7 +714,7 @@ class App(tk.Tk):
     def _shrani(self):
         if self.img is None:
             return
-        cfg = {
+        cfg: dict[str, Any] = {
             "predloga": "ograda",
             "ime": "NOVA OGRAJA (iz fotografije)",
             "risba_st": "NOVA-01",

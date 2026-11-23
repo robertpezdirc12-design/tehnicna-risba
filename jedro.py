@@ -8,6 +8,7 @@ import math
 import os
 import re
 import sys
+from typing import Any
 
 import yaml
 
@@ -17,7 +18,7 @@ import vrata as vrat
 
 BARVA_LAMEL = "#3e4a5e"  # privzeta barva lamel (iz risba.konstante)
 
-PRIVZETO = {
+PRIVZETO: dict[str, Any] = {
     "predloga": "ograja",
     "ime": "BALKONSKA OGRAJA",
     "risba_st": "BO-001",

@@ -125,7 +125,7 @@ SIRINA_OKVIRJA = 60.0    # širina stojala okvirja (profil 60×40)
 SIRINA_STOJALA = 40.0    # širina navpičnega stojala krila
 VISINA_LETE = 40.0       # višina vodoravne letve krila
 
-PRIVZETA_VRATA = {
+PRIVZETA_VRATA: dict[str, Any] = {
     "tip": "enokrilna",
     "x": 0.0,
     "sirina": 900.0,
@@ -628,7 +628,7 @@ def _elementi_drsna(g):
     steber in preklop sta desno); ``desno`` je zrcalno. Pri zaprtju krilo
     sega čez odprtino za ``preklop`` na strani zapornega stebra.
     """
-    el = []
+    el: list = []
     sirina = g["odprtina"]["sirina"]
     H_o = g["odprtina"]["visina"]
     r = g["reze"]
@@ -662,7 +662,7 @@ def _elementi_drsna_dvojna(g):
     (2·w − preklop = S_o). Vsako krilo parkira na svoji strani; prostor za
     umik = ``teka`` (širina krila) na vsaki strani.
     """
-    el = []
+    el: list = []
     sirina = g["odprtina"]["sirina"]
     H_o = g["odprtina"]["visina"]
     r = g["reze"]
@@ -696,7 +696,7 @@ def elementi_vrat(g):
     Vrne [(vrsta, podatki, plast)] — risba in DXF izvoz porabljata isti seznam;
     ``plast`` je ciljna DXF plast (POSTS/FRAME/FILL/HARDWARE/OUTLINE/DIMENSIONS).
     """
-    el = []
+    el: list = []
     sirina = g["odprtina"]["sirina"]
     H_o = g["odprtina"]["visina"]
     r = g["reze"]

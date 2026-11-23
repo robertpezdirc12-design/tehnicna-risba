@@ -9,6 +9,7 @@ Preverjajo se sprejemni kriteriji iz issue #9/#10:
 - popolna ločenost od proizvodnih izračunov (kriterija 9 in 10).
 """
 import os
+from typing import Any
 
 import pytest
 from pypdf import PdfReader
@@ -352,7 +353,8 @@ def test_pdf_metapodatki(tmp_path):
     pot = str(tmp_path / "meta.pdf")
     tl.izvozi_pdf(tl.nov_dokument(), pot)
     meta = PdfReader(pot).metadata
-    assert "Terenski" in meta.title
+    assert meta is not None
+    assert "Terenski" in (meta.title or "")
     assert "terenski_list" in (meta.creator or "")
 
 
@@ -489,7 +491,7 @@ def test_ploscice_brez_puscanja_v_rob(tmp_path):
         tl.predogled_png(dok, pot, i)
         slika = Image.open(pot).convert("L")
         W, H = slika.size
-        px = slika.load()
+        px: Any = slika.load()
         fx, fy = W / s, H / v
         # robni pasovi (10 mm) morajo biti brez črnega črnila
         for x in range(W):

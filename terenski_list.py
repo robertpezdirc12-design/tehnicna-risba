@@ -921,7 +921,7 @@ def izvozi_pdf(dok, pot):
     with PdfPages(pot) as pdf:
         for shema in sheme:
             fig = plt.figure(figsize=figsize)
-            ax = fig.add_axes([0, 0, 1, 1])
+            ax = fig.add_axes((0.0, 0.0, 1.0, 1.0))
             narisi_stran(dok, ax, shema)
             pdf.savefig(fig)
             plt.close(fig)
@@ -940,7 +940,7 @@ def predogled_png(dok, pot, stran_indeks=0):
     if not 0 <= stran_indeks < len(sheme):
         raise ValueError(f"Stran {stran_indeks} ne obstaja (skica ima {len(sheme)} strani)")
     fig = plt.figure(figsize=(s / 25.4, v / 25.4))
-    ax = fig.add_axes([0, 0, 1, 1])
+    ax = fig.add_axes((0.0, 0.0, 1.0, 1.0))
     narisi_stran(dok, ax, sheme[stran_indeks])
     fig.savefig(pot, dpi=150)
     plt.close(fig)

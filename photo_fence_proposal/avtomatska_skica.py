@@ -120,7 +120,7 @@ def narisi_skico(pod, pot_pdf):
     ritem = pod.get("ritem") or {}
     with PdfPages(pot_pdf) as pdf:
         fig = plt.figure(figsize=(A3_W / 25.4, A3_H / 25.4))
-        ax = fig.add_axes([0, 0, 1, 1])
+        ax = fig.add_axes((0.0, 0.0, 1.0, 1.0))
         ax.set_xlim(0, A3_W)
         ax.set_ylim(0, A3_H)
         ax.axis("off")
@@ -543,7 +543,7 @@ def izberi_vogale(slika_pot, vnosi=None):
         raise ValueError(f"Slike ni mogoče odpreti: {slika_pot}")
     rgb = cv2.cvtColor(slika, cv2.COLOR_BGR2RGB)
     fig, ax = plt.subplots()
-    lupa_ax = fig.add_axes([0.72, 0.72, 0.26, 0.26])
+    lupa_ax = fig.add_axes((0.72, 0.72, 0.26, 0.26))
     lupa_ax.axis("off")
     inter = _KlikVogalov(rgb, ax, lupa_ax, fig)
 
