@@ -18,6 +18,11 @@ Odločitve (dokumentirane v docs/issue-3-*.md):
   vhod iz konfiguracije (ni privzete vrednosti — ne ugibamo) in je obvezna
   tudi smer parkiranja (``levo``/``desno``); potrebna odprtnina za umik
   (``teka``) = širina krila; brez tečajev in brez okvirja v odprtini.
+- dvokrilna drsna vrata: dve krili na nasprotnih straneh; pogoj zaprtja
+  2·širina_krila − preklop = S_o (``preklop`` = prekrivanje kril v sredini)
+  je prav tako OBVEZEN vhod brez privzete vrednosti; smer parkiranja ni
+  vhod (simetrično — vsako krilo parkira na svoji strani); ``teka`` =
+  širina krila na vsaki strani; brez tečajev in brez okvirja v odprtini.
 """
 from __future__ import annotations
 
@@ -101,7 +106,8 @@ def kataloski_viri(kosovnica=None):
             ref["designation"], ref["standard"], ref.get("profil", "iso"))
     return izhod
 
-VRSTE_VRAT = ("enokrilna", "dvokrilna", "pasja", "prehodna", "drsna")
+VRSTE_VRAT = ("enokrilna", "dvokrilna", "pasja", "prehodna", "drsna",
+              "dvokrilna_drsna")
 SMERI = ("levo-navzven", "desno-navzven", "levo-navznoter", "desno-navznoter")
 # Smer drsnih vrat = smer PARKIRANJA krila ob odpiranju (kje se umakne).
 SMERI_DRSNE = ("levo", "desno")
@@ -268,6 +274,10 @@ def geometrija_vrat(vnos, sirina_odprtine, visina_odprtine):
             raise ValueError(
                 f"Za drsna vrata je obvezna smer parkiranja »levo« ali "
                 f"»desno« (vpisano: {v['smer']!r})")
+    elif tip == "dvokrilna_drsna":
+        # Simetrično — smer parkiranja ni vhod (vsako krilo parkira na
+        # svoji strani); morebitni vpis se ne upošteva (kot tečaji pri drsnih).
+        v["smer"] = ""
     elif v["smer"] and v["smer"] not in SMERI:
         raise ValueError(f"Neznana smer odpiranja: {v['smer']!r}")
 
@@ -288,21 +298,29 @@ def geometrija_vrat(vnos, sirina_odprtine, visina_odprtine):
         n_kril = 2
         h_k = H_o - r["tla"] - r["zgoraj"]
         h = h_k
-    elif tip == "drsna":
-        # Drsná vrata: eno krilo teče vzporedno z ograjo. Širina krila NI
-        # izpeljana iz odprtine — preklop čez zaporni steber je OBVEZEN vhod
-        # (brez privzete vrednosti; "brez ugibanja").
+    elif tip in ("drsna", "dvokrilna_drsna"):
+        # Drsná vrata: širina krila NI izpeljana iz odprtine — preklop je
+        # OBVEZEN vhod (brez privzete vrednosti; "brez ugibanja").
+        # - enojna: preklop = prekrivanje krila čez zaporni steber
+        # - dvojna: preklop = prekrivanje kril v sredini (pogoj zaprtja
+        #   2·w − preklop = S_o  =>  w = (S_o + preklop) / 2)
         if v.get("preklop") in (None, ""):
             raise ValueError(
                 "Za drsna vrata je obvezen vnos »preklop« (mm) — kolikor se "
-                "krilo prekriva z zapornim stebrom. Ni privzete vrednosti.")
+                "krilo prekriva z zapornim stebrom (pri dvokrilnih: kolikor "
+                "se krili prekrivata v sredini). Ni privzete vrednosti.")
         preklop = _stevilo(v["preklop"], "preklop (drsna vrata)")
         if preklop <= 0:
             raise ValueError(
                 f"Preklop mora biti pozitiven (vpisano: {preklop:g}).")
-        w = S_o + preklop
-        sirine_kril = [w]
-        n_kril = 1
+        if tip == "drsna":
+            w = S_o + preklop
+            sirine_kril = [w]
+            n_kril = 1
+        else:
+            w = (S_o + preklop) / 2.0
+            sirine_kril = [w, w]
+            n_kril = 2
         h_k = H_o - r["tla"] - r["zgoraj"]
         h = h_k
     else:
@@ -324,7 +342,7 @@ def geometrija_vrat(vnos, sirina_odprtine, visina_odprtine):
             f"Krilo {w:g}×{h_k:g} mm je premajhno za stojala/letve "
             f"({SIRINA_STOJALA:g}/{VISINA_LETE:g} mm).")
 
-    if tip in ("prehodna", "drsna"):
+    if tip in ("prehodna", "drsna", "dvokrilna_drsna"):
         st_tec = 0
     elif v["tecaji"] in ("0", "brez", "none"):
         st_tec = 0
@@ -356,7 +374,8 @@ def geometrija_vrat(vnos, sirina_odprtine, visina_odprtine):
         "n_kril": n_kril,
         "sirine_kril": sirine_kril,
         "preklop": preklop,
-        "teka": (w if tip == "drsna" else None),
+        # teka = potreben umik ob ograji (pri dvokrilnih na vsaki strani)
+        "teka": (w if tip in ("drsna", "dvokrilna_drsna") else None),
         "h_k": h_k if n_kril else H_o,
         "h": h if n_kril else H_o,
         "reze": dict(r),
@@ -483,9 +502,10 @@ def kosovnica_vrat(g, oznaka="V1"):
     h_k = g["h_k"]
     r = g["reze"]
 
-    if tip != "drsna":
+    if tip not in ("drsna", "dvokrilna_drsna"):
         # Okvir vrat: 2 stojali + prečke (P5) — mere iz konstant profila.
-        # Drsná vrata okvirja v odprtini nimajo (krilo teče na vodilu).
+        # Drsná vrata (enokrilna in dvokrilna) okvirja v odprtini nimajo
+        # (krili tečeta na vodilu).
         stojalo = h_k + r["tla"]
         izdelani.append((f"{oznaka}-1", stojalo, SIRINA_OKVIRJA, 2, "stojalo okvirja", None))
         dolzina_precke_okvir = sirina - 2 * SIRINA_OKVIRJA
@@ -635,6 +655,41 @@ def _elementi_drsna(g):
     return el
 
 
+def _elementi_drsna_dvojna(g):
+    """Elementi dvokrilnih drsnih vrat (``preklop`` je obvezen vhod).
+
+    Risba kaže ZAPRTO stanje: krili se v sredini prekrivata za ``preklop``
+    (2·w − preklop = S_o). Vsako krilo parkira na svoji strani; prostor za
+    umik = ``teka`` (širina krila) na vsaki strani.
+    """
+    el = []
+    sirina = g["odprtina"]["sirina"]
+    H_o = g["odprtina"]["visina"]
+    r = g["reze"]
+    w = g["sirine_kril"][0]
+    el.append(("kvadrat", (0.0, 0.0, sirina, H_o), "DIMENSIONS"))
+    # Krili: levo [0, w], desno [S_o − w, S_o] — prekrivanje = preklop.
+    x_levi, x_desni = 0.0, sirina - w
+    for x0 in (x_levi, x_desni):
+        el.append(("kvadrat", (x0, r["tla"], w, g["h_k"]), "OUTLINE"))
+        for j in range(g["precke"]):
+            y = r["tla"] + g["h_k"] * (j + 1) / (g["precke"] + 1)
+            el.append(("kvadrat", (x0 + 10.0, y - 20.0, w - 20.0, 40.0), "FILL"))
+        if g["diagonala_dolzina"]:
+            el.append(("crta", (x0 + 40.0, r["tla"] + 40.0,
+                                x0 + w - 40.0, r["tla"] + g["h_k"] - 40.0),
+                       "FILL"))
+    # Ročaj (par) na srečnih stebrih obeh kril; ključavnica na levi krili.
+    el.append(("kvadrat", (x_levi + w - 80.0, g["visina_rocaj"] - 25.0,
+                           60.0, 50.0), "HARDWARE"))
+    el.append(("kvadrat", (x_desni + 20.0, g["visina_rocaj"] - 25.0,
+                           60.0, 50.0), "HARDWARE"))
+    if g["zaklep"] != "brez":
+        el.append(("kvadrat", (x_levi + w - 60.0, g["visina_zaklep"] - 150.0,
+                               30.0, 100.0), "HARDWARE"))
+    return el
+
+
 def elementi_vrat(g):
     """2D elementi vrat v koordinah odprtine (x od levega roba, y od tal).
 
@@ -650,6 +705,8 @@ def elementi_vrat(g):
         return el
     if g["tip"] == "drsna":
         return _elementi_drsna(g)
+    if g["tip"] == "dvokrilna_drsna":
+        return _elementi_drsna_dvojna(g)
 
     ok = g.get("sirina_okvirja", 60.0)
     # Okvir: levo in desno stojalo (znotraj odprtine) — F1 (issue #5, O2):

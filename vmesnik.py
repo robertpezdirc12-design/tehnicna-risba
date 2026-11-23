@@ -2143,8 +2143,16 @@ class App(tk.Tk):
         smer_cb.grid(row=5, column=1, sticky="w")
 
         def _posodobi_smer(_dogodek=None):
-            """Za drsna vrata je smer parkiranja (levo/desno), ne odpiranja."""
-            vrednosti = (list(vrat.SMERI_DRSNE) if vrsta_tip.get() == "drsna"
+            """Smer: pri drsnih je parkiranje (levo/desno); pri dvokrilnih
+            drsnih ni potrebna (simetrično); sicer odpiranje."""
+            tip = vrsta_tip.get()
+            if tip == "dvokrilna_drsna":
+                smer_cb.config(state="disabled")
+                smer_cb["values"] = []
+                v_smer.set("")
+                return
+            smer_cb.config(state="readonly")
+            vrednosti = (list(vrat.SMERI_DRSNE) if tip == "drsna"
                          else list(vrat.SMERI))
             smer_cb["values"] = vrednosti
             if v_smer.get() not in vrednosti:

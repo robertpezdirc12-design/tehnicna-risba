@@ -122,3 +122,19 @@ iz konfiguracije z omejitvijo višine ograje).
   podatkov) — vnašajo se ročno; ne ugibamo.
 - elementi/DXF: pri zaprtju krilo sega čez odprtino za `preklop` na strani
   zapornega stebra; izbris okvirja in tečajev je dosleden kosovnici.
+
+## Dopolnilo: dvokrilna drsna vrata (2026-11-23)
+
+- tip `dvokrilna_drsna`: dve krili na nasprotnih straneh, vsako parkira na
+  svoji strani. **`preklop` (mm) je obvezen vhod** — prekrivanje kril v
+  sredini; pogoj zaprtja `2·w − preklop = S_o` ⇒ `w = (S_o + preklop) / 2`
+  (aritmetična identiteta zaprtja, ne domneva). Smer parkiranja NI vhod
+  (simetrično) — morebitni vpis se ne upošteva.
+- geometrija: obe krili `w × h_k`, `h_k = H_o − r_tla − r_zgoraj`;
+  `teka` (potreben umik) = `w` na **vsaki** strani.
+- kosovnica: brez okvirja v odprtini in brez tečajev; kosi kril (stojala,
+  letve, prečke, diagonala) po pravilih P5/P6 za vsako krilo posebej.
+  Vodila/rolle tudi tu NISO v kosovnici — vnašajo se ročno.
+- elementi/DXF: risba kaže zaprto stanje — krili [0, w] in [S_o−w, S_o] se
+  prekrivata za `preklop`; ročaja na srečnih stebrih obeh kril, ključavnica
+  na levi krili.

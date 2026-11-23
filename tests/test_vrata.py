@@ -347,3 +347,76 @@ def test_drsna_elementi_zrcaljenje_preklopa():
     for g in (g_l, g_d):
         el = vrata.elementi_vrat(g)
         assert not any(v == "krog" for v, _p, _plast in el)
+
+
+# ---------------------------------------------------------------------------
+# Dvokrilna drsna vrata (pogoj zaprtja 2·w − preklop = S_o; preklop obvezen)
+# ---------------------------------------------------------------------------
+
+def test_dvokrilna_drsna_pogoj_zaprtja():
+    g = vrata.geometrija_vrat({"tip": "dvokrilna_drsna", "preklop": 200},
+                              3000, 1800)
+    w = g["sirine_kril"][0]
+    assert g["n_kril"] == 2
+    assert g["sirine_kril"] == [1600.0, 1600.0]      # (3000 + 200) / 2
+    assert 2 * w - g["preklop"] == 3000.0           # identiteta zaprtja
+    assert g["teka"] == w                           # umik na vsaki strani
+    assert g["st_tecajev"] == 0
+    assert g["h_k"] == 1800 - 50 - 5
+
+
+def test_dvokrilna_drsna_preklop_je_obvezen():
+    with pytest.raises(ValueError, match="preklop"):
+        vrata.geometrija_vrat({"tip": "dvokrilna_drsna"}, 3000, 1800)
+    with pytest.raises(ValueError, match="Preklop"):
+        vrata.geometrija_vrat({"tip": "dvokrilna_drsna", "preklop": 0},
+                              3000, 1800)
+
+
+def test_dvokrilna_drsna_smer_ni_potrebna():
+    # simetrično — smer parkiranja ni vhod (za razliko od enojne drsne);
+    # morebitni vpis se ne upošteva, geometrija je enaka
+    g = vrata.geometrija_vrat({"tip": "dvokrilna_drsna", "preklop": 200,
+                               "smer": "levo"}, 3000, 1800)
+    assert g["smer"] == ""
+    brez = vrata.geometrija_vrat({"tip": "dvokrilna_drsna", "preklop": 200},
+                                3000, 1800)
+    assert g["sirine_kril"] == brez["sirine_kril"]
+
+
+def test_dvokrilna_drsna_kosovnica():
+    g = vrata.geometrija_vrat({"tip": "dvokrilna_drsna", "preklop": 200},
+                              3000, 1800)
+    k = vrata.kosovnica_vrat(g)
+    opisi = " ".join(vr[4] for vr in k["izdelani"])
+    assert "okvirja" not in opisi                    # brez okvirja v odprtini
+    stojala = [vr for vr in k["izdelani"] if "stojalo krila" in vr[4]]
+    assert len(stojala) == 2                         # vrstica na krilo
+    assert sum(vr[3] for vr in stojala) == 4         # 2 stojali na krilo
+    letevi = [vr for vr in k["izdelani"] if "letev" in vr[4]]
+    assert all(vr[1] == 1600.0 - 2 * vrata.SIRINA_STOJALA for vr in letevi)
+    oznake = [vr[0] for vr in k["kupljeni"]]
+    assert not any(o.startswith("TEČ") for o in oznake)
+
+
+def test_dvokrilna_drsna_elementi_prekrivanje():
+    g = vrata.geometrija_vrat({"tip": "dvokrilna_drsna", "preklop": 200},
+                              3000, 1800)
+    el = vrata.elementi_vrat(g)
+    krili = [p for v, p, plast in el if v == "kvadrat" and plast == "OUTLINE"]
+    # levo krilo [0, 1600], desno [1400, 3000] — prekrivanje [1400, 1600] = 200
+    assert [(p[0], p[2]) for p in krili] == [(0.0, 1600.0), (1400.0, 1600.0)]
+    assert not any(v == "krog" for v, _p, _plast in el)   # brez tečajev
+    hard = [p for v, p, plast in el if plast == "HARDWARE"]
+    assert len(hard) == 3                            # ročaja + ključavnica
+    # ročaja na srečnih stebrih (v pasu prekrivanja)
+    assert (1600.0 - 80.0) in [p[0] for p in hard]
+    assert (1400.0 + 20.0) in [p[0] for p in hard]
+
+
+def test_dvokrilna_drsna_majhna_odprtina_je_napaka():
+    # krilo mora biti večje od 2·stojali/letvi — majhna odprtina z majhnim
+    # preklopom da premajhno krilo
+    with pytest.raises(ValueError, match="premajhno"):
+        vrata.geometrija_vrat({"tip": "dvokrilna_drsna", "preklop": 10},
+                              50, 1800)

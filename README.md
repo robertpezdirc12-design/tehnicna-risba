@@ -279,7 +279,8 @@ Razširitev podpira vgradnjo vrat in prehodov v **obe** predlogi ograje, z
 pravilnimi merami, količinami in izvozom za CAD/CNC.
 
 - **Vrata** (`vrata:` v YAML ali sekcija »VRATA IN PREHODI« v GUI): tipi
-  `enokrilna`, `dvokrilna`, `pasja`, `prehodna`, `drsna`; mere, smer odpiranja,
+  `enokrilna`, `dvokrilna`, `pasja`, `prehodna`, `drsna`, `dvokrilna_drsna`;
+  mere, smer odpiranja,
   tečaji, zaklep, ročaj, prečke, diagonala. Geometrija živi v `vrata.py`
   (edini vir resnice) — risba, količine, kosovnica in DXF porabljajo isti
   izračun. Odprtine vplivajo na polnilo (lamele/deske se razrežejo okoli
@@ -287,8 +288,11 @@ pravilnimi merami, količinami in izvozom za CAD/CNC.
   Pri `drsna` je **`preklop` (mm) obvezen vhod brez privzete vrednosti**
   (kolikor se krilo prekriva z zapornim stebrom), smer je parkiranje
   (`levo`/`desno`); krilo = odprtina + preklop, umik (`teka`) = širina krila.
-  Vodila/rolle in zaporni steber niso v kosovnici (ni kataloških podatkov) —
-  vnašajo se ročno.
+  Pri `dvokrilna_drsna` je `preklop` prekrivanje kril v sredini (pogoj
+  zaprtja `2·krilo − preklop = S_o`); smer ni vhod (simetrično), umik je
+  potreben na vsaki strani. Obe drsni vrsti brez okvirja v odprtini in brez
+  tečajev; vodila/rolle in zaporni steber niso v kosovnici (ni kataloških
+  podatkov) — vnašajo se ročno.
 - **Prehodi** (`prehodi:`): odprtina brez kril (prehodna vrata), s svojimi
   količinami (zaključni stebri/profili, sidranje).
 - **Več segmentov** (`segmenti:`, YAML shema v2): vsak segment ima lahko
