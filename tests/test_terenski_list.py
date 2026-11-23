@@ -401,7 +401,7 @@ def test_modul_ne_uvaža_proizvodnih_modulov():
     import ast
     with open(tl.__file__, encoding="utf-8") as f:
         drevo = ast.parse(f.read())
-    uvozi = set()
+    uvozi: set = set()
     for vozlisce in ast.walk(drevo):
         if isinstance(vozlisce, ast.Import):
             uvozi.update(a.name.split(".")[0] for a in vozlisce.names)

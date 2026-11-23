@@ -231,7 +231,7 @@ def _narisi_elemente(msp, el, dx=0.0, rot=0.0):
 def segmenti_iz_cfg(cfg):
     """Razpakira segmente iz cfg (shema v2) ali sestavi enega (shema v1)."""
     if cfg.get("segmenti"):
-        segmenti = []
+        segmenti: list = []
         for s in cfg["segmenti"]:
             mere = dict(cfg.get("mere") or {})
             mere.update(s.get("mere") or {})
@@ -374,7 +374,7 @@ def preveri_dxf(pot):
         napake.append(f"manjkajoče plasti: {sorted(manjkajoce)}")
 
     msp = doc.modelspace()
-    stevila = {}
+    stevila: dict = {}
     videne = set()
     for e in msp:
         layer = e.dxf.layer

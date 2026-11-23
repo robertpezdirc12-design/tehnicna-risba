@@ -24,7 +24,7 @@ REPO = os.path.join(os.path.dirname(__file__), "..")
 # Na Vercel serverless je to NAJBOLJŠE prizadevanje (pomnilnik ni deljen
 # med instancami) — za trdno omejitev dodaj še Vercel WAF / edge rate limit.
 _OMEJITEV = 10          # zahtevkov na minuto na IP (POST /generiraj)
-_ZAPISKI = {}           # ip -> [časovni žigi]
+_ZAPISKI: dict = {}           # ip -> [časovni žigi]
 
 
 def _prevec_zahtevkov(ip):

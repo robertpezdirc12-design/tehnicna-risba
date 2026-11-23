@@ -1548,7 +1548,7 @@ def narisi_montazni_list(ax, c):
     # rezalni načrt — EN VIR RESNICE (razrez_podatki): A3/A5/B1
     if vp["odprtine"]:
         # lamele so razrezane okoli odprtin — kosi različnih dolžin
-        kosi_l = []
+        kosi_l: list = []
         for _z0, _z1 in lamele:
             for xa, xb in razdeli_po_odprtinah(0, sir, vp["odprtine"]):
                 kosi_l.append((f"L{len(kosi_l) + 1}", xb - xa))
@@ -1890,7 +1890,7 @@ def narisi_predracun(ax, c, postavke):
 
 
 # ---------------------------------------------------------------- glavno
-ZADNJA_OPOZORILA = []   # opozorila zadnjega generiraj() (npr. padel list 2)
+ZADNJA_OPOZORILA: list = []   # opozorila zadnjega generiraj() (npr. padel list 2)
 
 
 def _opozori(sporocilo):

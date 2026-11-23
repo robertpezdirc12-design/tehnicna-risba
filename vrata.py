@@ -397,7 +397,7 @@ def kosovnica_vrat(g, oznaka="V1"):
     Izdelani kosi gredo v rezalni načrt (``razrezne_skupine``), kupljeni ne.
     """
     tip = g["tip"]
-    izdelani = []
+    izdelani: list = []
     kupljeni = []
 
     if tip == "prehodna":
@@ -505,7 +505,7 @@ def razrezne_skupine(kosovnica):
     Vrne [(oznaka_vira, [(oznaka, dolzina, sirina, barva)])]; debelina kosov je
     enaka debelini profilov (iz cfg), zato se skupine imenujejo po vrstah kosov.
     """
-    skupine = {}
+    skupine: dict = {}
     for oznaka, dolzina, sirina, kol, opis, _kljuc in kosovnica["izdelani"]:
         kljuc = f"profil {int(sirina)}x40"
         for _ in range(int(kol)):
@@ -516,7 +516,7 @@ def razrezne_skupine(kosovnica):
 
 def razrezne_skupine_prehoda(kosovnica, visina=2100.0):
     """Razrezne skupine prehoda (P7: zaključni profili se režejo na višino odprtine)."""
-    skupine = {}
+    skupine: dict = {}
     for oznaka, kol, enota, _kljuc, opis in kosovnica["kupljeni"]:
         if oznaka == "ZAK-PRO":
             kljuc = "zakljucni profil"

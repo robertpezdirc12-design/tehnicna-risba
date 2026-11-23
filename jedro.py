@@ -103,7 +103,7 @@ def fmt(v):
 
 def traki_nabava(traki):
     """Število NABAVNIH trakov (desk) po dolžinah: [(dolžina, št. trakov)]."""
-    agg = {}
+    agg: dict = {}
     for B, _ in traki:
         agg[B] = agg.get(B, 0) + 1
     return sorted(agg.items())
@@ -296,7 +296,7 @@ def vrata_podatki(c):
     odcep = m.get("odcep", 0) or 0
     sir = m.get("sirina", 0) or 0
     vis = m.get("visina", 0) or 0
-    izhod = {"vrata": [], "prehodi": [], "odprtine": [], "elementi": [],
+    izhod: dict = {"vrata": [], "prehodi": [], "odprtine": [], "elementi": [],
              "napake": [], "opozorila": []}
     if not (c.get("vrata") or c.get("prehodi")):
         return izhod

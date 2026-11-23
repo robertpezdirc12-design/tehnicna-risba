@@ -27,7 +27,7 @@ def rektificiraj(slika, obmocje_px, sirina_izhoda=1400):
     tudi pri močni perspektivi); sicer homografija iz vogalov (TL, TR,
     BR, BL). Če nič ne deluje, vrne izvirno sliko z opozorilom.
     """
-    opozorila = []
+    opozorila: list = []
     # --- 1) metrična rektifikacija iz točk izginjanja ---
     H_vp, meta_vp = homografija_pogleja(slika)
     if H_vp is not None:

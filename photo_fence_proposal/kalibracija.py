@@ -68,7 +68,7 @@ def visina_ograje_px(zaznava: Zaznava) -> float | None:
                      for e in zaznava.elementi
                      if e.vrsta == "precka" and len(e.tocke_px) >= 2)
     prag_locevanja = max(4.0, 0.02 * zaznava.slika.visina_px)
-    gruce = []
+    gruce: list = []
     for y in sredine:
         if gruce and y - gruce[-1][-1] <= prag_locevanja:
             gruce[-1].append(y)

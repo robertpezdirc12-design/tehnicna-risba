@@ -68,7 +68,7 @@ def test_blijnjice_so_vezane(datoteka):
 def test_pomoc_se_odpre(datoteka, monkeypatch):
     app = _app()
     try:
-        videno = {}
+        videno: dict = {}
         monkeypatch.setattr(
             vmesnik.messagebox, "showinfo",
             lambda naslov, besedilo: videno.update(naslov=naslov,

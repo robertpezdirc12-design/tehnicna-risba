@@ -1187,7 +1187,7 @@ class App(tk.Tk):
             self.zivi_status.config(text=f"Izračun ni mogoč — {e}",
                                     fg="#b00020")
             return
-        po = {}
+        po: dict = {}
         for _n, _ks, _e, kljuc, num in kol["postavke"]:
             if kljuc:
                 po[kljuc] = po.get(kljuc, 0.0) + float(num or 0)

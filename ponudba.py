@@ -41,7 +41,7 @@ def sestavi_moznosti(c):
         ("PRIPOROČENA", None),          # glavni cenik (cene)
         ("PREMIUM", "cene_premium"),
     )
-    out = []
+    out: list = []
     for (ime, kljuc_cenika) in variante:
         cene = (c.get("cene") if kljuc_cenika is None
                 else c.get(kljuc_cenika))

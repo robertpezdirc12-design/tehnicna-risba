@@ -254,7 +254,7 @@ def izracunaj_kolicine(c, rp=None):
                            or f"Pritrdilni vijaki za "
                              f"{c.get('podlaga') or 'podlago'}")
     if vp["vrata"] or vp["prehodi"]:
-        kosi_l = []
+        kosi_l: list = []
         for _z0, _z1 in lamele:
             for xa, xb in razdeli_po_odprtinah(0, sir, vp["odprtine"]):
                 kosi_l.append((f"L{len(kosi_l) + 1}", xb - xa))

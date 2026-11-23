@@ -443,7 +443,7 @@ def razrez_kosov(kosi, dolzine_zaloge, kerf, barva="", profil=""):
         vnosi.append((oznaka, dol))
     # FFD: najdaljši kosi najprej, v prvi trak, ki ga sprejme.
     vnosi.sort(key=lambda t: -t[1])
-    traki = []  # [(B, [kosi], preostanek_prostora)]
+    traki: list = []  # [(B, [kosi], preostanek_prostora)]
     for oznaka, dol in vnosi:
         postavljen = False
         # t[2] = preostanek prostora = B − Σd − m·kerf (m = št. kosov v traku).
@@ -518,7 +518,7 @@ def naivni_rez(kosi, dolzine_zaloge, kerf):
                       if isinstance(d, (int, float)) and d > 0}, reverse=True)
     if not dolzine:
         raise ValueError("Ni dovoljenih dolžin zaloge za razrez.")
-    traki = []  # [B, [kosi], preostanek_prostora]
+    traki: list = []  # [B, [kosi], preostanek_prostora]
     for oznaka, dol in kosi:
         dol = float(dol)
         if dol <= 0:

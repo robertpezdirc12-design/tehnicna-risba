@@ -48,7 +48,7 @@ def _obrez(roi, w, h):
 
 def vrhovi(x, sep, thr):
     """Lokalni maksimumi z najmanjšim razmakom sep in pragom thr."""
-    idx = []
+    idx: list = []
     for i in range(1, len(x) - 1):
         if x[i] >= x[i - 1] and x[i] >= x[i + 1] and x[i] >= thr:
             if idx and i - idx[-1] < sep:
