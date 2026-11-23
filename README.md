@@ -227,6 +227,14 @@ validacijo (kerf, dolžine, ročaj/palica), dvojno odštevanje ostankov,
 varno skladišče, palice, vijake, pokončno geometrijo, informativni
 predračun in krog shranjevanja nastavitev v GUI.
 
+## Neobvezne knjižnice (strategija paketov)
+
+Jedro (`requirements.txt`) ostaja vitko in se ne širi, dokler koda paketov ne uvozi.
+O odločitvah za dodatne knjižnice (scipy/trimesh/meshio, `scikit-image`, `cadquery`,
+OCR/ML sloj) in o **licenčnih prepovedih** za EXE (`gmsh`, `pymeshlab` = GPL;
+`pythonocc-core` = samo conda + LGPL) glej
+[docs/analiza-paketov.md](docs/analiza-paketov.md).
+
 ## Izdelava Windows EXE (samostojni program)
 
 ```bash
