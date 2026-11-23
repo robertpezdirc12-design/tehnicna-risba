@@ -19,7 +19,8 @@
 | flask | da (`api/index.py`) | `requirements.txt` | API |
 | ttkbootstrap | da (neobvezno) | `requirements.txt` | teme GUI |
 | pypdf | da (testi) | `requirements-dev.txt` | preverjanje PDF |
-| **torch, transformers, shapely, networkx, scikit-image, sympy** | **ne** | **nič** | samo v okolju (podedovano) — koda jih ne uvozi |
+| **torch, transformers, shapely, networkx, sympy** | **ne** | **nič** | samo v okolju (podedovano) — koda jih ne uvozi |
+| **scikit-image, scipy** | **da (foto sloj)** | photo_fence_proposal | `detekcija.py` (robova kontrola ritma, 2026-11-23) — NE v EXE |
 
 Nameščeno v tem krogu (2026-04-11): **`scipy 1.17.1`, `trimesh 5.2.2`, `meshio 5.3.5`**.
 `numpy` ostaja 1.26.4 (nedotaknjen). V `requirements.txt` jih **ne dodamo, dokler jih koda
@@ -40,7 +41,7 @@ Licence so odločilne, ker distribuiramo **MIT EXE s PyInstaller** (knjižnice s
 | trimesh | ~2 MB | MIT | lahka 3D mreža (STL/OBJ), prihodnji predogled `mechanical` delov; `[easy]` vleče manifold3d (Apache-2.0) | **nameščeno** |
 | meshio | ~0,5 MB | MIT | pretvorba mrežnih formatov (`.msh`), komplementarno `trimesh` | **nameščeno** |
 | sympy | ~27 MB | BSD-3 | simbolni izpeljavi formul v `statika.py` (revizijsko sledljiv izpis `M = q·L²/8`) | na voljo v okolju; uporaba neobvezna |
-| scikit-image | ~22 MB | BSD-3 | naprednejša obdelava fotografij (detekcija robov, segmentacija) — **najboljše razmerje vrednost/MB** | pogojno (sloj foto-merjenja) |
+| scikit-image | ~22 MB | BSD-3 | detekcija robov (Canny) v `photo_fence_proposal/detekcija.py` — robova kontrola lamelnega ritma | **v rabi** (foto sloj, 2026-11-23) |
 
 ### 2.2 Težki sloji — namestiti šele ob konkretni funkciji
 
@@ -83,6 +84,9 @@ Licence so odločilne, ker distribuiramo **MIT EXE s PyInstaller** (knjižnice s
    ```
    (`scipy<1.18` = zadnja vrstica s kolesi za Python 3.11.)
 2. **Ob funkciji (sloj foto-merjenja):** `scikit-image` (+ `scipy`, že notri).
+   → **izvedeno 2026-11-23**: `photo_fence_proposal/detekcija.py` — neodvisen
+   robovi estimator ritma + kontrola soglasja s profilnim estimatorjem
+   (nesoglasje eksplicitno dolja statuse mer).
 3. **Ob funkciji (3D deli `mechanical`):** `cadquery` — šele po odločitvi o `casadi` (LGPL) in z OCCT obvestilom:
    ```
    python -m pip install cadquery

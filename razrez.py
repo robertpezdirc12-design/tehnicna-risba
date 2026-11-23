@@ -251,7 +251,8 @@ def optimiziraj_zalogo(kos_dol, n_kosov, dolzine_zaloge, kerf):
     if not moznosti:
         return []
     # DP: f[q] = (Σ nabavljene dolžine, št. trakov, odpad, prejšnji q, B, kol)
-    INF = (float("inf"), float("inf"), float("inf"), -1, None, 0)
+    INF: tuple[float, float, float, int, float | None, int] = (
+        float("inf"), float("inf"), float("inf"), -1, None, 0)
     f = [INF] * (n_kosov + 1)
     f[0] = (0.0, 0, 0.0, -1, None, 0)
     for q in range(1, n_kosov + 1):

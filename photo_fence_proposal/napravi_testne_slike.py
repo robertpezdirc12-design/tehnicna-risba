@@ -22,7 +22,7 @@ def narisi_prizor(pot: str, dolzina_mm: float = 6000.0, visina_mm: float = 1800.
     """Nariše fotografiji podoben prizor ograje in zapiše resnične mere."""
     rng = np.random.default_rng(sem)
     sirina, visina = 1280, 860
-    slika = np.full((visina, sirina, 3), 205, dtype=np.uint8)
+    slika: np.ndarray = np.full((visina, sirina, 3), 205, dtype=np.uint8)
 
     # svetlobni gradient (nebo/tla)
     for y in range(visina):
@@ -93,7 +93,7 @@ def narisi_prizor(pot: str, dolzina_mm: float = 6000.0, visina_mm: float = 1800.
 if __name__ == "__main__":
     mapa = os.path.join(os.path.dirname(__file__), "testni_primeri")
     os.makedirs(mapa, exist_ok=True)
-    primeri = [
+    primeri: list = [
         ("prizor_cel.json", dict(dolzina_mm=6000, visina_mm=1800, st_polj=3,
                                  nagib=0.0, sem=1)),
         ("prizor_nagib.json", dict(dolzina_mm=5000, visina_mm=1700, st_polj=2,

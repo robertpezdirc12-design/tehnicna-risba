@@ -42,7 +42,7 @@ def izracunaj_material(rezultat: Rezultat) -> Rezultat:
     n_polj = int(st_polj.vrednost_mm) if st_polj and st_polj.vrednost_mm else None
 
     # --- lamel / desk ---
-    if dolzina_mm and visina_mm:
+    if dolzina and visina and dolzina_mm and visina_mm:
         if param.tip == "wpc_vodoravne_lamele":
             korak = param.sirina_lamele_mm + param.razmak_mm
             st_lamel = max(1, int((visina_mm - 2 * param.sirina_lamele_mm)
@@ -69,7 +69,8 @@ def izracunaj_material(rezultat: Rezultat) -> Rezultat:
             "znani (potrebna kalibracija ali ročni vnos).")
 
     # --- stebri ---
-    if dolzina_mm:
+    if dolzina and dolzina_mm:
+        # dolzina je tu zmeraj prisotna (dolzina_mm izhaja iz nje)
         # iz razmaka, če je znan, sicer iz dolžine/2000 mm hevristike
         razmak = mere.get("razmak_stebrov")
         if razmak and razmak.vrednost_mm:
@@ -99,7 +100,7 @@ def izracunaj_material(rezultat: Rezultat) -> Rezultat:
             opomba="dolžina ograje ni znana"))
 
     # --- pritrdila (preprosto pravilo: 2 vijaka na stik lamele s stebrom) ---
-    if dolzina_mm and n_polj:
+    if dolzina and dolzina_mm and n_polj:
         # število stikov = število lamel × število polj (NE število vrstic
         # kosovnice — to je bil hrošč: množilo se je z 1)
         st_lamel_vijaki = int(next((p.kolicina for p in rezultat.kosovnica

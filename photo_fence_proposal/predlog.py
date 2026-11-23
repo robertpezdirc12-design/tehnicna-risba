@@ -6,6 +6,8 @@ Lokalno (PIL), brez zunanjih storitev.
 """
 from __future__ import annotations
 
+from typing import Any
+
 from PIL import Image, ImageDraw, ImageFont
 
 from model import Rezultat, BARVE_BGR
@@ -45,7 +47,8 @@ def narisi_predlog(rezultat: Rezultat, pot_slike: str, pot_izhoda: str,
         slika = Image.open(pot_slike).convert("RGB")
     narisi = ImageDraw.Draw(slika, "RGBA")
 
-    quad = rezultat.zaznava.obmocje_ograje_px
+    quad = (rezultat.zaznava.obmocje_ograje_px
+            if rezultat.zaznava is not None else [])
     if len(quad) != 4:
         # brez zaznanega območja: predloga se ne more umestiti na fotografijo
         return _zakljuci(slika, pot_izhoda,
@@ -73,7 +76,8 @@ def narisi_predlog(rezultat: Rezultat, pot_slike: str, pot_izhoda: str,
             narisi.line([x0, y, x1, y], fill=(255, 255, 255, 90), width=1)
             y += korak
         # vmesni stebri
-        for el in rezultat.zaznava.elementi:
+        for el in (rezultat.zaznava.elementi
+                   if rezultat.zaznava is not None else []):
             if el.vrsta == "steber":
                 x = el.tocke_px[0][0]
                 narisi.rectangle([x - 3, y0, x + 3, y1],
@@ -95,8 +99,8 @@ def narisi_predlog(rezultat: Rezultat, pot_slike: str, pot_izhoda: str,
 def _zakljuci(slika: Image.Image, pot_izhoda: str, napisi: list) -> str:
     narisi = ImageDraw.Draw(slika)
     try:
-        font = ImageFont.truetype("arial.ttf", 16)
-        font_velik = ImageFont.truetype("arial.ttf", 20)
+        font: Any = ImageFont.truetype("arial.ttf", 16)
+        font_velik: Any = ImageFont.truetype("arial.ttf", 20)
     except OSError:
         font = ImageFont.load_default()
         font_velik = font

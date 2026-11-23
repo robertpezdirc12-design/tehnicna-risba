@@ -82,7 +82,9 @@ celovita statična potrditev ostaja pri pooblaščenem inženirju.
 - **Grafični vmesnik (Tkinter)** — preprosti/napredni način, samodejno
   shranjevanje nastavitev, celozaslonski predogled z povečavo
 - **Merjenje s fotografije** (pomožno) — kalibracija na znano dimenzijo
-  (npr. 67 mm = širina deske), klik-merjenje, zaznavanje pasov in pik (OpenCV)
+  (npr. 67 mm = širina deske), klik-merjenje, zaznavanje pasov in pik (OpenCV);
+  ritem lamel merita DVA neodvisna estimatorja (profil + robovi `scikit-image`)
+  — ob nesoglasju so mere eksplicitno OCENJENO in zahtevajo potrditev.
 - **CLI + konfiguracija YAML** — za ponavljajoče naloge
 - **Vrata in prehodi (issue #3)** — enokrilna/dvokrilna/pasja/prehodna vrata
   ter prehodi v obeh predlogah ograje; odprtine vplivajo na polnilo, razrez,

@@ -28,7 +28,7 @@ MAPA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "testni_primeri"
 def testni_prizori():
     """Generiraj 5 sintetičnih prizorov z znanimi merami (enkrat)."""
     os.makedirs(MAPA, exist_ok=True)
-    primeri = [
+    primeri: list = [
         ("prizor_cel", dict(dolzina_mm=6000, visina_mm=1800, st_polj=3,
                             nagib=0.0, sem=1)),
         ("prizor_nagib", dict(dolzina_mm=5000, visina_mm=1700, st_polj=2,
@@ -189,7 +189,8 @@ def test_visina_iz_letvi_uposteva_sredisca_ne_robov():
         Element("precka", [(80.0, 615.0), (720.0, 615.0)], 0.5),
         Element("precka", [(80.0, 623.0), (720.0, 623.0)], 0.5),
     ], obmocje=[(80.0, 30.0), (720.0, 30.0), (720.0, 420.0), (80.0, 420.0)])
-    assert abs(kalibracija.visina_ograje_px(z) - 288.0) < 1.0
+    vis = kalibracija.visina_ograje_px(z)
+    assert vis is not None and abs(vis - 288.0) < 1.0
 
 
 def test_dolzina_in_visina_fallback_na_obmocje():
@@ -674,9 +675,11 @@ def test_vogali_in_referenca_natančno_izmerita(tmp_path):
         plosca[y:y + 44, :] = 55
     # zavij v perspektivo (trapez) na 1200x900 platno
     platno = np.full((900, 1200), 250, dtype=np.uint8)
-    cilj = np.float32([[120, 260], [1080, 160], [1120, 660], [80, 760]])
+    cilj = np.asarray([[120, 260], [1080, 160], [1120, 660], [80, 760]],
+                      dtype=np.float32)
     H = cv2.getPerspectiveTransform(
-        np.float32([[0, 0], [Wp, 0], [Wp, Hp], [0, Hp]]), cilj)
+        np.asarray([[0, 0], [Wp, 0], [Wp, Hp], [0, Hp]],
+                   dtype=np.float32), cilj)
     zavito = cv2.warpPerspective(plosca, H, (1200, 900))
     maska = cv2.warpPerspective(np.full((Hp, Wp), 255, np.uint8), H, (1200, 900))
     platno[maska > 0] = zavito[maska > 0]

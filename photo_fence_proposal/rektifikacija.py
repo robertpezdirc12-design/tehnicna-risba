@@ -56,7 +56,7 @@ def rektificiraj(slika, obmocje_px, sirina_izhoda=1400):
         opozorila.append("Ravnina ograje ni zaznana — brez rektifikacije.")
         return slika, None, {"opozorila": opozorila, "rektificirano": False}
 
-    src = np.float32(obmocje_px)
+    src = np.asarray(obmocje_px, dtype=np.float32)
     # cilj: pravokotnik z enakim razmerjem stranic kot povprečje vhodnih
     sirina = float(np.mean([np.linalg.norm(src[1] - src[0]),
                             np.linalg.norm(src[2] - src[3])]))
@@ -68,7 +68,8 @@ def rektificiraj(slika, obmocje_px, sirina_izhoda=1400):
 
     W = int(max(8, sirina_izhoda))
     H = int(max(8, round(W * visina / sirina)))
-    dst = np.float32([[0, 0], [W - 1, 0], [W - 1, H - 1], [0, H - 1]])
+    dst = np.asarray([[0, 0], [W - 1, 0], [W - 1, H - 1], [0, H - 1]],
+                     dtype=np.float32)
     H_mat = cv2.getPerspectiveTransform(src, dst)
     rect = cv2.warpPerspective(slika, H_mat, (W, H))
     return rect, H_mat, {"opozorila": opozorila, "rektificirano": True,
@@ -275,7 +276,7 @@ def homografija_pogleja(slika):
     čeln pogled (do podobnosti). Deluje tudi pri močni perspektivi.
     """
     navp, vod = _linije(slika)
-    meta = {"st_vodoravnih": len(vod), "st_navpicnih": len(navp)}
+    meta: dict = {"st_vodoravnih": len(vod), "st_navpicnih": len(navp)}
     # varovalka: premalo premic v družini -> VP ni zanesljiv
     if len(vod) < 6 or len(navp) < 6:
         meta["opozorilo"] = "Premoč malo premic za točke izginjanja."
@@ -311,7 +312,8 @@ def homografija_pogleja(slika):
     R = np.column_stack([r1, r2, r3])
     H = K @ R @ K_inv
     # premik/merilo: vse vogale slike prenesi in poravnaj v okvir
-    vogali = np.float32([[0, 0], [w, 0], [w, h], [0, h]]).reshape(-1, 1, 2)
+    vogali = np.asarray([[0, 0], [w, 0], [w, h], [0, h]],
+                        dtype=np.float32).reshape(-1, 1, 2)
     preneseni = cv2.perspectiveTransform(vogali, H).reshape(-1, 2)
     # varovalka: če transformacija izrine vsebino daleč stran ali
     # deformira nesorazmerno, je VP slab — zavrni (fallback na vogale)
@@ -393,7 +395,7 @@ def vp_ransac(linije, iteracije=600, prag=2.5, seed=42):
         return None
     rng = np.random.default_rng(seed)
     n = len(linije)
-    najboljsi = (0, None, None)
+    najboljsi: tuple = (0, None, None)
     for _ in range(iteracije):
         i, j = rng.choice(n, size=2, replace=False)
         (p1, d1), (p2, d2) = linije[i], linije[j]

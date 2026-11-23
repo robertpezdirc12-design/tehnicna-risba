@@ -325,6 +325,7 @@ def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None, vogali=None):
     klikne vogale ograje (P1). S klikanimi vogali + referenco so mere
     IZRAČUNANO iz trdne geometrije (ne več le ocena).
     """
+    import detekcija
     import zaznavanje
 
     slika = cv2.imread(slika_pot)
@@ -333,7 +334,7 @@ def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None, vogali=None):
     zaznava = zaznavanje.zaznaj(slika_pot)
     obmocje = (list(vogali) if vogali else zaznava.obmocje_ograje_px)
     rect, _H, meta = rektifikacija.rektificiraj(slika, obmocje)
-    ritem = rektifikacija.lamelni_ritem(rect)
+    ritem = detekcija.lamelni_ritem_kontrolirano(rect)
     if vogali:
         # klikani vogali = ograja sama → merimo celotno rektificirano polje
         y0, y1, x0, x1 = 0, rect.shape[0], 0, rect.shape[1]
@@ -370,6 +371,15 @@ def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None, vogali=None):
     opozorila = list(zaznava.opozorila) + list(meta.get("opozorila") or [])
     negotova = any(("negotov" in o.lower()) or ("neenakomern" in o.lower())
                    for o in zaznava.opozorila)
+    # Kontrola dveh estimatorjev (profil/robovi): ob NESOGLASJU se vrednosti
+    # NE izberejo tiho — ritemske mere se doljajo na OCENJENO in uporabnik
+    # dobi eksplicitno opozorilo ("brez ugibanja").
+    nesoglasje = bool(ritem.get("nesoglasje"))
+    if nesoglasje:
+        opozorila.append(
+            "Estimatorja ritma (profil/robovi) se ne strinjata: "
+            + (ritem.get("kontrola") or {}).get("razlog", "neznan razlog")
+            + " — ritemske mere so OCENJENO, potrdi na objektu.")
 
     def _st(ref):
         if referenca is not None and ref:
@@ -418,14 +428,16 @@ def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None, vogali=None):
         mere["dolzina_ograje"] = _mera(
             "dolzina_ograje", dolz_mm, _st(False),
             "dolžina ograje (pas lamel × skala)")
+        st_ritem = OCENJENO if nesoglasje else _st(False)
         mere["visina_lamele"] = _mera(
-            "visina_lamele", ritem["debelina_px"] * mm_na_px, _st(False),
+            "visina_lamele", ritem["debelina_px"] * mm_na_px, st_ritem,
             "višina lamelе (ritem × skala)")
         mere["vrzel"] = _mera(
-            "vrzel", (ritem.get("vrzel_px") or 0.0) * mm_na_px, _st(False),
+            "vrzel", (ritem.get("vrzel_px") or 0.0) * mm_na_px, st_ritem,
             "fuga med lamelami (ritem × skala)")
         mere["stevilo_lamel"] = Mera(
-            float(n_lam_skupaj), IZRACUNANO if not negotova else OCENJENO,
+            float(n_lam_skupaj),
+            IZRACUNANO if not (negotova or nesoglasje) else OCENJENO,
             "preštete lamele na rektificiranem pogledu", enota="kos")
     else:
         mere["visina_ograje"] = Mera(None, NEZNANO,

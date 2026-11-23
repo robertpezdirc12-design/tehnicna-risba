@@ -9,3 +9,6 @@ pytest-xdist   # pytest tests/ -n auto (vzporedna varnost preverjena)
 ruff
 mypy
 pytest-cov
+# foto sloj (photo_fence_proposal/detekcija.py) — testi v tests/
+scikit-image>=0.21
+scipy>=1.10

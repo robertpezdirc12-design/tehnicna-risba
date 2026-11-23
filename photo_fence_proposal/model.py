@@ -159,7 +159,7 @@ class PostavkaKosovnice:
 @dataclass
 class Rezultat:
     """Celovit izhod: A (vizualni predlog) + B (tehnična dokumentacija)."""
-    zaznava: Zaznava
+    zaznava: Zaznava | None
     parametri: ParametriNove
     mere: dict = field(default_factory=dict)      # ime → Mera
     kosovnica: list = field(default_factory=list)  # PostavkaKosovnice
