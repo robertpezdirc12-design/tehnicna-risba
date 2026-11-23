@@ -18,6 +18,8 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import platform
+import subprocess
 import sys
 from typing import Any
 
@@ -27,6 +29,30 @@ from .model import ONESNAZENO, RESEN, RezultatNaloge, RezultatSerije
 
 KOREN = pathlib.Path(__file__).resolve().parent
 PRIVZETE_NALOGE = KOREN / "naloge"
+
+
+def _okolje() -> dict[str, Any]:
+    """Zapiše okolje izvedbe (Aider zahteva ponovljivost: git hash ipd.)."""
+    okolje: dict[str, Any] = {
+        "python": sys.version.split()[0],
+        "platforma": platform.platform(),
+        "git": "neznan",
+        "umazano": None,
+    }
+    try:
+        glava = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=str(KOREN),
+            capture_output=True, text=True, timeout=15)
+        if glava.returncode == 0:
+            okolje["git"] = glava.stdout.strip()
+        stanje = subprocess.run(
+            ["git", "status", "--porcelain"], cwd=str(KOREN),
+            capture_output=True, text=True, timeout=15)
+        if stanje.returncode == 0:
+            okolje["umazano"] = bool(stanje.stdout.strip())
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return okolje
 
 
 def _preberi(pot: pathlib.Path) -> dict[str, Any]:
@@ -110,6 +136,7 @@ def izvedi(
         "zrno": zrno,
         "ponovitve": ponovitve,
         "naloge": [n.id for n in vsi],
+        "okolje": _okolje(),
         "serije": [s.v_slovar() for s in serije],
     }
     podatek["povzetek"] = povzetek(podatek)
@@ -120,7 +147,8 @@ def izvedi(
     return podatek
 
 
-def primerjaj(pot_a: pathlib.Path, pot_b: pathlib.Path, zrno: int) -> None:
+def primerjaj(pot_a: pathlib.Path, pot_b: pathlib.Path, zrno: int,
+              izhod: pathlib.Path | None = None) -> None:
     a = _preberi(pot_a)
     b = _preberi(pot_b)
     delez_a = _delez_po_nalogi(a.get("serije") or [])
@@ -154,6 +182,18 @@ def primerjaj(pot_a: pathlib.Path, pot_b: pathlib.Path, zrno: int) -> None:
     print(f">> bolje: {bolje}"
           + (" (interval zaupanja ne vsebuje 0)" if zanesljivo
              else " (interval zaupanja vsebuje 0 — razlika ni dokazana)"))
+    if izhod is not None:
+        izhod.write_text(json.dumps({
+            "a": a.get("agent"), "b": b.get("agent"), "zrno": zrno,
+            "skupne_naloge": skupne,
+            "uspeh_a": sum(xa) / len(xa), "uspeh_b": sum(xb) / len(xb),
+            "razlika": ocena,
+            "razlika_ci_95": [spodnja, zgornja],
+            "p_znakovni": p_znak,
+            "p_mcnemar": None if p_mc != p_mc else p_mc,
+            "dokazano": zanesljivo,
+        }, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"Zapisano: {izhod}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -181,7 +221,8 @@ def main(argv: list[str] | None = None) -> int:
                   f"zascita={len(naloga.pass_to_pass)}  {prva}")
         return 0
     if argumenti.primerjaj:
-        primerjaj(argumenti.primerjaj[0], argumenti.primerjaj[1], argumenti.zrno)
+        primerjaj(argumenti.primerjaj[0], argumenti.primerjaj[1],
+                  argumenti.zrno, argumenti.izhod)
         return 0
     if not argumenti.agent:
         razclenjevalnik.error("podaj --agent, --seznam ali --primerjaj")

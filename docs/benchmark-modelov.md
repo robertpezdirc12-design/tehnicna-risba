@@ -41,7 +41,14 @@ klican** — ocenjevalnik je validiran s *ponarejenimi agenti*
    zavrže.
 5. **Razvrstitev:** `resen` (oba seznama), `ni_resen`, `pokvarjen`
    (regresija), `prekoracen_cas`, `napaka_okolja`, `onesnazeno`.
-6. **Zapis:** JSON z vsemi izvedbami, zrnom, časi in sporočili.
+6. **Zapis:** JSON z vsemi izvedbami, zrnom, časi in sporočili ter z
+   **okoljem izvedbe** (`okolje`): git hash, oznaka umazanega delovnega
+   drevesa, različica Pythona, platforma — po zahtevi Aider metodologije
+   za ponovljivost.
+
+Nabor trenutno vsebuje tri naloge: `vsota` (ena datoteka), `razlika`
+(ena datoteka, zaščita obstoječe funkcije) in `orodja`
+(**večdatotečni** popravek z zaščito v drugi datoteki).
 
 ## 3. Metrike
 
@@ -62,8 +69,8 @@ python -m benchmark.tek \
   --agent "python benchmark/ponarejeni_agent.py --nacin ok" \
   --ponovitve 3 --izhod rezultati.json
 
-# primerjava dveh rezultatov
-python -m benchmark.tek --primerjaj a.json b.json
+# primerjava dveh rezultatov (izbirno tudi v JSON)
+python -m benchmark.tek --primerjaj a.json b.json --izhod primerjava.json
 ```
 
 Priklop pravega agenta je poljubna predloga ukaza; oznake `{prostor}`,

@@ -126,10 +126,10 @@ def test_primerjaj_kljuci():
 # ------------------------------------------------------------- naloge
 
 
-def test_nalozi_vse_dve_nalogi():
+def test_nalozi_vse_tri_naloge():
     vse = bn.nalozi_vse(KOREN_NALOG)
-    assert [n.id for n in vse] == ["razlika", "vsota"]
-    vsota = vse[1]
+    assert [n.id for n in vse] == ["orodja", "razlika", "vsota"]
+    vsota = vse[2]
     assert vsota.canary == ("SKRIVNI-KANAR-VSOTA-7f3a",)
     assert vsota.pass_to_pass == ("test_obstojeca_funkcija",)
 
@@ -180,6 +180,14 @@ def test_naloga_podvojeni_id(tmp_path):
 
 
 # ------------------------------------------------ ocenjevanje (brez AI)
+
+
+def test_agent_ok_resi_vecdatotecno():
+    rez = izvedi("ok", "orodja")
+    assert rez.status == RESEN
+    assert sorted(rez.fail_to_pass_ok) == ["test_povprecje_en_element",
+                                          "test_povprecje_osnovno"]
+    assert rez.pass_to_pass_ok == ["test_sestej_ostane"]
 
 
 def test_agent_ok_resi_nalogo():
@@ -260,7 +268,8 @@ def test_cli_seznam():
         [sys.executable, "-m", "benchmark.tek", "--seznam"],
         cwd=str(REPO), capture_output=True, text=True, timeout=120)
     assert dokoncan.returncode == 0, dokoncan.stderr
-    assert "vsota" in dokoncan.stdout and "razlika" in dokoncan.stdout
+    for ime in ("vsota", "razlika", "orodja"):
+        assert ime in dokoncan.stdout
 
 
 def test_cli_serija_in_primerjava(tmp_path):
@@ -272,9 +281,12 @@ def test_cli_serija_in_primerjava(tmp_path):
         cwd=str(REPO), capture_output=True, text=True, timeout=300)
     assert dokoncan.returncode == 0, dokoncan.stderr
     podatek = json.loads(pot.read_text(encoding="utf-8"))
-    assert podatek["povzetek"]["uspesnih"] == 2
+    assert podatek["povzetek"]["uspesnih"] == 3
     assert podatek["povzetek"]["delez"] == 1.0
     assert podatek["povzetek"]["onesnazenih"] == 0
+    okolje = podatek["okolje"]
+    assert okolje["python"] and "platforma" in okolje
+    assert okolje["git"] != "" and "umazano" in okolje
 
     # primerjava z samim seboj: razlika 0, interval vsebuje 0
     dokoncan = subprocess.run(
