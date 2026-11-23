@@ -12,3 +12,5 @@ pytest-cov
 # foto sloj (photo_fence_proposal/detekcija.py) — testi v tests/
 scikit-image>=0.21
 scipy>=1.10
+# tests/ neposredno uvažajo cv2 (merjenje, foto sloj) — CI mora zbrati teste
+opencv-python>=4.8

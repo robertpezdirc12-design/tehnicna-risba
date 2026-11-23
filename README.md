@@ -125,7 +125,9 @@ celovita statična potrditev ostaja pri pooblaščenem inženirju.
 
 Testi: `python -m pytest tests/` — celotna zbirka; hitra razvojna zanka je
 `pytest tests/ -q -n auto -m "not pocasi"` (počasni PDF testi nosijo marker
-`pocasi`, timeout 600 s/test).
+`pocasi`, timeout 600 s/test). CI (GitHub Actions,
+`.github/workflows/testi.yml`) ob vsakem pushu požene ruff + mypy ratchet +
+celotno zbirko vzporedno s coverage (ratchet prag 65 %).
 
 ## Namestitev
 
