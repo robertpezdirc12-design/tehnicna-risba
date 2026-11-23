@@ -87,6 +87,11 @@ Odpri še iz načrta (P4): dodatni tipi vrat, statični izračun — ločene odl
   v GUI: DXF R2010, mm 1:1, 9 plasti (rez/vrtanje iz OUTLINE/POSTS/HOLES),
   zaprte konture brez dvojnih rezov, kote, naslovni blok; omejitve (brez
   G-code/kompenzacije orodja) v `docs/dxf-specifikacija.md`
+- **Mehansko katalogsko jedro (F0/F1, `mechanical/`)** — katalog standardnih
+  delov s provenanco (ISO 4032/4017, DIN 934/933; profila `iso`/`legacy_din`
+  strogo ločena), resolver brez ugibanja, izpeljan BOM in kontrola dokumenta
+  (popolnost/reference/standardi/enote + gating: incomplete → detajl blokiran);
+  `python -m mechanical.kontrola mechanical/examples/vijacnik.yaml`
 
 ![montažni list](slike/TEREN-01-montazni-list.png)
 
@@ -104,7 +109,7 @@ Odpri še iz načrta (P4): dodatni tipi vrat, statični izračun — ločene odl
 **Izdaja v1.2 je objavljena** (tag `v1.2`, EXE + SHA-256 + build-zapisnik; sledljivost commit `02f513c`).
 | #9, #10 | Prazen terenski list — prostoročno risanje, elementi, tisk A4/A3 | ✅ zaprti (PR #12; #10 dvojnik #9) |
 
-Testi: `python -m pytest tests/` — 210 testov (74 iz #2 + 61 iz #3 + 28 iz #6 + 47 iz #9/#10).
+Testi: `python -m pytest tests/` — 239 testov (74 iz #2 + 61 iz #3 + 28 iz #6 + 47 iz #9/#10 + 29 iz F0/F1 `mechanical/`).
 
 ## Namestitev
 
@@ -171,6 +176,7 @@ razrez.py           optimizacija razreza (več dolžin, ostanki, kosovnica)
 vmesnik.py          grafični vmesnik (Tkinter)
 merjenje.py         pomožno merjenje s fotografije (kalibracija + zaznavanje)
 api/index.py        spletni generator (Vercel, Flask)
+mechanical/         katalogsko jedro F0/F1 (resolver, BOM, kontrola) — brez ograjne kode
 cene.yaml           javni cenik za spletni predračun
 TehnicnaRisba.spec  PyInstaller spec za Windows EXE
 projekt_primer.yaml primer konfiguracije s komentarji
