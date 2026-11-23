@@ -1,0 +1,40 @@
+catalog:
+  profil: "iso"
+  standard: "ISO 4017"
+  designation: "M8x70"
+  nominal_diameter: "M8"
+  length_mm: 70
+  description: "Fasteners — Hexagon head screws — Product grades A and B (ISO 4017:2022); fully threaded"
+
+dimensions:
+  thread_pitch_P_mm: 1.25
+  width_across_flats_s_mm:
+    nominal: 13.00
+    max: 13.00
+    min: 12.73
+  head_height_k_mm:
+    nominal: 5.3
+    max: 5.45
+    min: 5.15
+  width_across_corners_e_mm:
+    min: 14.38
+  length_tolerance_l_mm:
+    min: -0.6
+    max: 0.6
+
+provenance:
+  sources:
+    - name: "ISO 4017:2022 — official free preview (iTeh sample PDF), Table 2 (product grade A, M8–M24)"
+      url: "https://cdn.standards.iteh.ai/samples/72585/1179998ddd594550a909d6e13c416f3e/ISO-4017-2022.pdf"
+      accessed: "2026-11-23"
+      note: "Dimenzije glave kot pri M8x40 (Tabela 2). Vrstica l=70: min. 69,4 / max. 70,6 (Grade A); 70 mm je v standardnem obsegu za M8 (2d=16 … 10d=80)."
+    - name: "TorqBolt — ISO 4017 length tolerance table"
+      url: "https://torqbolt.com/iso-4017-full-thread-hex-head-bolts-dimensions-standards-specifications"
+      accessed: "2026-11-23"
+      note: "l=70: Grade A 69,4/70,6 (soglaša s standardom), Grade B 68,5/71,5 (tudi v Tabeli 3 javnega vzorca ISO 4017:2022)."
+    - name: "Fuller Fasteners — DIN 933 Specifications"
+      url: "https://www.fullerfasteners.com/tech/din-933-specifications/"
+      accessed: "2026-11-23"
+      note: "Potrditev M8 dimenzij glave (s, k, e, P) za obe stopnji; dolžine v tej tabeli niso navedene."
+  note: "Zapisane so tolerance Grade A; objavljena min/max za l=70 (69,4/70,6) je pretvorjena v odstopanje −0,6/+0,6. Grade B: l=70 68,5/71,5 (±1,5)."
+status: "reference"

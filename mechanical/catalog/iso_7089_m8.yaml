@@ -1,0 +1,37 @@
+catalog:
+  profil: "iso"
+  standard: "ISO 7089"
+  designation: "8"
+  nominal_diameter: "M8"
+  description: "Plain washers — Normal series — Product grade A (ISO 7089:2000)"
+
+dimensions:
+  inner_diameter_d1_mm:
+    nominal: 8.40
+    min: 8.40
+    max: 8.62
+  outer_diameter_d2_mm:
+    nominal: 16.00
+    max: 16.00
+    min: 15.57
+  thickness_h_mm:
+    nominal: 1.6
+    max: 1.8
+    min: 1.4
+
+provenance:
+  sources:
+    - name: "ISO 7089:2000 — official free preview (iTeh sample PDF), Table 1 'Dimensions préférentielles'"
+      url: "https://cdn.standards.iteh.ai/samples/13666/ced7958754ab4f3694b6dc0d2a45911a/ISO-7089-2000.pdf"
+      accessed: "2026-11-23"
+      note: "Vrstica '8': d1 nom.(min.) 8,40 / max. 8,62; d2 nom.(max.) 16,00 / min. 15,57; h nom. 1,6 / max. 1,8 / min. 1,4. (Javni vzorec je francoska izdaja istega standarda.)"
+    - name: "Fuller Fasteners — DIN 125 Specifications, Flat Washer, Normal Series (ISO 7089/7090)"
+      url: "https://www.fullerfasteners.com/tech/din-125-specifications/"
+      accessed: "2026-11-23"
+      note: "Neodvisna tabela (simboli DIN 125: d/dc/h): M8/Φ8.4 → d min=nom 8.4, max 8.62; dc max=nom 16, min 15.57; h nom 1.6, max 1.8, min 1.4 — popolno soglašanje."
+    - name: "PartXT — ISO 7089 (nominal table)"
+      url: "https://partxt.com/standards/iso-7089/"
+      accessed: "2026-11-23"
+      note: "M8: d1 8.4, d2 16, h 1.6 — soglaša z nominalnimi vrednostmi."
+  note: "Vsi trije viri se za size 8 popolnoma ujemajo. Oznaka '8' je nominalna velikost podložke za M8 po ISO 7089 (DIN 125 ekvivalent)."
+status: "reference"

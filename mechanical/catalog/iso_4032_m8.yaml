@@ -1,0 +1,38 @@
+catalog:
+  profil: "iso"
+  standard: "ISO 4032"
+  designation: "M8"
+  nominal_diameter: "M8"
+  description: "Hexagon regular nuts (style 1) — product grades A and B (ISO 4032:2023, Table 1 = product grade A for M5–M16)"
+
+dimensions:
+  thread_pitch_P_mm: 1.25
+  width_across_flats_s_mm:
+    nominal: 13.00
+    max: 13.00
+    min: 12.73
+  height_m_mm:
+    nominal: 6.8
+    max: 6.80
+    min: 6.44
+  width_across_corners_e_mm:
+    min: 14.38
+  washer_face_mw_min_mm: 5.15
+  bearing_surface_dw_min_mm: 11.63
+
+provenance:
+  sources:
+    - name: "ISO 4032:2023 — official free preview (iTeh sample PDF), Table 1 'Dimensions for nuts M5 to M16 (product grade A)'"
+      url: "https://cdn.standards.iteh.ai/samples/75016/5b1f83bd2dc44fc199973e9957a75086/ISO-4032-2023.pdf"
+      accessed: "2026-11-23"
+      note: "M8: P 1,25; s nom.=max. 13,00 / min. 12,73; e min. 14,38; m max. 6,80 / min. 6,44; mw min. 5,15; dw min. 11,63."
+    - name: "ISO 4032:2012 — official free preview (iTeh sample PDF), Table 1 'Preferred threads'"
+      url: "https://cdn.standards.iteh.ai/samples/61668/93b89b8502a943499386155c44018aaa/ISO-4032-2012.pdf"
+      accessed: "2026-11-23"
+      note: "M8: e min. 14,38; m max. 6,80 / min. 6,44; s 13,00/12,73 — enako kot 2023 izdaja (razlika le mw min. 5,20)."
+    - name: "Wermac — Metric Nut Dimensions Chart according to ISO 4032"
+      url: "https://www.wermac.org/bolts/dimensions_hex-nuts_across-flats-and-heights_din-iso.html"
+      accessed: "2026-11-23"
+      note: "Neodvisna tabela; M8: F max 13.00 / min 12.73, E min 14.38, T max 6.80 / min 6.44, P 1.25 — popolno soglašanje."
+  note: "ISO 4032:2012 in 2023 se za M8 ne razlikujeta (razen mw min: 5,20 / 5,15). Zapisana je izdaja 2023. Razlika do legacy DIN 934 M8: višina m (6,44–6,80 / 6,14–6,50) — glej din_934_m8.yaml."
+status: "reference"

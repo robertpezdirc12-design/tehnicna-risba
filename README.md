@@ -100,6 +100,10 @@ celovita statična potrditev ostaja pri pooblaščenem inženirju.
   strogo ločena), resolver brez ugibanja, izpeljan BOM in kontrola dokumenta
   (popolnost/reference/standardi/enote + gating: incomplete → detajl blokiran);
   `python -m mechanical.kontrola mechanical/examples/vijacnik.yaml`
+  Kupljeni deli vrat (vijak M8x40, matica M8, podložka M8) nosijo kataloške
+  reference (ISO 4017/4032/7089) — `vrata.kataloski_viri()` vrne mere in vire;
+  naročilo lahko doda dokazila prek `vijak_lamela_ref`/`vijak_nosilec_ref`
+  (blok »PRITRDILA — katalog«); brez referenc so izpisi nespremenjeni.
 
 ![montažni list](slike/TEREN-01-montazni-list.png)
 
@@ -117,7 +121,9 @@ celovita statična potrditev ostaja pri pooblaščenem inženirju.
 **Izdaja v1.2 je objavljena** (tag `v1.2`, EXE + SHA-256 + build-zapisnik; sledljivost commit `02f513c`).
 | #9, #10 | Prazen terenski list — prostoročno risanje, elementi, tisk A4/A3 | ✅ zaprti (PR #12; #10 dvojnik #9) |
 
-Testi: `python -m pytest tests/` — 247 testov (74 iz #2 + 61 iz #3 + 28 iz #6 + 47 iz #9/#10 + 29 iz F0/F1 `mechanical/` + 8 iz načrta 16).
+Testi: `python -m pytest tests/` — celotna zbirka; hitra razvojna zanka je
+`pytest tests/ -q -n auto -m "not pocasi"` (počasni PDF testi nosijo marker
+`pocasi`, timeout 600 s/test).
 
 ## Namestitev
 

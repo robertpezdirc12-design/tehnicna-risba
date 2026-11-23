@@ -1,0 +1,40 @@
+catalog:
+  profil: "iso"
+  standard: "ISO 4017"
+  designation: "M8x40"
+  nominal_diameter: "M8"
+  length_mm: 40
+  description: "Fasteners — Hexagon head screws — Product grades A and B (ISO 4017:2022); fully threaded"
+
+dimensions:
+  thread_pitch_P_mm: 1.25
+  width_across_flats_s_mm:
+    nominal: 13.00
+    max: 13.00
+    min: 12.73
+  head_height_k_mm:
+    nominal: 5.3
+    max: 5.45
+    min: 5.15
+  width_across_corners_e_mm:
+    min: 14.38
+  length_tolerance_l_mm:
+    min: -0.5
+    max: 0.5
+
+provenance:
+  sources:
+    - name: "ISO 4017:2022 — official free preview (iTeh sample PDF), Table 2 'Dimensions for product grade A – M8 to M24'"
+      url: "https://cdn.standards.iteh.ai/samples/72585/1179998ddd594550a909d6e13c416f3e/ISO-4017-2022.pdf"
+      accessed: "2026-11-23"
+      note: "P=1,25; s nom.=max. 13,00 / min. 12,73; e min. 14,38; k nom. 5,3 / max. 5,45 / min. 5,15; vrstica l=40: 39,5/40,5 (Grade A)."
+    - name: "Fuller Fasteners — DIN 933 Specifications (Hex Head Screws, Fully Threaded)"
+      url: "https://www.fullerfasteners.com/tech/din-933-specifications/"
+      accessed: "2026-11-23"
+      note: "Neodvisna tabela: M8 P=1.25, s max=nom 13 / min A 12.73 / min B 12.57; k nom 5.3, A 5.15–5.45, B 5.06–5.54; e min A 14.38 / B 14.2."
+    - name: "TorqBolt — ISO 4017 Full Thread Hex Head Bolts Dimensions"
+      url: "https://torqbolt.com/iso-4017-full-thread-hex-head-bolts-dimensions-standards-specifications"
+      accessed: "2026-11-23"
+      note: "Potrditev M8 vrstice (s, k, e, P) in toleranc dolžine l=40 (A 39,5/40,5, B 38,75/41,25)."
+  note: "Zapisane so tolerance Grade A (ISO 4017:2022 Tabela 2); objavljena min/max za l=40 (39,5/40,5) je pretvorjena v odstopanje −0,5/+0,5. Grade B za M8 (s min 12,57; k 5,06–5,54; e min 14,20; l=40: 38,75/41,25) je iz starejših javnih tabel (Fuller, TorqBolt) — Dodatek A standarda ni v brezplačnem vzorcu."
+status: "reference"

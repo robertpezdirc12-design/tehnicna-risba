@@ -1,0 +1,37 @@
+catalog:
+  profil: "legacy_din"
+  standard: "DIN 934"
+  designation: "M8"
+  nominal_diameter: "M8"
+  description: "Hexagon nuts, DIN 934 (standard withdrawn; manufacturer data sheets describe it as 'DIN 934 similar to ISO 4032')"
+
+dimensions:
+  thread_pitch_P_mm: 1.25
+  width_across_flats_s_mm:
+    nominal: 13.0
+    max: 13.0
+    min: 12.73
+  height_m_mm:
+    nominal: 6.5
+    max: 6.5
+    min: 6.14
+  width_across_corners_e_mm:
+    min: 14.38
+  washer_face_mw_min_mm: 4.91
+
+provenance:
+  sources:
+    - name: "Böllhoff product data sheet — DIN 934 Hexagon nuts, Steel 8 (PDF)"
+      url: "https://eshop.boellhoff.de/out/media/pdf/DIN_934_Stahl_8___en.pdf"
+      accessed: "2026-11-23"
+      note: "M8: e min 14.38, m min 6.14 / max 6.5, s min 12.73 / max 13.0, P 1.25; navaja 'DIN-standard has been withdrawn'."
+    - name: "Fuller Fasteners — DIN 934 Specifications"
+      url: "https://www.fullerfasteners.com/tech/din-934-specifications/"
+      accessed: "2026-11-23"
+      note: "M8: m max=nom 6.5 / min 6.14, mw min 4.91, s max=nom 13 / min 12.73, P 1.25 — soglaša z Böllhoff."
+    - name: "NuFast production drawing — DIN 934 (extract from DIN 934:1987)"
+      url: "https://www.nufast.co.uk/uploads/DIN_934.pdf"
+      accessed: "2026-11-23"
+      note: "M8: s 12.73–13.00, e min 14.38, m 6.14–6.50, mw min 4.91 — soglaša (3. neodvisni vir)."
+  note: "Razlika do ISO 4032 M8: višina m (DIN 934: 6,14–6,50 / ISO 4032: 6,44–6,80). s, e, P so identični. Uporabite DIN 934 vrednosti samo za dele, eksplicitno zahtevane po DIN 934 (stari standard je umaknjen)."
+status: "reference"

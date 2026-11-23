@@ -10,6 +10,73 @@ import jedro
 from jedro import (fmt, razpored, razpored_pokoncna, razdeli_po_odprtinah,
                    pozicije_nosilcev, vrata_podatki)
 
+def _dokazilo_vrstica(v):
+    """Vrstica z merami in virom za rešeno katalogsko vrstico (brez ugibanja)."""
+    mere = []
+    for ime, vrednost in v["dimenzije"].items():
+        if isinstance(vrednost, dict):
+            if "nominal" in vrednost:
+                besedilo = "%g" % vrednost["nominal"]
+            elif "min" in vrednost and "max" in vrednost:
+                besedilo = "%g..%g" % (vrednost["min"], vrednost["max"])
+            elif "min" in vrednost:
+                besedilo = "%g" % vrednost["min"]
+            elif "max" in vrednost:
+                besedilo = "%g" % vrednost["max"]
+            else:
+                continue
+        elif isinstance(vrednost, (int, float)):
+            besedilo = "%g" % vrednost
+        else:
+            continue
+        mere.append(f"{ime} {besedilo} mm")
+        if len(mere) == 3:
+            break
+    vrstica = (f"- {v['standard']} {v['designation']} ({v['profil']}): "
+               + "; ".join(mere))
+    if v["provenenca"]:
+        vir = v["provenenca"][0]
+        vrstica += (f" — vir: {vir.get('name', '?')} "
+                    f"(dostopano {vir.get('accessed', '?')})")
+        if len(v["provenenca"]) > 1:
+            vrstica += f" [in še {len(v['provenenca']) - 1} virov]"
+    return vrstica
+
+
+def _kataloska_vrstica(ref):
+    """Reši katalogsko referenco pritrdila in vrni dokazilno vrstico."""
+    from mechanical.resolver import razresi
+
+    try:
+        v = razresi(ref["designation"], ref["standard"],
+                    ref.get("profil", "iso"))
+    except (KeyError, TypeError) as napaka:
+        raise ValueError(
+            "kataloška referenca pritrdila je nepopolna: %r" % (ref,)) from napaka
+    return _dokazilo_vrstica(v)
+
+
+def _kataloska_blok(c):
+    """Vrstice »PRITRDILA — katalog« za naročilo, če so v cfg podane reference."""
+    refi = [r for r in (c.get("vijak_lamela_ref"),
+                        c.get("vijak_nosilec_ref")) if r]
+    if not refi:
+        return []
+    return (["", "PRITRDILA — katalog (dokazila):"]
+            + [_kataloska_vrstica(r) for r in refi])
+
+
+def vrata_dokazila_vrstice(vp):
+    """Dokazila kataloških pritrdil vseh vratnih kosovnic (za naročilo)."""
+    viri = {}
+    for enota in vp["vrata"] + vp["prehodi"]:
+        viri.update(vrat.kataloski_viri(enota["kosovnica"]))
+    if not viri:
+        return []
+    return (["", "PRITRDILA VRAT — katalog (dokazila):"]
+            + [_dokazilo_vrstica(v) for _ozn, v in sorted(viri.items())])
+
+
 def vrata_vrstice_kolicin(vp):
     """Postavke vrat/prehodov za količine (5-tuple, kot ostale postavke)."""
     vrstice = []
@@ -206,6 +273,7 @@ def izracunaj_kolicine(c, rp=None):
             f"- {vijak_lamela_naziv} — {vijaki} kos",
             f"- {vijak_nosilec_naziv} — {n_s * 2} kos",
         ]
+        nar += _kataloska_blok(c)
         por_s = sum(B for B, _ in traki) / 1000
         por_st = palice_s * dl_palice / 1000
         kosovnica = rp["kosovnica"]
@@ -234,6 +302,7 @@ def izracunaj_kolicine(c, rp=None):
             "narocilo": "\n".join(nar) + (("\n\nVRATA/PREHODI:\n" + "\n".join(
                 f"- {vr[0]}: {vr[1]} {vr[2]}"
                 for vr in vrata_vrstice_potrebscine(vp)))
+                + "\n".join(vrata_dokazila_vrstice(vp))
                 if vp["vrata"] or vp["prehodi"] else ""),
             "ostanki_posodobitev": rp["ostanki_posodobitev"],
             "kosovnica": kosovnica,
@@ -311,6 +380,7 @@ def izracunaj_kolicine(c, rp=None):
         f"- {vijak_nosilec_naziv} — {n_nos * 2} kos",
         f"- Nosilni nosilec {dim_nos} — {n_nos} kos",
     ]
+    nar += _kataloska_blok(c)
     kosovnica = rp["kosovnica"]
     for enota in vp["vrata"] + vp["prehodi"]:
         for ozn_k, dol, _s, kol, _op, _kl in enota["kosovnica"]["izdelani"]:
@@ -341,7 +411,8 @@ def izracunaj_kolicine(c, rp=None):
         kolicine["postavke"] += vrata_vrstice_kolicin(vp)
         kolicine["narocilo"] += "\n\nVRATA/PREHODI:\n" + "\n".join(
             f"- {vr[0]}: {vr[1]} {vr[2]}"
-            for vr in vrata_vrstice_potrebscine(vp))
+            for vr in vrata_vrstice_potrebscine(vp)) \
+            + "\n".join(vrata_dokazila_vrstice(vp))
     return {"postavke": kolicine["postavke"], "narocilo": kolicine["narocilo"],
             "ostanki_posodobitev": kolicine["ostanki_posodobitev"],
             "kosovnica": kolicine["kosovnica"],

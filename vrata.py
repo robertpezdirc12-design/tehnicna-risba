@@ -24,13 +24,15 @@ from __future__ import annotations
 import math
 import os
 
+from typing import Any
+
 import yaml
 
 # ---------------------------------------------------------------------------
 # Katalog sestavnih delov (razširljiv prek ``nalozi_katalog``)
 # ---------------------------------------------------------------------------
 
-KATALOG = {
+KATALOG: dict[str, dict[str, Any]] = {
     "tecaj_standard": {"vrsta": "tecaj", "oznaka": "TEČ-STD",
                        "opis": "tečaj s peresom, jeklo, cinkano", "enota": "kos"},
     "tecaj_skrit": {"vrsta": "tecaj", "oznaka": "TEČ-SKR",
@@ -51,12 +53,21 @@ KATALOG = {
                            "opis": "povezovalna plošča", "enota": "kos"},
     "kotnik": {"vrsta": "pritrjevanje", "oznaka": "KOT-1", "opis": "kotnik",
                "enota": "kos"},
-    "vijak_m8x40": {"vrsta": "pritrdilo", "oznaka": "M8x40", "opis": "vijak M8x40",
-                    "enota": "kos"},
-    "matica_m8": {"vrsta": "pritrdilo", "oznaka": "MAT-M8", "opis": "matica M8",
-                  "enota": "kos"},
-    "podlozka_m8": {"vrsta": "pritrdilo", "oznaka": "POD-M8", "opis": "podložka M8",
-                    "enota": "kos"},
+    "vijak_m8x40": {"vrsta": "pritrdilo", "oznaka": "M8x40",
+                    "opis": "vijak M8x40 (ISO 4017)",
+                    "enota": "kos",
+                    "katalog": {"profil": "iso", "standard": "ISO 4017",
+                                "designation": "M8x40"}},
+    "matica_m8": {"vrsta": "pritrdilo", "oznaka": "MAT-M8",
+                  "opis": "matica M8 (ISO 4032)",
+                  "enota": "kos",
+                  "katalog": {"profil": "iso", "standard": "ISO 4032",
+                              "designation": "M8"}},
+    "podlozka_m8": {"vrsta": "pritrdilo", "oznaka": "POD-M8",
+                    "opis": "podložka M8 (ISO 7089)",
+                    "enota": "kos",
+                    "katalog": {"profil": "iso", "standard": "ISO 7089",
+                                "designation": "8"}},
     "zakljucni_steber": {"vrsta": "steber", "oznaka": "ZAK-STE",
                          "opis": "zaključni steber prehoda", "enota": "kos"},
     "zakljucni_profil": {"vrsta": "profil", "oznaka": "ZAK-PRO",
@@ -64,6 +75,31 @@ KATALOG = {
     "sidro_m10": {"vrsta": "pritrdilo", "oznaka": "SID-M10", "opis": "sidro M10",
                   "enota": "kos"},
 }
+
+
+def kataloski_viri(kosovnica=None):
+    """Reši katalogske reference kupljenih delov prek `mechanical` kataloga.
+
+    Vrne ``{oznaka: rešena katalogska vrstica}`` za vnose s poljem ``katalog``;
+    če je podana kosovnica, le za oznake, prisotne v njenih kupljenih vrsticah.
+    Napake kataloga (neznan standard/varianta, vrstica brez provenence) se
+    sprožijo naprej — nič se ne ugiba.
+    """
+    from mechanical.resolver import razresi
+
+    omejitev = None
+    if kosovnica is not None:
+        omejitev = {vr[0] for vr in kosovnica.get("kupljeni", [])}
+    izhod = {}
+    for vnos in KATALOG.values():
+        ref = vnos.get("katalog")
+        if ref is None:
+            continue
+        if omejitev is not None and vnos["oznaka"] not in omejitev:
+            continue
+        izhod[vnos["oznaka"]] = razresi(
+            ref["designation"], ref["standard"], ref.get("profil", "iso"))
+    return izhod
 
 VRSTE_VRAT = ("enokrilna", "dvokrilna", "pasja", "prehodna", "drsna")
 SMERI = ("levo-navzven", "desno-navzven", "levo-navznoter", "desno-navznoter")
