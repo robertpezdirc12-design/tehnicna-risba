@@ -86,7 +86,14 @@ def _najboljsi_periodicni(prof, ofs=0):
         return out
 
     kand = []
+    # Varovalka (brez ugibanja): brez pravega kontrasta NI vzorca —
+    # ploščat/nizkokontrasten profil bi sicer dal fantomski 'reden'
+    # vzorec z nepravilnost 0 ('ZANESLJIVO'). Prag 5 sivin je enak kot
+    # v photo_fence_proposal.rektifikacija._ritem_profila.
+    kontrast = float(sm.max() - sm.min())
     for tip, maska in (("temne", sm < meja), ("svetle", sm >= meja)):
+        if kontrast < 5.0:
+            continue
         teki_r = teki(maska)
         if 3 <= len(teki_r) <= 300:
             pitch = [teki_r[i + 1][0] - teki_r[i][0]
@@ -123,6 +130,8 @@ def _najboljsi_periodicni(prof, ofs=0):
     sep = max(6, int(n * 0.008))
     thr = float(grad.mean() + 0.8 * grad.std())
     vr = vrhovi(grad, sep, thr)
+    if float(grad.max()) < 2.0:    # rob < 2 sivini ni fotometrični rob
+        vr = []                    # (ploščata slika: 'vrhovi' povsod)
     if len(vr) >= 4:
         razlike = np.diff(np.array(vr))
         med = float(np.median(razlike))
