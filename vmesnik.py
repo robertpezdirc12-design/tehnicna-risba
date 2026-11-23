@@ -1156,6 +1156,35 @@ class App(tk.Tk):
             "Statični pregled (informativno)",
             statika.povzetek(float(razmak), h_rocaja))
 
+    def _statika_priloga(self):
+        """Plan 16: A4 statična priloga (PDF) — za pregled pooblaščenemu inženirju."""
+        try:
+            import statika
+        except ImportError:
+            messagebox.showerror("Manjka modul", "Modul statika.py ni najden.")
+            return
+        try:
+            cfg = self._zberi_cfg()
+        except ValueError as e:
+            messagebox.showerror("Napaka pri vnosu", str(e))
+            return
+        pot = filedialog.asksaveasfilename(
+            title="Shrani statično prilogo", defaultextension=".pdf",
+            initialfile=f"STAT-{cfg.get('risba_st') or '001'}-priloga.pdf",
+            filetypes=[("PDF", "*.pdf")])
+        if not pot:
+            return
+        try:
+            statika.narisi_prilogo(pot, cfg)
+        except Exception as e:
+            messagebox.showerror("Napaka", f"Priloga ni bila izdelana: {e}")
+            return
+        messagebox.showinfo(
+            "Statična priloga",
+            f"Priloga zapisana:\n{pot}\n\n"
+            "INFORMATIVNO — to NI statični izračun. Za potrditev nosilnosti, "
+            "sidranja in veternega bremena prilogo predaj pooblaščenemu inženirju.")
+
     def _zivi_sprememba(self, *_):
         """Sproži osvežitev živega povzetka z debounce (600 ms)."""
         self._zgodovina_odlozi()          # Plan D: zgodovina sprememb
@@ -1979,6 +2008,7 @@ class App(tk.Tk):
                                 self._avtomatska_skica))
         o.add_separator()
         o.add_command(label="Statični pregled", command=self._statika_pregled)
+        o.add_command(label="Statična priloga (PDF)", command=self._statika_priloga)
         o.add_command(label="Nova vrsta (pilot)…",
                       command=self._nova_vrsta_okno)
         o.add_command(label="Primerjaj načrte razreza…",

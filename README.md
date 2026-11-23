@@ -23,7 +23,9 @@ measurement assistant.
 | F4 | Pilot novih vrst: `nova_vrsta.py` (deklarativna polja, predogled) | ✅ |
 | F5 | CNC izvoz: `cnc.py` (CSV + informativni G-code) | ✅ |
 
-Odpri še iz načrta (P4): dodatni tipi vrat, statični izračun — ločene odločitve.
+Odpri še iz načrta (P4): dodatni tipi vrat. Statični izračun — odločitev
+sprejeta: poenostavljen pregled (načrt 6) + statična priloga (načrt 16);
+celovita statična potrditev ostaja pri pooblaščenem inženirju.
 
 ## Funkcije
 
@@ -69,6 +71,12 @@ Odpri še iz načrta (P4): dodatni tipi vrat, statični izračun — ločene odl
   pri napaki NE nastane nepopoln PDF
 - **Konstrukcijska varnost** — risba izrecno NI statični izračun; nosilnost,
   sidranje in veterno breme preveri usposobljen strokovnjak (na listu)
+- **Statična priloga (PDF, `statika.py`)** — revizijsko sledljiv izračunski
+  list za pooblaščenega inženirja: vhodni podatki, povpraševanje (demand)
+  po kategorijah obtežb z viri, formule, kontrolni seznam odprtega
+  (zmogljivost, γ, sidranje veter EN 1991-1-4, SI NA) in podpisni blok;
+  `python statika.py --priloga projekt.yaml` ali meni Orodja; informativno —
+  NI statični izračun
 - **Samodejni izračuni** — lega in količina nosilcev (razmak), št. vijakov,
   št. tovarniških desk/palic iz mer
 - **Grafični vmesnik (Tkinter)** — preprosti/napredni način, samodejno
@@ -109,7 +117,7 @@ Odpri še iz načrta (P4): dodatni tipi vrat, statični izračun — ločene odl
 **Izdaja v1.2 je objavljena** (tag `v1.2`, EXE + SHA-256 + build-zapisnik; sledljivost commit `02f513c`).
 | #9, #10 | Prazen terenski list — prostoročno risanje, elementi, tisk A4/A3 | ✅ zaprti (PR #12; #10 dvojnik #9) |
 
-Testi: `python -m pytest tests/` — 239 testov (74 iz #2 + 61 iz #3 + 28 iz #6 + 47 iz #9/#10 + 29 iz F0/F1 `mechanical/`).
+Testi: `python -m pytest tests/` — 247 testov (74 iz #2 + 61 iz #3 + 28 iz #6 + 47 iz #9/#10 + 29 iz F0/F1 `mechanical/` + 8 iz načrta 16).
 
 ## Namestitev
 
@@ -175,6 +183,7 @@ risba.py            risalni motor (kote, šrafura, tabele, ISO glava) + obe pred
 razrez.py           optimizacija razreza (več dolžin, ostanki, kosovnica)
 vmesnik.py          grafični vmesnik (Tkinter)
 merjenje.py         pomožno merjenje s fotografije (kalibracija + zaznavanje)
+statika.py          poenostavljen statični pregled + statična priloga (PDF) — informativno
 api/index.py        spletni generator (Vercel, Flask)
 mechanical/         katalogsko jedro F0/F1 (resolver, BOM, kontrola) — brez ograjne kode
 cene.yaml           javni cenik za spletni predračun
