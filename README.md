@@ -85,6 +85,9 @@ celovita statična potrditev ostaja pri pooblaščenem inženirju.
   (npr. 67 mm = širina deske), klik-merjenje, zaznavanje pasov in pik (OpenCV);
   ritem lamel merita DVA neodvisna estimatorja (profil + robovi `scikit-image`)
   — ob nesoglasju so mere eksplicitno OCENJENO in zahtevajo potrditev.
+  V glavnem GUI je tudi **Predlog mer iz fotografije** (Vstavi/Orodja): mere
+  se ponudijo za vnos v polja s potrditvijo — sistem ničesar ne zapolni sam,
+  z izbirno referenčno višino so mere IZMERJENO/IZRAČUNANO namesto OCENJENO.
 - **CLI + konfiguracija YAML** — za ponavljajoče naloge
 - **Vrata in prehodi (issue #3)** — enokrilna/dvokrilna/pasja/prehodna vrata
   ter prehodi v obeh predlogah ograje; odprtine vplivajo na polnilo, razrez,

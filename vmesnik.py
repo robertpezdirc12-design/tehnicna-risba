@@ -606,6 +606,31 @@ class NovaVrstaOkno(tk.Toplevel):
         CelZaslon(self.master, pot)
 
 
+# ------------------------------------------ predlog mer iz fotografije (GUI)
+FOTO_POLJA = {
+    "visina_ograje": "visina",
+    "dolzina_ograje": "sirina",
+    "visina_lamele": "lamela_v",
+    "vrzel": "vrzel",
+    "stevilo_lamel": "lamele",
+}
+
+
+def foto_predlog_vrstic(mere):
+    """Vrstice za vnos: (kljuc_polja, ime_mere, mera) — le UPORABNE mere.
+
+    Uporabna = z vrednostjo in znanim ciljnim poljem. Mere brez vrednosti
+    (NEZNANO) se prikažejo kot obvestilo, NE kot predlog za vnos —
+    nič se ne ugiba.
+    """
+    vrstice = []
+    for ime, kljuc in FOTO_POLJA.items():
+        m = mere.get(ime)
+        if m is not None and getattr(m, "vrednost_mm", None) is not None:
+            vrstice.append((kljuc, ime, m))
+    return vrstice
+
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -1694,6 +1719,151 @@ class App(tk.Tk):
             "Mere so označene z zaupanjem — pred izdelavo PREVERI "
             "dejanske mere na objektu.")
 
+    def _foto_predlog_mer(self, pot=None):
+        """Predlog mer iz fotografije → polja (PREDLOG, ne avtoriteta).
+
+        Izračuna mere (photo_fence_proposal — merilni del BREZ PDF-ja) in
+        ponudi izbiro, katere vnesti v polja. Sistem NIČESAR ne zapolni
+        sam — uporabnik potrdi vsako mero posebej.
+        """
+        pot = (pot or self.v["foto"].get().strip())
+        if not pot or not os.path.isfile(pot):
+            pot = filedialog.askopenfilename(
+                title="Izberi fotografijo za predlog mer",
+                filetypes=[("Slike", "*.jpg *.jpeg *.png *.bmp *.webp *.tif *.tiff"),
+                           ("Vse datoteke", "*.*")])
+            if not pot:
+                return
+            self.v["foto"].set(pot)
+        try:
+            import cv2  # noqa: F401
+        except ImportError:
+            messagebox.showerror(
+                "Manjka OpenCV",
+                "Za predlog mer namesti OpenCV:\n\n"
+                "python -m pip install opencv-python")
+            return
+        paket = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "photo_fence_proposal")
+        if paket not in sys.path:
+            sys.path.insert(0, paket)
+        try:
+            import avtomatska_skica
+        except ImportError as e:
+            messagebox.showerror("Manjka modul",
+                                 f"Modul avtomatska_skica ni dosegljiv: {e}")
+            return
+        self._foto_predlog_okno(pot, avtomatska_skica)
+
+    def _foto_predlog_okno(self, pot, avtomatska_skica):
+        """Dialog predloga mer: izbira polj + izbirna referenčna mera.
+
+        Vrstice se preračunajo z gumbom »Preračunaj z referenco« — brez
+        reference so dimenzije OCENJENO, z referenco IZMERJENO/IZRAČUNANO.
+        """
+        okno = tk.Toplevel(self)
+        okno.title("Predlog mer iz fotografije")
+        okno.geometry("560x460")
+        okno.transient(self)
+        ttk.Label(okno, text="Predlog mer iz fotografije",
+                  font=("Segoe UI", 11, "bold")).pack(
+                      anchor="w", padx=12, pady=(10, 2))
+        ttk.Label(
+            okno, text="Mere so PREDLOG — pred izdelavo jih PREVERI na "
+            "objektu. Sistem ne zapolni polj sam; označi, katere želiš "
+            "nesti v obrazec.", wraplength=520, justify="left").pack(
+                anchor="w", padx=12)
+
+        ref_okvir = ttk.Frame(okno)
+        ref_okvir.pack(fill="x", padx=12, pady=(6, 2))
+        ttk.Label(ref_okvir, text="Referenčna višina ograje (mm, "
+                  "neobvezno):").pack(side="left")
+        ref_vnos = ttk.Entry(ref_okvir, width=10)
+        ref_vnos.pack(side="left", padx=6)
+
+        vsebina = ttk.Frame(okno)
+        vsebina.pack(fill="both", expand=True, padx=12, pady=4)
+        info = tk.Text(okno, height=5, wrap="word", state="disabled")
+        info.pack(fill="x", padx=12, pady=(0, 4))
+        stanje_lbl = tk.Label(okno, text="", fg="#b00020", wraplength=520,
+                              justify="left")
+        stanje_lbl.pack(anchor="w", padx=12)
+        vrstice_ui: list = []
+
+        def _info_vstavi(besedila):
+            info.config(state="normal")
+            info.delete("1.0", "end")
+            info.insert("end", "\n".join(besedila) or "(brez opozoril)")
+            info.config(state="disabled")
+
+        def preracunaj(referenca=None):
+            try:
+                podatki = avtomatska_skica.izracunaj_mere_pot(
+                    pot, referenca=referenca)
+            except Exception as e:
+                stanje_lbl.config(text=f"Merjenje ni uspelo: {e}")
+                return
+            for w in vsebina.winfo_children():
+                w.destroy()
+            vrstice_ui.clear()
+            for kljuc, ime, m in foto_predlog_vrstic(podatki["mere"]):
+                var = tk.BooleanVar(value=True)
+                cb = ttk.Checkbutton(
+                    vsebina, variable=var,
+                    text=f"{NAPISI.get(kljuc, kljuc)}: {m.oznaka} — {m.opis}")
+                cb.pack(anchor="w", pady=1)
+                vrstice_ui.append((kljuc, var, m))
+            opozorila = list(podatki["opozorila"])
+            if (podatki["ritem"] or {}).get("nesoglasje"):
+                opozorila.insert(0, "Estimatorja ritma se ne strinjata — "
+                                 "ritemske mere so OCENJENO.")
+            _info_vstavi(opozorila)
+            stanje_lbl.config(
+                text=(f"Izračunano: {len(vrstice_ui)} mer za vnos"
+                      if vrstice_ui else "Ni uporabnih mer za vnos."),
+                fg="#b26a00")
+
+        def preracunaj_z_referenco():
+            raw = ref_vnos.get().strip().replace(",", ".")
+            if not raw:
+                preracunaj(None)
+                return
+            try:
+                v = float(raw)
+            except ValueError:
+                stanje_lbl.config(text="Referenčna višina mora biti število.")
+                return
+            if v <= 0:
+                stanje_lbl.config(text="Referenčna višina mora biti pozitivna.")
+                return
+            preracunaj(("visina_ograje", v))
+
+        def uporabi():
+            stevilo = 0
+            for kljuc, var, m in vrstice_ui:
+                if var.get():
+                    self.v[kljuc].set(f"{m.vrednost_mm:.0f}")
+                    stevilo += 1
+            okno.destroy()
+            if stevilo:
+                self.status.config(
+                    text=f"Predlog mer iz fotografije: {stevilo} polj "
+                         "posodobljenih — PREDLOG, potrdi na objektu!",
+                    fg="#b26a00")
+            else:
+                self.status.config(text="Predlog mer: nič izbrano.")
+
+        g = ttk.Frame(okno)
+        g.pack(fill="x", padx=12, pady=(0, 10))
+        ttk.Button(g, text="Preračunaj z referenco",
+                   command=preracunaj_z_referenco).pack(side="left")
+        ttk.Button(g, text="Uporabi izbrane v polja",
+                   command=uporabi).pack(side="left", padx=8)
+        ttk.Button(g, text="Prekliči",
+                   command=okno.destroy).pack(side="right")
+        preracunaj(None)
+        okno.wait_window()
+
     def _meri_slike(self, pot=None):
         """Odpri pomožno merjenje s fotografije (kalibracija + zaznavanje)."""
         pot = (pot or self.v["foto"].get().strip())
@@ -1968,6 +2138,8 @@ class App(tk.Tk):
                       command=self._merjenje_zacni)
         v.add_separator()
         v.add_command(label="Meri s slike", command=self._scena_meri)
+        v.add_command(label="Predlog mer iz fotografije…",
+                      command=self._foto_predlog_mer)
         v.add_command(label="Avtomatska skica", command=self._scena_skica)
         v.add_command(label="Fotografija v projekt",
                       command=self._scena_foto_v_projekt)
@@ -2009,6 +2181,9 @@ class App(tk.Tk):
         self.polja.setdefault("meri_slike", []).append(
             self._meni_postavka(o, "Avtomatska skica (iz foto)",
                                 self._avtomatska_skica))
+        self.polja.setdefault("meri_slike", []).append(
+            self._meni_postavka(o, "Predlog mer (iz foto)",
+                                self._foto_predlog_mer))
         o.add_separator()
         o.add_command(label="Statični pregled", command=self._statika_pregled)
         o.add_command(label="Statična priloga (PDF)", command=self._statika_priloga)

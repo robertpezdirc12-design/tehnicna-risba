@@ -315,15 +315,21 @@ def sestavi_podatke(mere, ritem, slika_rect, lokacija="—",
     }
 
 # ---------------------------------------------------------------- pogon
-def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None, vogali=None):
-    """Celoten tok: fotografija → avtomatska A3 skica (PDF).
+def izracunaj_mere_pot(slika_pot, referenca=None, vogali=None):
+    """Merilni del toka BREZ risanja: fotografija → mere + ritem + opozorila.
 
-    referenca: (kaj, vrednost_mm) ali None. Brez reference so vse mere
+    Isti podatki, kot jih generiraj() uporabi za skico — GUI lahko ponudi
+    mere kot PREDLOG za vnos v polja, ne da bi risal PDF. Mere imajo
+    statuse (Mera) — predlog za potrditev, ne avtoriteta.
+
+    referenca: (kaj, vrednost_mm) ali None. Brez reference so dimenzije
     OCENJENO (standardna lamela) — nikoli izmišljene kot izmerjene.
 
     vogali: [(x, y) × 4] v slikovnih pikah (TL, TR, BR, BL) — uporabnik
     klikne vogale ograje (P1). S klikanimi vogali + referenco so mere
     IZRAČUNANO iz trdne geometrije (ne več le ocena).
+
+    Vrne {"mere", "ritem", "opozorila", "rect_pas", "vis_px", "sir_px"}.
     """
     import detekcija
     import zaznavanje
@@ -449,8 +455,24 @@ def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None, vogali=None):
         opozorila.append(
             "Brez referenčne mere: vse dimenzije so ≈ OCENJENO "
             "(standardna lamela) in NISO meritev objekta!")
-    pod = sestavi_podatke(mere, ritem, rect_pas, lokacija=lokacija,
-                          opozorila=opozorila)
+    return {"mere": mere, "ritem": ritem, "opozorila": opozorila,
+            "rect_pas": rect_pas, "vis_px": vis_px, "sir_px": sir_px}
+
+
+def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None, vogali=None):
+    """Celoten tok: fotografija → avtomatska A3 skica (PDF).
+
+    referenca: (kaj, vrednost_mm) ali None. Brez reference so vse mere
+    OCENJENO (standardna lamela) — nikoli izmišljene kot izmerjene.
+
+    vogali: [(x, y) × 4] v slikovnih pikah (TL, TR, BR, BL) — uporabnik
+    klikne vogale ograje (P1). S klikanimi vogali + referenco so mere
+    IZRAČUNANO iz trdne geometrije (ne več le ocena).
+    """
+    podatki = izracunaj_mere_pot(slika_pot, referenca=referenca, vogali=vogali)
+    pod = sestavi_podatke(podatki["mere"], podatki["ritem"],
+                          podatki["rect_pas"], lokacija=lokacija,
+                          opozorila=podatki["opozorila"])
     pod["ime"] = "AVTOMATSKA SKICA — " + (
         slika_pot.split("/")[-1].split("\\")[-1].upper())
     return narisi_skico(pod, pot_pdf), pod
