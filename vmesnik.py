@@ -1898,8 +1898,6 @@ class App(tk.Tk):
             d, "Odpri PDF", self._odpri_pdf, "Ctrl+P", stanje="disabled")
         d.add_command(label="Izvozi DXF", accelerator="Ctrl+E",
                       command=self._izvozi_dxf)
-        d.add_command(label="Odpri DXF v CAD-u (GstarCAD)",
-                      command=self._odpri_v_cad)
         d.add_command(label="CNC (CSV + G-code)", command=self._cnc_izvoz)
         self.btn_nar = self._meni_postavka(
             d, "Naročilo (kopiraj)", self._narocilo_kopiraj,
@@ -2211,38 +2209,6 @@ class App(tk.Tk):
                             f"DXF zapisan: {pot}\n"
                             "Konture so nominalne (brez kompenzacije "
                             "orodja/kerfa); DXF ne vsebuje G-code.")
-        if messagebox.askyesno(
-                "DXF izvoz",
-                "DXF je izvožen.\n\nOdprem ga v nameščenem CAD-u "
-                "(GstarCAD/AutoCAD)?"):
-            self._odpri_v_cad()
-
-    def _odpri_v_cad(self):
-        """Odpri izvoženi DXF v nameščenem CAD-u (docs/gstarcad-povezava.md).
-
-        Lastniških datotek CAD ne kopiramo — le zaženemo nameščen program
-        z našo datoteko; če CAD ni zaznan, iskreno povemo in odpremo s
-        privzeto sistemsko povezavo."""
-        import dxf_izvoz
-
-        try:
-            cfg = self._zberi_cfg()
-        except ValueError as e:
-            messagebox.showerror("Napaka pri vnosu", str(e))
-            return
-        pot = os.path.splitext(cfg["izhod"])[0] + ".dxf"
-        if not os.path.isfile(pot):
-            messagebox.showwarning(
-                "DXF",
-                "DXF še ni izvožen.\nNajprej uporabite Datoteka → Izvozi DXF.")
-            return
-        try:
-            opis = dxf_izvoz.odpri_v_cad(pot)
-        except Exception as e:
-            messagebox.showerror("Odpiranje v CAD-u", str(e))
-            return
-        self.status.config(text=opis, fg="#1b5e20")
-        messagebox.showinfo("Odpiranje v CAD-u", opis)
 
     def _cnc_izvoz(self):
         """Izvoz CNC podatkov: CSV seznami rezov + G-code za žago.

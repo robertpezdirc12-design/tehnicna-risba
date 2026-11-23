@@ -84,14 +84,20 @@ def pravokotnik(ax, x, y, w, h, fill=None, lw=LW_THICK, z=3, ec=CRNA):
                            lw=lw, zorder=z))
 
 
-def sachiranje(ax, x0, y0, x1, y1, razmak=2.6):
-    """Šrafiranje zidu (diagonale 45°)."""
+def sachiranje(ax, x0, y0, x1, y1, razmak=2.6, lw=0.55, barva=None, z=1):
+    """Šrafura z diagonali 45° (ISO 128-50) — zid, tla ali PREREZANI MATERIAL.
+
+    Privzete vrednosti so za zid/tla (z=1, zadaj); prerezi kosov gredo
+    PREKO barvnega polnila (z=4) s tanjšo črto (lw≈0,2).
+    Vzorec je konvencija CAD sveta (ANSI31), implementirana samostojno.
+    """
     w, h = x1 - x0, y1 - y0
     rect = Rectangle((x0, y0), w, h, facecolor="none", edgecolor="none")
     ax.add_patch(rect)
+    barva = barva or CRNA
     for i in range(int((w + h) / razmak) + 2):
         xs = x0 + i * razmak - h
-        ln, = ax.plot([xs, xs + h], [y0, y1], color=CRNA, lw=0.55, zorder=1)
+        ln, = ax.plot([xs, xs + h], [y0, y1], color=barva, lw=lw, zorder=z)
         ln.set_clip_path(rect)
 
 
@@ -276,14 +282,36 @@ def blok_toleranc(ax, x0, y_top, sirina=128):
 
 def opombe_blok(ax, x0, y_top, sirina, opombe,
                 naslov_t="TEHNIČNI PODATKI IN OPOMBE",
-                velikost=8.5, wrap=None):
+                velikost=8.5, wrap=None, dno=None):
+    """Blok opomb. Če je podan ``dno`` (npr. vrh naslovnega bloka), se
+    besedilo SAMODEJNO skrči (manjša pisava), da ne zaide pod oviro —
+    prej so bile zadnje opombe tiho SKRITE za naslovnim blokom.
+    Če tudi pri najmanjši pisavi ne gre, je odvečni del odrezan z
+    ISKRENIM opozorilom (nikoli tiho izpuščen).
+    """
     if wrap is None:
         wrap = 86
-    vrstice = []
-    for i, o in enumerate(opombe, 1):
-        vrstice.extend(textwrap.wrap(f"{i}. {o}", width=wrap) or [f"{i}."])
-    raz = velikost * 0.459
-    visina = 8.5 + len(vrstice) * raz + 2
+    fs = float(velikost)
+    while True:
+        w = wrap if fs >= velikost else max(
+            40, int(round(wrap * velikost / fs)))
+        vrstice = []
+        for i, o in enumerate(opombe, 1):
+            vrstice.extend(textwrap.wrap(f"{i}. {o}", width=w) or [f"{i}."])
+        raz = fs * 0.459
+        visina = 8.5 + len(vrstice) * raz + 2
+        if dno is None or y_top - visina >= dno - 1e-9 or fs <= 5.5:
+            break
+        fs = max(5.5, fs - 0.5)
+    odrezano = False
+    if dno is not None and y_top - visina < dno - 1e-9:
+        prostor = y_top - dno - 10.5
+        max_vrstic = max(1, int(prostor / raz))
+        if len(vrstice) > max_vrstic:
+            vrstice = vrstice[:max_vrstic]
+            vrstice[-1] = vrstice[-1].rsplit(" ", 1)[0] + " …"
+            visina = 8.5 + len(vrstice) * raz + 2
+            odrezano = True
     pravokotnik(ax, x0, y_top - visina, sirina, visina, fill="white", lw=0.8)
     pravokotnik(ax, x0, y_top - 8.5, sirina, 8.5, fill=BARVA_OZN, lw=0)
     ax.text(x0 + sirina / 2, y_top - 4.25, naslov_t,
@@ -291,8 +319,14 @@ def opombe_blok(ax, x0, y_top, sirina, opombe,
             color="white")
     y = y_top - 12
     for vrsta in vrstice:
-        ax.text(x0 + 2.5, y, vrsta, ha="left", va="center", fontsize=velikost)
+        ax.text(x0 + 2.5, y, vrsta, ha="left", va="center", fontsize=fs)
         y -= raz
+    if odrezano:
+        ax.text(x0 + sirina / 2, y_top - visina + 1.2,
+                "OPOMBE PRESEGAJO PROSTOR — celotno besedilo je v PDF "
+                "(izvleci besedilo)",
+                ha="center", va="bottom", fontsize=4.5,
+                color="#b00020")
     return y_top - visina
 
 
@@ -602,6 +636,8 @@ def narisi_pokoncna(ax, c):
     sachiranje(ax, px0 - 8, y_tla - 2, px0 + pw_s + pw_d + 8, y_tla + 3)
     pravokotnik(ax, px0 - 3, y_tla + 3, pw_s + pw_d + 6, 4, fill=b_pro,
                 lw=0.5)                        # osnova
+    # ISO 128-50: beton je drobci + trikotniki
+    srafura_betona(ax, px0 - 3, y_tla + 3, pw_s + pw_d + 6, 4)
     pravokotnik(ax, px0 + 2, y_tla + 5, 3, 5, fill="white", lw=0.4)   # anker
     pravokotnik(ax, px0 + pw_s + pw_d - 5, y_tla + 5, 3, 5, fill="white",
                 lw=0.4)                        # anker
@@ -676,6 +712,9 @@ def narisi_pokoncna(ax, c):
     lw_, hh_ = ds * sl, dd * sl
     pravokotnik(ax, cx2 - lw_ / 2, cy2 - hh_ / 2, lw_, hh_, fill=b_lam,
                 lw=0.5)
+    # ISO 128-50: prerezana površina je šrafirana (45° tanke črte, PREKO polnila)
+    sachiranje(ax, cx2 - lw_ / 2, cy2 - hh_ / 2,
+               cx2 + lw_ / 2, cy2 + hh_ / 2, razmak=1.6, lw=0.2, z=4)
     ax.add_patch(Circle((cx2, cy2), r2, facecolor="none", edgecolor=CRNA,
                         lw=LW_THICK, zorder=8))
     # načrt 12: simbol usmerjenosti kos (▲ VRH) + iskrena opomba
@@ -684,6 +723,9 @@ def narisi_pokoncna(ax, c):
             fontsize=6, ha="center", va="center", color=CRNA)
     ax.text(cx2, cy2 - r2 - 7,
             "vidno stran profila preveri pri proizvajalcu — NI izmerjeno",
+            fontsize=5, ha="center", va="center", color="#555555")
+    ax.text(cx2, cy2 - r2 - 11,
+            "šrafura 45° = prerezani material (ISO 128-50)",
             fontsize=5, ha="center", va="center", color="#555555")
     dim_h(ax, cx2 - lw_ / 2, cx2 + lw_ / 2, cy2 + hh_ / 2 + 4, None, None,
           f"{fmt(ds)} mm")
@@ -769,7 +811,7 @@ def narisi_pokoncna(ax, c):
         "Risba NI statični izračun — nosilnost, sidranje in veterno breme "
         "preveri usposobljen strokovnjak.",
     ]
-    opombe_blok(ax, 246, 74, 162, opombe)
+    opombe_blok(ax, 246, 74, 162, opombe, dno=40)  # dno = vrh naslovnega bloka
     blok_toleranc(ax, 120, 172)          # načrt 9: kota brez ± ni določena
 
     # ==================== ISO NASLOVNI BLOK + REVIZIJE ====================
@@ -959,6 +1001,9 @@ def narisi_ogrado(ax, c):
     lw_, hh_ = m["debelina"] * sl, m["lamela_v"] * sl
     pravokotnik(ax, cx2 - lw_ / 2, cy2 - hh_ / 2, lw_, hh_, fill=b_lam,
                 lw=0.5)
+    # ISO 128-50: prerezana površina je šrafirana (45° tanke črte, PREKO polnila)
+    sachiranje(ax, cx2 - lw_ / 2, cy2 - hh_ / 2,
+               cx2 + lw_ / 2, cy2 + hh_ / 2, razmak=1.6, lw=0.2, z=4)
     ax.add_patch(Circle((cx2, cy2), r2, facecolor="none", edgecolor=CRNA,
                         lw=LW_THICK, zorder=8))
     # načrt 12: simbol usmerjenosti kos (▲ VRH) + iskrena opomba
@@ -968,9 +1013,12 @@ def narisi_ogrado(ax, c):
     ax.text(cx2, cy2 - r2 - 7,
             "vidno stran profila preveri pri proizvajalcu — NI izmerjeno",
             fontsize=5, ha="center", va="center", color="#555555")
+    ax.text(cx2, cy2 - r2 - 11,
+            "šrafura 45° = prerezani material (ISO 128-50)",
+            fontsize=5, ha="center", va="center", color="#555555")
     dim_v(ax, cy2 - hh_ / 2, cy2 + hh_ / 2, cx2 + r2 + 4, cx2 + lw_ / 2,
           cx2 + lw_ / 2, f"{fmt(m['lamela_v'])} mm")
-    dim_h(ax, cx2 - lw_ / 2, cx2 + lw_ / 2, cy2 - r2 - 4, None, None,
+    dim_h(ax, cx2 - lw_ / 2, cx2 + lw_ / 2, cy2 + hh_ / 2 + 4, None, None,
           f"{fmt(m['debelina'])} mm")
 
     # ==================== IZOMETRIČNI POGLLED / FOTO ====================
@@ -1055,7 +1103,7 @@ def narisi_ogrado(ax, c):
         "Risba NI statični izračun — nosilnost, sidranje in veterno breme "
         "preveri usposobljen strokovnjak.",
     ]
-    opombe_blok(ax, 246, 74, 162, opombe)
+    opombe_blok(ax, 246, 74, 162, opombe, dno=40)  # dno = vrh naslovnega bloka
     blok_toleranc(ax, 120, 172)          # načrt 9: kota brez ± ni določena
 
     # ==================== ISO NASLOVNI BLOK + REVIZIJE ====================
@@ -1166,6 +1214,28 @@ def oznaka_usmerjenosti(ax, x, y_sredina, visina=11):
                 arrowprops=dict(arrowstyle="->", lw=1.0, color=CRNA))
     ax.text(x, y_sredina + visina / 2 + 2.4, "▲ VRH", fontsize=6,
             fontweight="bold", ha="center", va="center", color=CRNA)
+
+
+def srafura_betona(ax, x0, y0, w, h, barva="#555555"):
+    """Šrafura betona po ISO 128-50 (drobci + trikotniki) — za sidranje.
+
+    Določen vzorec (brez naključja), da so risbe ponovljive.
+    """
+    korak = max(2.2, min(3.2, h / 1.6, w / 4))
+    vrstica = 0
+    y = y0 + korak * 0.5
+    while y < y0 + h - 1e-9:
+        x = x0 + korak * (0.5 + (0.5 if vrstica % 2 else 0.0))
+        while x < x0 + w - 1e-9:
+            if vrstica % 2:
+                ax.plot([x], [y], marker="^", markersize=1.6,
+                        color=barva, zorder=4)
+            else:
+                ax.plot([x], [y], marker=".", markersize=1.8,
+                        color=barva, zorder=4)
+            x += korak
+        vrstica += 1
+        y += korak * 0.8
 
 
 def napisi_sidranja(podlaga):
