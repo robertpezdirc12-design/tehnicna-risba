@@ -39,11 +39,19 @@ def normaliziraj(vrstice: list[str]) -> set[str]:
 
 
 def zazeni_mypy() -> list[str]:
+    # Izhod mypyja na Windows ni nujno UTF-8 (konzola cp1250, imena datotek
+    # in sporočila s šumniki) — beri BYTE in dekodiraj odporno. Prej je
+    # dekodiranje z encoding="utf-8" padlo s UnicodeDecodeError.
     p = subprocess.run(
         [sys.executable, "-m", "mypy", "."],
-        capture_output=True, text=True, cwd=str(KOREN), encoding="utf-8",
+        capture_output=True, cwd=str(KOREN),
     )
-    return [v for v in (p.stdout + p.stderr).splitlines() if ": error:" in v]
+    surovo = (p.stdout or b"") + (p.stderr or b"")
+    besedilo = surovo.decode("utf-8", errors="replace")
+    if "�" in besedilo:
+        besedilo = surovo.decode(sys.stdout.encoding or "cp1250",
+                                 errors="replace")
+    return [v for v in besedilo.splitlines() if ": error:" in v]
 
 
 def main() -> int:

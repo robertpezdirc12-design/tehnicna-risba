@@ -1,0 +1,12 @@
+id: razlika
+opis: |
+  V datoteki vozlice.py je funkcija odstej(a, b), ki sproži
+  NotImplementedError. Implementiraj jo tako, da vrne razliko a - b.
+  Funkcija sestej mora ostati nespremenjena in delujoča.
+predloga: ../primeri/knjiznica2
+fail_to_pass:
+  - test_odstej_osnovno
+  - test_odstej_negativno
+pass_to_pass:
+  - test_sestej_ostane
+cas_s: 20

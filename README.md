@@ -234,6 +234,23 @@ python -m pip install -r requirements-dev.txt
 python -m pytest tests/ -v
 ```
 
+### Ocenjevanje modelov za kodiranje (skriptno, brez AI-žirije)
+
+`benchmark/` meri kakovost kodiranja **izključno z izvajanjem skritih
+testov** (SWE-bench vzorec: FAIL_TO_PASS + PASS_TO_PASS), z canary
+žetoni proti uhajanju rešitve in s statistiko (pass@k, Wilson, parni
+bootstrap, McNemar). Ocenjevalnik je validiran s ponarejenimi agenti —
+brez klica kateregakoli modela:
+
+```bash
+python -m benchmark.tek --seznam
+python -m benchmark.tek \
+  --agent "python benchmark/ponarejeni_agent.py --nacin ok" \
+  --ponovitve 3 --izhod rezultati.json
+```
+
+Metodologija, viri in omejitve: `docs/benchmark-modelov.md`.
+
 Hitrejša razvojna zanka (vzporedno + brez počasnih PDF testov, marker
 `pocasi`; vzporedna varnost testov je preverjena — izhodi so v `tmp_path`):
 
