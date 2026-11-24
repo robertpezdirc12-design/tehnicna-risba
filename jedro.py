@@ -404,14 +404,21 @@ def privzeto_stevilo_lamel(m):
 def zdruzi(cfg):
     izhod = dict(PRIVZETO)
     izhod.update(cfg or {})
-    mere = {**PRIVZETO["mere"], **(cfg or {}).get("mere", {})}
-    # Če uporabnik NI podal števila lamel, se privzeta vrednost izračuna
-    # iz mer (statična 13 se ob spremembi mer ne prilega in bi uporabnika
-    # blokirala s številko, ki je ni vnesel). Če jo podal, ostane njegova
-    # vrednost — ta se strogo preveri (brez tihega spreminjanja vhodov).
-    if "lamele" not in (cfg or {}).get("mere", {}):
-        if (izhod.get("predloga") or "ograja") == "ograja":
-            mere["lamele"] = privzeto_stevilo_lamel(mere)
+    surove = (cfg or {}).get("mere")
+    if surove is None:
+        surove = {}
+    if isinstance(surove, dict):
+        mere = {**PRIVZETO["mere"], **surove}
+        # Če uporabnik NI podal števila lamel, se privzeta vrednost izračuna
+        # iz mer (statična 13 se ob spremembi mer ne prilega in bi uporabnika
+        # blokirala s številko, ki je ni vnesel). Če jo podal, ostane njegova
+        # vrednost — ta se strogo preveri (brez tihega spreminjanja vhodov).
+        if "lamele" not in surove:
+            if (izhod.get("predloga") or "ograja") == "ograja":
+                mere["lamele"] = privzeto_stevilo_lamel(mere)
+    else:
+        # preveri_cfg javi jasno napako; tu ne tiho popravljamo
+        mere = surove
     izhod["mere"] = mere
     return izhod
 
@@ -426,7 +433,23 @@ DOVOLJENI_STATUSI = ("V DELU", "ZA POTRDITEV", "IZVEDENO")
 
 
 def preveri_cfg(cfg):
-    """Kontrola pravilnosti PRED izvozom. Vrne seznam napak (prazno = OK)."""
+    """Kontrola pravilnosti PRED izvozom. Vrne seznam napak (prazno = OK).
+
+    Nikoli ne sproži izjeme zaradi slabih tipov: napačna vrednost je
+    napaka v seznamu, ne sesutje. YAML namreč lahko npr.
+    ``deska_sirina: "100"`` prebere kot niz, uporabnik pa mora dobiti
+    jasno napako namesto sledi sklada.
+    """
+    def _num(v):
+        """Vrne v, če je realno število (ne bool), sicer None."""
+        return v if (isinstance(v, (int, float))
+                     and not isinstance(v, bool)) else None
+
+    def _poz(v):
+        """Vrne v, če je pozitivno realno število, sicer None."""
+        v = _num(v)
+        return v if v is not None and v > 0 else None
+
     nap = []
     # A6: izklop optimizacije NI podprt — optimiziranega rezultata ni
     # dovoljeno zamenjati z neoptimiziranim ali prikriti.
@@ -441,10 +464,15 @@ def preveri_cfg(cfg):
                        "optimizira; neoptimiziranega izpisa ne označimo "
                        "kot optimiziranega.")
     m = cfg.get("mere", {})
+    if not isinstance(m, dict):
+        nap.append("'mere' mora biti objekt s številkami "
+                   "(npr. sirina: 2500).")
+        m = {}
     for k in ("sirina", "visina"):
-        v = m.get(k)
-        if not isinstance(v, (int, float)) or v <= 0:
+        if _poz(m.get(k)) is None:
             nap.append(f"Mera '{k}' mora biti pozitivno število.")
+    sirina = _poz(m.get("sirina"))
+    visina = _poz(m.get("visina"))
     # ISO 7200 (Plan 2): status dokumenta — dovoljeni trije statusi;
     # „IZVEDENO" se sme uporabiti šele po terenski potrditvi.
     status = str(cfg.get("status_dokumenta") or "").strip()
@@ -464,50 +492,69 @@ def preveri_cfg(cfg):
                         f"Revizija {i + 1} mora biti [oznaka, datum, opis, "
                         "izdelal] z izpolnjeno oznako.")
                     break
-    odcep = m.get("odcep", 0)
-    if not isinstance(odcep, (int, float)) or odcep < 0:
-        nap.append("Mera 'odcep' ne sme biti negativna.")
-    if cfg.get("predloga") == "pokončna":
-        raz = m.get("razmak_stebrov", 1500)
-        if not isinstance(raz, (int, float)) or raz <= 0:
+    odcep = _num(m.get("odcep", 0))
+    if odcep is None or odcep < 0:
+        nap.append("Mera 'odcep' mora biti nenegativno število.")
+        odcep = None
+    pokoncna = cfg.get("predloga") == "pokončna"
+    raz = ds = None
+    if pokoncna:
+        raz = _poz(m.get("razmak_stebrov", 1500))
+        if raz is None:
             nap.append("Razmak stebrov mora biti pozitiven.")
-        ds = m.get("deska_sirina", 0)
-        if not isinstance(ds, (int, float)) or ds <= 0:
+        ds = _poz(m.get("deska_sirina", 0))
+        if ds is None:
             nap.append("Širina deske mora biti pozitivno število.")
     else:
         for klj, napis in (("lamela_v", "Višina lamel"),
                            ("debelina", "Debelina lamel")):
-            v = m.get(klj)
-            if not isinstance(v, (int, float)) or v <= 0:
+            if _poz(m.get(klj)) is None:
                 nap.append(f"Mera '{napis}' mora biti pozitivno število.")
-        raz = m.get("razmak_nosilcev", 1000)
-        if not isinstance(raz, (int, float)) or raz <= 0:
+        if _poz(m.get("razmak_nosilcev", 1000)) is None:
             nap.append("Razmak nosilcev mora biti pozitiven.")
-    if cfg.get("predloga") == "pokončna":
-        rv = m.get("rocaj_v", 40)
-        cona = m.get("visina", 0) - odcep - rv
-        if cona <= 0:
-            nap.append("Višina ročaja in odcepa presega skupno višino.")
-        ds = m.get("deska_sirina", 0)
-        if ds > m.get("sirina", 0) - m.get("steber_sirina", 60):
-            nap.append(f"Deska ({ds:.0f} mm) je širša kot razpon ograje "
-                       "med stebroma.")
-        if m.get("razmak_stebrov", 0) <= m.get("steber_sirina", 60):
+    rv = profil_v = steber = None
+    if pokoncna:
+        rv = _poz(m.get("rocaj_v", 40))
+        if rv is None:
+            nap.append("Višina ročaja mora biti pozitivno število.")
+        if visina is not None and odcep is not None and rv is not None:
+            cona = visina - odcep - rv
+            if cona <= 0:
+                nap.append("Višina ročaja in odcepa presega skupno višino.")
+        steber = _poz(m.get("steber_sirina", 60))
+        if steber is None:
+            nap.append("Širina stebra mora biti pozitivno število.")
+        if ds is not None and sirina is not None and steber is not None:
+            if ds > sirina - steber:
+                nap.append(f"Deska ({ds:.0f} mm) je širša kot razpon ograje "
+                           "med stebroma.")
+        if raz is not None and steber is not None and raz <= steber:
             nap.append("Razmak stebrov mora biti večji od širine stebra.")
-        if m.get("lamele", 0) < 1:
+        lamele = _poz(m.get("lamele", 0))
+        if lamele is None or lamele < 1:
             nap.append("Število desk mora biti vsaj 1.")
-        vrzel = m.get("vrzel", 20.0)
-        if not isinstance(vrzel, (int, float)) or vrzel < 0:
-            nap.append("Vrzel med deskami ne sme biti negativna.")
     else:
-        cona = m.get("visina", 0) - odcep - 2 * m.get("profil_v", 40)
-        if cona <= 0:
-            nap.append("Višina profilov in odcepa presega skupno višino.")
-        elif m.get("lamele", 0) * m.get("lamela_v", 0) > cona:
-            nap.append(f"Lamele se ne prilegajo: {m.get('lamele')} × "
-                       f"{m.get('lamela_v')} mm > cona {cona:.0f} mm.")
-    kerf = cfg.get("kerf", 3.0)
-    if not isinstance(kerf, (int, float)) or kerf < 0:
+        profil_v = _poz(m.get("profil_v", 40))
+        if profil_v is None:
+            nap.append("Višina profila mora biti pozitivno število.")
+        lamele = _poz(m.get("lamele", 0))
+        if "lamele" in m and lamele is None:
+            nap.append("Število lamel mora biti vsaj 1.")
+        lamela_v = _poz(m.get("lamela_v", 0))
+        if (profil_v is not None and visina is not None
+                and odcep is not None):
+            cona = visina - odcep - 2 * profil_v
+            if cona <= 0:
+                nap.append("Višina profilov in odcepa presega skupno višino.")
+            elif (lamele is not None and lamela_v is not None
+                  and lamele * lamela_v > cona):
+                nap.append(f"Lamele se ne prilegajo: {m.get('lamele')} × "
+                           f"{m.get('lamela_v')} mm > cona {cona:.0f} mm.")
+    vrzel = _num(m.get("vrzel", 20.0))
+    if vrzel is None or vrzel < 0:
+        nap.append("Vrzel med deskami ne sme biti negativna.")
+    kerf = _num(cfg.get("kerf", 3.0))
+    if kerf is None or kerf < 0:
         nap.append("Kerf (širina rezila) ne sme biti negativen.")
         kerf = 0.0
     dl = cfg.get("dolzine_deske")
@@ -519,46 +566,53 @@ def preveri_cfg(cfg):
         dl = []
     else:
         for x in dl:
-            if not isinstance(x, (int, float)) or x <= 0:
+            if _num(x) is None or x <= 0:
                 nap.append(f"Dolžina deske {x!r} mora biti pozitivno število.")
     # dolžina kosa po predlogi — EN sam vir resnice (A2):
     #   prečna ograja: lamele se režejo na ŠIRINO ograje,
     #   pokončna: deske na višino desk (visina - rocaj_v - odcep).
-    if cfg.get("predloga") == "pokončna":
-        kos_dol = (m.get("visina", 0) - m.get("odcep", 0)
-                   - m.get("rocaj_v", 40))
+    if pokoncna:
+        if visina is not None and odcep is not None and rv is not None:
+            kos_dol = visina - odcep - rv
+        else:
+            kos_dol = None
     else:
-        kos_dol = m.get("sirina", 0)
+        kos_dol = sirina
     dl_ok = [x for x in dl
-             if isinstance(x, (int, float))
+             if _num(x) is not None and kos_dol is not None
              and kos_iz_vira(x, kos_dol, kerf) >= 1]
-    if kos_dol > 0 and not dl_ok:
+    if kos_dol is not None and kos_dol > 0 and not dl_ok:
         nap.append(f"Nobena nabavna dolžina desk ni dovolj velika za kos "
                    f"{kos_dol:.0f} mm (kerf {kerf:g} mm).")
 
     # alu palice: ročaj/stebri/U-profili ne smejo presegati tovarniške dolžine
-    dl_palice = cfg.get("dolzina_palice", 6000)
-    if isinstance(dl_palice, (int, float)) and dl_palice > 0:
-        preseganja = [(m.get("sirina", 0), "zaključni profil/ročaj")]
-        if cfg.get("predloga") == "pokončna":
-            preseganja.append((m.get("visina", 0), "steber"))
+    dl_palice = _num(cfg.get("dolzina_palice", 6000))
+    if dl_palice is not None and dl_palice > 0:
+        preseganja = []
+        if sirina is not None:
+            preseganja.append((sirina, "zaključni profil/ročaj"))
+        if pokoncna and visina is not None:
+            preseganja.append((visina, "steber"))
         for kosa, opis in preseganja:
-            if isinstance(kosa, (int, float)) and kosa > dl_palice + 1e-9:
+            if kosa > dl_palice + 1e-9:
                 nap.append(f"{opis.capitalize()} ({kosa:.0f} mm) presega "
                            f"tovarniško dolžino palice ({dl_palice:.0f} mm) "
                            "— potreben spoj ali druga dolžina palice.")
 
     # geometrija pokončne predloge: brez tihega prilagajanja proizvodnih
     # podatkov (B2) — če se deske ne prilegajo, je to napaka, ne popravek.
-    if cfg.get("predloga") == "pokončna":
+    if pokoncna:
         try:
             razpored_pokoncna(m)
         except ValueError as e:
             nap.append(str(e))
         except (KeyError, TypeError):
-            pass  # manjkajoče mere že javijo spodnji preverbi
-    if cfg.get("foto") and not os.path.isfile(cfg["foto"]):
-        nap.append(f"Fotografija ne obstaja: {cfg['foto']}")
+            pass  # manjkajoče/nejasne mere že javijo zgornje preverbe
+    foto = cfg.get("foto")
+    if foto and not isinstance(foto, (str, os.PathLike)):
+        nap.append("'foto' mora biti pot do datoteke.")
+    elif foto and not os.path.isfile(foto):
+        nap.append(f"Fotografija ne obstaja: {foto}")
     # vrata/prehodi (issue #3) — le če so prisotni (brez vrat ni dodatnih napak)
     if cfg.get("vrata") or cfg.get("prehodi"):
         try:

@@ -181,8 +181,8 @@ Najdbe in odziv glavnega agenta:
 | vakuumska asercija `"80" in narocilo` (podniz tudi v "Ø8×80") | P1 | odpravljeno — natančna vrstica `"- RF M8×70 Inox — 80 kos"` + `"120 kos" not in` |
 | `proizvodni_model` z nepopolnim `mere` vrže surovi `KeyError` | P2 | dokumentirano: javni vstop je `generiraj`/`zdruzi`; neposredni klic je interni API |
 | headless način brez testov | P2 | odpravljeno — `tests/test_zagon.py`: kode 0/1/2, branje JSON/YAML, resničen CLI klic (`TEHNICNA_RISBA_HEADLESS=1`) s preverjenim PDF; vstopna točka `vmesnik.zazeni_brez_zaslona` |
-| `generiraj({})` tiho piše `BO-001.pdf` v CWD | P2 | dokumentirano (znana past), predlog za ločeno izdajo |
-| nekatere veje (fig3/fig4 degradacija, krajšanje rezalnega načrta, `preveri_cfg` B1–B7, CLI `--potrosi-ostanke`, rotacija segmentov v DXF) brez testov | P2/P3 | sprejeto kot znana vrzel; predlogi T1–T12 (z ročno izračunanimi vrednostmi) so zapisani za razširitev testne suite |
+| `generiraj({})` tiho piše `BO-001.pdf` v CWD | P2 | odpravljeno (v1.5.2): manjkajoč `izhod` je `ValueError`, v CWD ne nastane nič; `tests/test_validacija_tipov.py` |
+| nekatere veje (fig3/fig4 degradacija, krajšanje rezalnega načrta, `preveri_cfg` B1–B7, CLI `--potrosi-ostanke`, rotacija segmentov v DXF) brez testov | P2/P3 | tipska odpornost `preveri_cfg` pokrita (v1.5.2); ostale veje so še vedno znana vrzel — predlogi T1–T12 (z ročno izračunanimi vrednostmi) so zapisani za razširitev testne suite |
 | dve definiciji odpada na montažnem listu (PORABA „odpad“ vključuje kerf, REZ „ostanek“ ga ne) | P3 | konservativnost namerna — zapisano v docs/build.md in poročilu; predlog T10 to zaklene |
 
 - skupaj **163 testov** (74 iz #2 nespremenjenih + 61 iz #3 + 28 novih),

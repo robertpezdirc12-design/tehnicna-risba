@@ -1,5 +1,21 @@
 # Zgodovina sprememb
 
+## v1.5.2 — 2026-11-24 (popravek)
+
+- **Validacija ne sesuje več na napačnih tipih.** `preveri_cfg` je npr.
+  pri `deska_sirina: "100"` (YAML niz) vrgel `TypeError` namesto seznama
+  napak — CLI, GUI in API pa pričakujejo slednjega. Zdaj so vse numerične
+  mere preverjene tipsko, izračuni pa se izvedejo le z veljavnimi
+  vrednostmi; `mere` kot seznam in `vrzel` sta prav tako pokrita.
+- **`generiraj({})` ne piše več tiho `BO-001.pdf` v trenutno mapo.**
+  Manjkajoč `izhod` je jasna `ValueError`; test preveri, da v CWD ne
+  nastane nobena datoteka.
+- `zdruzi` sprejme `mere: null` iz YAML kot manjkajoče mere (prej
+  `TypeError`); nepravilna oblika `mere` gre do validacije, ki jo javi.
+- 21 novih hitrih testov (`tests/test_validacija_tipov.py`) za napačne
+  tipe, `mere: null`, manjkajoč `izhod` in ohranitev veljavnih konfiguracij.
+- Preverjeno: polna suite **726 passed, 2 skipped**; ruff čist; mypy 0.
+
 ## v1.5.1 — 2026-11-23 (popravek)
 
 - **Različica v programu je bila 1.2**, čeprav je bila izdaja v1.5: GUI

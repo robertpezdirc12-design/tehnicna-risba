@@ -1914,6 +1914,9 @@ def generiraj(cfg, dpi_png=200):
     odpove, je to jasno zapisano v ZADNJA_OPOZORILA in na stderr — nepopoln
     dokument NI prikazan kot običajen uspeh.
     """
+    if not (cfg or {}).get("izhod"):
+        raise ValueError("Manjka 'izhod' (pot do PDF). Brez njega se PDF "
+                         "ne sme tiho zapisati v trenutno mapo.")
     cfg = zdruzi(cfg or {})
     surovo = str(cfg.get("predloga", "") or "ograja").strip().lower()
     pred_norm = {"ograda": "ograja"}.get(surovo, surovo)
