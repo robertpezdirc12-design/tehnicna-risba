@@ -1,5 +1,26 @@
 # Zgodovina sprememb
 
+## v1.5.11 — 2026-11-24 (testi)
+
+Zadnja dokumentirana testna vrzel iz revizije („`preveri_cfg` B1–B7“) je
+zaprta. Vedenja ne spreminjamo — preverjeno je, da je vsaka veja res
+dosegljiva in da napaka ostane v seznamu, nikoli izjema.
+
+- **`preveri_cfg` ima zdaj pokrite vse veje** (24 novih testov v
+  `tests/test_preveri_cfg_veje.py`): izklop optimizacije (A6) v obeh
+  oblikah, nedovoljen status dokumenta, slaba oblika revizij, prevelik
+  ročaj/odcep, deska širša od razpona, razmak stebrov ≤ širina stebra,
+  cona profilov, prevelike lamele, negativen kerf, starejši zapis
+  `dolzina_deske`, napačen seznam dolžin, premajhna nabavna dolžina,
+  prekratka alu palica (profil in steber), neobstoječa fotografija,
+  `segmenti` v napačni obliki ter defenzivni veji (geometrija in
+  `vrata_podatki` vržeta izjemo → napaka v seznamu, ne sesutje).
+- Pokritost jedra pri branju `preveri_cfg`: **v telesu funkcije ni več
+  neizvedene vrstice ali veje** (prej ~20 vej); skupna pokritost
+  `jedro.py` 71 % → 80 % (le s testi, ki se dotaknejo validacije).
+- `docs/issue-6-revizija.md`: najdba P2/P3 je označena kot odpravljena
+  (v1.5.9–v1.5.11).
+
 ## v1.5.10 — 2026-11-24 (testi)
 
 Sprememba vedenja ni nobena — zapira se dokumentirana testna vrzel iz
