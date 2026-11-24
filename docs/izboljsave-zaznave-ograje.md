@@ -126,7 +126,7 @@ Torej: **nobena od predlaganih izboljšav ne zahteva novega paketa**, razen
 | 3b | **Vgradnja v okno** (`vmesnik.py`: koti + marker + tiskanje lista; `avtomatska_skica` meri z markerjem) | 0,5 dneva | ne | ista kot 1–3 (ista koda); izpeljana mera brez markerja zdaj `ocenjeno` | **narejeno v 1.5.17** |
 | 3c | **Soglasje več posnetkov** (`vec_posnetkov.py`, `--dodatna`, polje v oknu): dve meritvi iste ograje → mediana ali jasno opozorilo | 0,5 dneva | ne | 2 sintetični perspektivi: 5925 in 5980 mm (razpršenost 0,9 %); 6 % napačni koti padejo na prag 2 % | **narejeno v 1.5.18** |
 | 4 | Samodejne izginjajoče točke (LSD + RANSAC) namesto klika | 3–5 dni | ne | +1–3 % | odprto |
-| 5 | (neobvezno) SAM2/GroundingDINO za samodejni izrez | 1–2 tedna | onnxruntime + 30–150 MB | ne izboljša mer | odprto |
+| 5 | (neobvezno) SAM2/GroundingDINO za samodejni izrez | 1–2 tedna | torch + ~1 GB uteži (zunaj izdelka) | ne izboljša MER; lahko potrdi/ovrže ŠTETJE | **delno: vmesnik + deterministično štetje v 1.5.19; kakovost mask ni izmerjena (uteži niso nameščene)** |
 
 Vrstni red je bil pravilen, a z eno pomembno korekcijo: **korak 1 sam po
 sebi ne more izmeriti širine** (dokaz v 4.1). Šele marker iz koraka 3 naredi

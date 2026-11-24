@@ -64,8 +64,8 @@ Odtisi skladov so že izmerjeni v `docs/analiza-paketov.md`: open3d
 | Faza | Delo | Vrata | Če pade |
 |---|---|---|---|
 | **F0 — narejeno** | marker + koti + soglasje več posnetkov | 0,03 % čelno; 1–3 % poševno; soglasje 2 posnetkov | — |
-| **F1 — 2–3 dni** | več posnetkov brez AI: vsak posnetek poravnan, mere se morajo ujemati | razpršenost ≤ 2 % | ostane en posnetek + marker |
-| **F2 — spike** | Grounded SAM 2 zunaj EXE: maske stebrov/lamel v JSON, štetje ostane naše | napaka štetja ±10 % na 5 tujih fotografijah, ≤ 30 s/sliko na CPU | AI pot se ne vgradi |
+| **F0/F1 — narejeno (1.5.18)** | marker + koti + soglasje več posnetkov | 0,03 % čelno; 1–3 % poševno; soglasje 2 posnetkov 0,9 % | — |
+| **F2 — vmesnik narejen (1.5.19), vrata odprta** | `maske_ai.py` bere maske v JSON in šteje deterministično; `scripts/grounded_sam2_maske.py` je zunanji most; `--maske` potrdi ali ovrže naše štetje | napaka štetja ±10 % na 5 tujih fotografijah, ≤ 30 s/sliko na CPU — **NI izmerjeno**: uteži (~1 GB) v tem okolju niso nameščene, tujih fotografij ni | AI pot se ne vgradi; ostane branje mask + naše štetje |
 | **F3** | COLMAP + Open3D kot zunanje orodje za orto-foto | dolžina z markerjem ±2 % | orodje ostane eksperimentalno |
 | **F4** | FreeCAD/CadQuery kot ločen CAD strežnik (FreeCADCmd) | ujemanje z našo risbo ±0,1 mm na 5 projektih | ostane `tridim/step.py` most |
 
@@ -84,6 +84,8 @@ Odtisi skladov so že izmerjeni v `docs/analiza-paketov.md`: open3d
 - Ni vgrajevanja torch/onnxruntime/COLMAP v EXE — velikost 52,7 MB →
   >1 GB in kršitev lastnih licenčnih pravil.
 - Ni zamenjave risalnega jedra (matplotlib + ezdxf) s FreeCADom.
+- Maske iz AI so lahko le **dokaz ali opozorilo**, nikoli mera: ujemanje
+  z našim štetjem ne dvigne statusa, nesoglasje ga spusti na `ocenjeno`.
 - Ni obljube, da bo AI izboljšal mere: dokler F2 ne pokaže ±10 % pri
   štetju, AI ostane poskus.
 

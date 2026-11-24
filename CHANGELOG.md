@@ -1,5 +1,32 @@
 # Zgodovina sprememb
 
+## v1.5.19 — 2026-11-24 (AI kot dokaz, ne kot mera)
+
+**Maske iz zunanjega AI orodja lahko potrdijo štetje — ne morejo ga nadomestiti.**
+
+- **`maske_ai.py` (novo):** strogo branje/validacija JSON z maskami
+  (neznana oznaka, točka zunaj slike, pokvarjen JSON → slovenska napaka)
+  in **deterministično** štetje: stebri = združeni intervali po X, lamele
+  = intervali po Y. Fragmenti istega stebra se združijo (prag 0,3 ×
+  mediana širine), zato AI, ki en steber razdeli na dve maski, ne podvoji
+  števila.
+- **`zazeni.pozeni(..., maske_pot=...)` in `--maske maske.json`:** če se
+  AI štetje ujema z našim periodičnim, opis dobi *»— potrjeno z AI
+  maskami (N)«* in status **ostane** enak; ob nesoglasju je število
+  `ocenjeno`, opis navede obe vrednosti, dokument dobi opozorilo *»metodi
+  se ne ujemata … preveri ročno«*. AI nikoli ne dvigne statusa in nikoli
+  ni prevzet tiho. Če našega štetja ni, je vrednost iz mask `ocenjeno`
+  z jasno oznako vira.
+- **`scripts/grounded_sam2_maske.py` (novo):** zunanji, neobvezni most
+  Grounded SAM 2 → JSON (`--preveri` pove, kaj manjka; brez paketov se
+  ustavi z navodilom, izdelek pa deluje naprej). **Kakovost AI mask v tem
+  okolju NI izmerjena** — uteži (~1 GB) niso nameščene, zato vrata F2 iz
+  `docs/nacrt-draftwright-pro.md` ostajajo odprta; skript je označen kot
+  nepreverjen.
+- **Testi:** 9 novih (krog shrani/preberi, tri zavrnitve, združevanje
+  fragmentov, lamele, primerjava, potrditev in nesoglasje skozi `pozeni`).
+
+Testi: **87** (`python -m pytest photo_fence_proposal/testi_pfp.py -q`).
 ## v1.5.18 — 2026-11-24 (merjenje)
 
 **Soglasje več posnetkov: napaka ene fotografije se ne skrije več v povprečju.**

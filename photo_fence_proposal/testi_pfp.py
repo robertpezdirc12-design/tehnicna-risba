@@ -1253,6 +1253,157 @@ def test_izracunaj_mere_pot_brez_markerja_opozori(tmp_path):
     assert podatki["mere"]["dolzina_ograje"].status == OCENJENO
 
 
+def _zapisi_maske(pot, stebri, sirina=1800, visina=900):
+    """Pomožnik: zapiši JSON z navpičnimi pasovi (stebri) na znanih x."""
+    import json
+    seznam = []
+    korak = sirina / (stebri + 1)
+    for i in range(stebri):
+        x0 = korak * (i + 1) - 20
+        x1 = x0 + 40
+        seznam.append({"oznaka": "steber", "zaupanje": 0.9,
+                       "poligon": [[x0, 300], [x1, 300],
+                                    [x1, 800], [x0, 800]]})
+    pot.write_text(json.dumps({"vir": "test", "slika": "foto.jpg",
+                               "sirina_px": sirina, "visina_px": visina,
+                               "maske": seznam}), encoding="utf-8")
+
+
+def test_maske_krog_shrani_in_preberi(tmp_path):
+    import maske_ai
+    m = maske_ai.Maske("foto.jpg", 1800, 900, (
+        maske_ai.Maska("steber", ((10.0, 300.0), (50.0, 300.0),
+                                (50.0, 800.0), (10.0, 800.0)), 0.9),))
+    pot = tmp_path / "m.json"
+    maske_ai.shrani(m, pot)
+    nazaj = maske_ai.preberi(pot)
+    assert nazaj.sirina_px == 1800 and nazaj.visina_px == 900
+    assert nazaj.maske[0].oznaka == "steber"
+    assert abs(nazaj.maske[0].zaupanje - 0.9) < 1e-6
+
+
+def test_maske_zavrnejo_neznano_oznako(tmp_path):
+    import json
+    import maske_ai
+    pot = tmp_path / "slabo.json"
+    pot.write_text(json.dumps({"slika": "a.jpg", "sirina_px": 100,
+                               "visina_px": 100, "maske": [
+                                   {"oznaka": "ograja",
+                                    "poligon": [[1, 1], [9, 1], [9, 9]]}]}),
+                    encoding="utf-8")
+    try:
+        maske_ai.preberi(pot)
+    except ValueError as e:
+        assert "ni znana" in str(e)
+    else:
+        raise AssertionError("neznana oznaka bi morala biti zavrnjena")
+
+
+def test_maske_zavrnejo_tocko_zunaj_slike(tmp_path):
+    import json
+    import maske_ai
+    pot = tmp_path / "zunaj.json"
+    pot.write_text(json.dumps({"slika": "a.jpg", "sirina_px": 100,
+                               "visina_px": 100, "maske": [
+                                   {"oznaka": "steber",
+                                    "poligon": [[1, 1], [150, 1], [9, 9]]}]}),
+                    encoding="utf-8")
+    try:
+        maske_ai.preberi(pot)
+    except ValueError as e:
+        assert "zunaj slike" in str(e)
+    else:
+        raise AssertionError("točka zunaj slike bi morala biti zavrnjena")
+
+
+def test_maske_zavrnejo_pokvarjen_json(tmp_path):
+    import maske_ai
+    pot = tmp_path / "pokvarjeno.json"
+    pot.write_text("{", encoding="utf-8")
+    try:
+        maske_ai.preberi(pot)
+    except ValueError as e:
+        assert "JSON" in str(e)
+    else:
+        raise AssertionError("pokvarjen JSON bi moral biti zavrnjen")
+
+
+def test_prestej_stebre_zdruzi_fragmente():
+    import maske_ai
+    m = maske_ai.Maske("a.jpg", 1000, 500, (
+        maske_ai.Maska("steber", ((100.0, 50.0), (140.0, 50.0),
+                                 (140.0, 450.0), (100.0, 450.0))),
+        maske_ai.Maska("steber", ((138.0, 60.0), (150.0, 60.0),
+                                 (150.0, 440.0), (138.0, 440.0))),
+        maske_ai.Maska("steber", ((400.0, 50.0), (440.0, 50.0),
+                                 (440.0, 450.0), (400.0, 450.0))),))
+    assert maske_ai.prestej_stebre(m) == 2
+
+
+def test_prestej_lamel():
+    import maske_ai
+    m = maske_ai.Maske("a.jpg", 1000, 500, (
+        maske_ai.Maska("lamela", ((100.0, 100.0), (900.0, 100.0),
+                                 (900.0, 140.0), (100.0, 140.0))),
+        maske_ai.Maska("lamela", ((100.0, 200.0), (900.0, 200.0),
+                                 (900.0, 240.0), (100.0, 240.0))),))
+    assert maske_ai.prestej_lamel(m) == 2
+
+
+def test_primerjaj_ujemanje_in_nesoglasje():
+    import maske_ai
+    m = maske_ai.Maske("a.jpg", 1000, 500, tuple(
+        maske_ai.Maska("steber", ((100.0 + i * 100, 50.0),
+                                 (140.0 + i * 100, 50.0),
+                                 (140.0 + i * 100, 450.0),
+                                 (100.0 + i * 100, 450.0)))
+        for i in range(3)))
+    assert maske_ai.primerjaj(3, m).ujemanje is True
+    razlika = maske_ai.primerjaj(4, m)
+    assert razlika.ujemanje is False
+    assert any("ne ujemata" in o for o in razlika.opozorila)
+
+
+def test_zazeni_maske_potrdijo_stetje(tmp_path):
+    """AI maske z enakim številom potrdijo naše štetje (status se ne dvigne)."""
+    import cv2
+    import zazeni
+    slika, vogali = _scena_z_markerjem()
+    pot = str(tmp_path / "scena.png")
+    cv2.imwrite(pot, slika)
+    rez = zazeni.pozeni(pot, str(tmp_path / "brez"), ParametriNove(),
+                        vogali=vogali, velikost_markerja_mm=300.0)
+    n = int(rez.mere["stevilo_stebrov"].vrednost_mm)
+    status = rez.mere["stevilo_stebrov"].status
+    pot_m = tmp_path / "maske.json"
+    _zapisi_maske(pot_m, n)
+    rez2 = zazeni.pozeni(pot, str(tmp_path / "z"), ParametriNove(),
+                         vogali=vogali, velikost_markerja_mm=300.0,
+                         maske_pot=str(pot_m))
+    mera = rez2.mere["stevilo_stebrov"]
+    assert "potrjeno z AI maskami" in mera.opis
+    assert mera.status == status
+
+
+def test_zazeni_maske_nesoglasje_opozori(tmp_path):
+    import cv2
+    import zazeni
+    slika, vogali = _scena_z_markerjem()
+    pot = str(tmp_path / "scena.png")
+    cv2.imwrite(pot, slika)
+    rez = zazeni.pozeni(pot, str(tmp_path / "brez"), ParametriNove(),
+                        vogali=vogali, velikost_markerja_mm=300.0)
+    n = int(rez.mere["stevilo_stebrov"].vrednost_mm)
+    pot_m = tmp_path / "maske.json"
+    _zapisi_maske(pot_m, n + 2)
+    rez2 = zazeni.pozeni(pot, str(tmp_path / "z"), ParametriNove(),
+                         vogali=vogali, velikost_markerja_mm=300.0,
+                         maske_pot=str(pot_m))
+    assert any("ne ujemata" in o for o in rez2.opozorila)
+    assert rez2.mere["stevilo_stebrov"].status == OCENJENO
+    assert "AI maske" in rez2.mere["stevilo_stebrov"].opis
+
+
 def test_zazeni_brez_markerja_ne_izmisli_sirine(tmp_path, testni_prizori):
     import zazeni
     _ime, pot, _resni = testni_prizori[0]

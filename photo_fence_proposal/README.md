@@ -42,6 +42,25 @@ python zazeni.py --fotografija prva.jpg --izhod izhod/ --marker-mm 150 \
     --dodatna "druga.jpg|120,540;1480,280;1490,820;310,960"
 ```
 
+### Maske iz zunanjega AI orodja (neobvezno, zunaj izdelka)
+
+Program zna prebrati **JSON z maskami**, ki ga ustvari ločeno orodje
+(Grounded SAM 2 prek `scripts/grounded_sam2_maske.py`). AI NI odvisnost
+izdelka: maske lahko le **potrdijo** naše periodično štetje ali sprožijo
+opozorilo, ko se ne ujemata — nikoli ne dvignejo statusa in nikoli niso
+tiho prevzete.
+
+```bash
+python zazeni.py --fotografija foto.jpg --izhod izhod/ --marker-mm 150 \
+    --vogali "300,520;1500,300;1500,830;300,950" --maske maske.json
+```
+
+Štetje iz mask je deterministično (projekcija intervalov + združevanje
+fragmentov), zato je ponovljivo in testirano; kakovost AI mask pa v tem
+okolju **ni izmerjena** (uteži niso nameščene) — zato je potrditev
+navedena v opisu mere (`… — potrjeno z AI maskami (4)`), ob nesoglasju pa
+ostane `ocenjeno` z razlago.
+
 Dve meritvi, ki se ujemata znotraj **2 %**, dasta mediano z opisom
 `soglasje 2 posnetkov (razpršenost 0,4 %)` in status `izracunano`. Če se ne
 ujemata, mera **ni** izračunana, v dokumentu pa je razpon, npr. *dolžina
@@ -155,9 +174,10 @@ python -m pytest testi_pfp.py -q
 | `avtomatska_skica.py` | fotografija → A3 skica (sprednji pogled, prerez, detajl) |
 | `vnos.py` | skupno razčlenjevanje kotov (CLI + GUI) |
 | `vec_posnetkov.py` | soglasje več posnetkov iste ograje (mediana + prag 2 %) |
+| `maske_ai.py` | branje/validacija mask iz zunanjega AI orodja + deterministično štetje |
 | `zazeni.py` | CLI (celoten tok) |
 | `napravi_testne_slike.py` | generator sintetičnih prizorov z znanimi merami |
-| `testi_pfp.py` | samostojni testi (78) |
+| `testi_pfp.py` | samostojni testi (87) |
 
 Nič v tej mapi se ne priklopi v glavni program brez izrecne odobritve uporabnika.
 ## Avtomatska skica (P1) — fotografija → A3 risba

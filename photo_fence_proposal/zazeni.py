@@ -288,6 +288,46 @@ def _soglasje_posnetkov(rezultat: Rezultat, pot_fotografije: str, vogali,
                                               opis)
 
 
+def _uporabi_maske(rezultat: Rezultat, pot: str) -> None:
+    """AI maske NE določajo mere same: potrdijo ali ovržejo naše štetje.
+
+    Ujemanje dveh neodvisnih metod je dokaz; nesoglasje je opozorilo.
+    Vrednost AI nikoli ne prevzame tiho in ne dvigne statusa.
+    """
+    from model import Mera, OCENJENO
+
+    import maske_ai
+
+    try:
+        maske = maske_ai.preberi(pot)
+    except ValueError as e:
+        rezultat.opozorila.append(f"Masek ni mogoče uporabiti: {e}")
+        return
+    n_m = maske_ai.prestej_stebre(maske)
+    mera = rezultat.mere.get("stevilo_stebrov")
+    n_z = int(mera.vrednost_mm) if (mera and mera.vrednost_mm) else None
+    if n_z is None:
+        rezultat.mere["stevilo_stebrov"] = Mera(
+            float(n_m), OCENJENO,
+            f"iz AI mask ({n_m}; AI ni del izdelka — ocena, ne meritev)")
+        rezultat.opozorila.append(
+            f"Število stebrov ({n_m}) je iz AI mask; naše periodično "
+            "štetje ni uspelo, zato vrednost ostaja OCENJENA.")
+        return
+    primerjava = maske_ai.primerjaj(n_z, maske)
+    if primerjava.ujemanje:
+        rezultat.mere["stevilo_stebrov"] = Mera(
+            float(n_z), mera.status,
+            f"{mera.opis} — potrjeno z AI maskami ({n_m})")
+        return
+    rezultat.mere["stevilo_stebrov"] = Mera(
+        float(n_z), OCENJENO,
+        f"{mera.opis}; AI maske: {n_m} — nesoglasje")
+    for o in primerjava.opozorila:
+        if o not in rezultat.opozorila:
+            rezultat.opozorila.append(o)
+
+
 def pozeni(pot_fotografije: str, izhod: str, parametri: ParametriNove,
            referenca: tuple[str, float] | None = None,
            visina_mm: float | None = None,
@@ -297,7 +337,8 @@ def pozeni(pot_fotografije: str, izhod: str, parametri: ParametriNove,
            vogali: list[tuple[float, float]] | None = None,
            velikost_markerja_mm: float = marker.STRANICA_MM,
            dodatni: list[tuple[str, list[tuple[float, float]]]]
-           | None = None) -> Rezultat:
+           | None = None,
+           maske_pot: str | None = None) -> Rezultat:
     os.makedirs(izhod, exist_ok=True)
 
     # 1) poravnava v čelni pogled (4 koti, ki jih označi uporabnik)
@@ -348,6 +389,8 @@ def pozeni(pot_fotografije: str, izhod: str, parametri: ParametriNove,
             _soglasje_posnetkov(rezultat, pot_fotografije, vogali, dodatni,
                                 velikost_markerja_mm, visina_mm, dolzina_mm)
         _prestej_elemente(rezultat, bgr)
+    if maske_pot:
+        _uporabi_maske(rezultat, maske_pot)
     _preveri_razmak(rezultat)
 
     # 4) material + razrez
@@ -413,6 +456,10 @@ def main(argv=None):
                    help="dodatni posnetek iste ograje za soglasje mer: "
                         "'pot|x,y;x,y;x,y;x,y' (lahko večkrat); "
                         "zahteva --vogali prve fotografije")
+    p.add_argument("--maske", default=None, metavar="MASKE.JSON",
+                   help="maske elementov iz zunanjega AI orodja "
+                        "(Grounded SAM 2); AI NI del izdelka — maske "
+                        "lahko le potrdijo naše štetje")
     p.add_argument("--cene", default=None,
                    help="cenik (cene.yaml); privzeto iz korena projekta")
     p.add_argument("--brez-predracuna", action="store_true",
@@ -486,7 +533,8 @@ def main(argv=None):
                           podjetje=args.podjetje, objekt=args.objekt,
                           vogali=vogali,
                           velikost_markerja_mm=args.marker_mm,
-                          dodatni=dodatni or None)
+                          dodatni=dodatni or None,
+                          maske_pot=args.maske)
     except ValueError as e:
         print(f"NAPAKA: {e}", file=sys.stderr)
         return 1
