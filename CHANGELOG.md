@@ -1,5 +1,13 @@
 # Zgodovina sprememb
 
+## v1.5.8 — 2026-11-24 (popravek)
+
+- **CLI za 3D ne sesuje več na Windows konzoli (cp1250).** `tridim/__main__.py`
+  je tiskal `m³` (`\u00b3`), kar `cp1250` ne pozna — `test_cli_izvozi_glb`
+  in `test_cli_precna_predloga` sta padla z `UnicodeEncodeError`. Zdaj
+  izpisuje `m3`.
+- Preverjeno: hitra suite **699 passed, 3 skipped**; ruff čist; mypy brez novih.
+
 ## v1.5.7 — 2026-11-24 (popravek)
 
 - **Neveljavno merilo ne sesuje risanja.** `merilo: "abc"`, `merilo: "1:0"`

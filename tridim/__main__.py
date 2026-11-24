@@ -69,7 +69,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  predloga: {cfg.get('predloga')}")
         print(f"  trikotniki: {len(model['mreza'].trikotniki)}")
         print(f"  obseg: {x1 - x0:.1f} × {y1 - y0:.1f} × {z1 - z0:.1f} mm")
-        print(f"  prostornina: {mere['prostornina_mm3'] / 1e9:.4f} m³")
+        print(f"  prostornina: {mere['prostornina_mm3'] / 1e9:.4f} m3")
         for opomba in model["opombe"]:
             print(f"  opomba: {opomba}")
 
