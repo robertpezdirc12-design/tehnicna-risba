@@ -1,5 +1,18 @@
 # Zgodovina sprememb
 
+## v1.5.5 — 2026-11-24 (popravek)
+
+- **Predloga se normalizira pred validacijo.** `preveri_cfg` je
+  `predloga: "POKONČNA"` ali `"Ograda"` primerjal strogo in zato
+  pokončno predlogo validiral kot prečno: `razmak_stebrov: 0` je tako
+  šel skozi, čeprav je `generiraj` isto predlogo izrisal kot pokončno.
+  `zdruzi` in `preveri_cfg` zdaj uporabljata isto obliko (male črke,
+  „ograda“ = „ograja“); neznana predloga ostane neznana in se zavrne.
+- Dva nova testa: velika začetnica ne obide geometrije pokončne in
+  `zdruzi` vrne kanonično ime predloge.
+- Preverjeno: polna suite **750 passed, 3 skipped** (en preskok: Tk
+  okolje); ruff čist; mypy 0.
+
 ## v1.5.4 — 2026-11-24 (popravek)
 
 - **Večsegmentni projekt ne izgleda več tiho kot en segment.** PDF še

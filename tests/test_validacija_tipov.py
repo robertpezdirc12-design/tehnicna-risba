@@ -20,6 +20,17 @@ def _cfg(predloga, mere):
     return cfg
 
 
+def test_velika_zacetnica_pokoncne_ne_obide_validacije():
+    cfg = _cfg("pokončna", {"razmak_stebrov": 0, "lamele": 8, "lamela_v": 100})
+    cfg["predloga"] = "POKONČNA"
+    assert any("Razmak stebrov" in n for n in jedro.preveri_cfg(cfg))
+
+
+def test_zdruzi_normalizira_predlogo():
+    assert jedro.zdruzi({"predloga": "  POKONČNA ", "mere": {}})["predloga"] == "pokončna"
+    assert jedro.zdruzi({"predloga": "Ograda", "mere": {}})["predloga"] == "ograja"
+
+
 @pytest.mark.parametrize("predloga, mere, besedilo", [
     ("pokončna", {"deska_sirina": "100"}, "Širina deske"),
     ("pokončna", {"razmak_stebrov": "1200"}, "Razmak stebrov"),

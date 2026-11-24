@@ -401,11 +401,20 @@ def privzeto_stevilo_lamel(m):
     return max(1, int((cona - 8) // (lv + 8)))
 
 
+def _predloga_norm(v):
+    """Ena oblika imena predloge za validacijo in izris ("ograda" = "ograja")."""
+    p = str(v or "ograja").strip().lower()
+    return "ograja" if p == "ograda" else p
+
+
 def zdruzi(cfg):
     if cfg is not None and not isinstance(cfg, dict):
         raise ValueError("Konfiguracija mora biti slovar (ključ: vrednost).")
     izhod = dict(PRIVZETO)
     izhod.update(cfg or {})
+    pred = _predloga_norm(izhod.get("predloga"))
+    if pred in ("ograja", "pokončna"):
+        izhod["predloga"] = pred
     surove = (cfg or {}).get("mere")
     if surove is None:
         surove = {}
@@ -507,7 +516,7 @@ def preveri_cfg(cfg):
     if odcep is None or odcep < 0:
         nap.append("Mera 'odcep' mora biti nenegativno število.")
         odcep = None
-    pokoncna = cfg.get("predloga") == "pokončna"
+    pokoncna = _predloga_norm(cfg.get("predloga")) == "pokončna"
     raz = ds = None
     if pokoncna:
         raz = _poz(m.get("razmak_stebrov", 1500))
