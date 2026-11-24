@@ -17,6 +17,7 @@ from tkinter import ttk, filedialog, messagebox, simpledialog
 import yaml
 
 import jedro
+import oznake
 import proizvodnja
 import posodobitev
 import revizija
@@ -1719,6 +1720,69 @@ class App(tk.Tk):
             "Mere so označene z zaupanjem — pred izdelavo PREVERI "
             "dejanske mere na objektu.")
 
+    def _oznaka_zapisi(self):
+        """Zapiše QR oznako projekta (za tiskanje in lepljenje na objekt)."""
+        try:
+            cfg = self._zberi_cfg()
+            besedilo = oznake.sestavi_oznako(cfg)
+        except ValueError as e:
+            messagebox.showerror("Oznake ni mogoče sestaviti", str(e))
+            return
+        pot = filedialog.asksaveasfilename(
+            title="Shrani QR oznako projekta", defaultextension=".png",
+            initialfile=f"{cfg['risba_st']}-oznaka.png",
+            filetypes=[("PNG slika", "*.png")])
+        if not pot:
+            return
+        try:
+            cilj = oznake.zapisi_oznako(besedilo, pot)
+        except (OSError, ValueError, oznake.ManjkajocaKnjiznica) as e:
+            messagebox.showerror("Oznake ni mogoče zapisati", str(e))
+            return
+        try:
+            self.status.config(text=f"QR oznaka shranjena: {cilj}")
+        except Exception:
+            pass
+
+    def _oznaka_preberi(self, pot=None):
+        """Prebere QR oznako s slike in PONUDI vrednosti (ne uveljavi sam)."""
+        pot = pot or filedialog.askopenfilename(
+            title="Izberi sliko z oznako projekta",
+            filetypes=[("Slike", "*.png *.jpg *.jpeg *.bmp *.webp *.tif"),
+                       ("Vse datoteke", "*.*")])
+        if not pot:
+            return
+        try:
+            rezultat = oznake.preberi_oznake(pot)
+        except (OSError, ValueError, oznake.ManjkajocaKnjiznica) as e:
+            messagebox.showerror("Oznake ni mogoče prebrati", str(e))
+            return
+        if not rezultat.uspeh:
+            messagebox.showwarning("Oznaka ni prebrana",
+                                   "\n".join(rezultat.opozorila))
+            return
+        oznaka = rezultat.oznake[0]
+        polja = oznake.oznake_za_polja(oznaka)
+        vrstice = "\n".join(f"  {k}: {v}" for k, v in polja.items())
+        opozorilo = ""
+        if rezultat.opozorila:
+            opozorilo = "\n\nOpombe:\n" + "\n".join(rezultat.opozorila)
+        if len(rezultat.oznake) > 1:
+            opozorilo += (f"\n\nNa sliki je {len(rezultat.oznake)} oznak — "
+                          "uporabljena je prva.")
+        vprasanje = ("Prebrano iz oznake:\n" + vrstice +
+                     "\n\nUporabim te vrednosti? Obstoječe v obrazcu bodo "
+                     "prepisane." + opozorilo)
+        if not messagebox.askyesno("Oznaka projekta", vprasanje):
+            return
+        for kljuc, vrednost in polja.items():
+            self.v[kljuc].set(vrednost)
+        try:
+            self.status.config(
+                text="Oznaka prebrana — preveri vrednosti pred risanjem.")
+        except Exception:
+            pass
+
     def _foto_predlog_mer(self, pot=None):
         """Predlog mer iz fotografije → polja (PREDLOG, ne avtoriteta).
 
@@ -2140,6 +2204,8 @@ class App(tk.Tk):
         v.add_command(label="Meri s slike", command=self._scena_meri)
         v.add_command(label="Predlog mer iz fotografije…",
                       command=self._foto_predlog_mer)
+        v.add_command(label="Preberi oznako projekta (QR)…",
+                      command=self._oznaka_preberi)
         v.add_command(label="Avtomatska skica", command=self._scena_skica)
         v.add_command(label="Fotografija v projekt",
                       command=self._scena_foto_v_projekt)
@@ -2184,6 +2250,8 @@ class App(tk.Tk):
         self.polja.setdefault("meri_slike", []).append(
             self._meni_postavka(o, "Predlog mer (iz foto)",
                                 self._foto_predlog_mer))
+        o.add_command(label="Zapiši oznako projekta (QR)…",
+                      command=self._oznaka_zapisi)
         o.add_separator()
         o.add_command(label="Statični pregled", command=self._statika_pregled)
         o.add_command(label="Statična priloga (PDF)", command=self._statika_priloga)

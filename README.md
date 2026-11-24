@@ -197,6 +197,8 @@ razrez.py           optimizacija razreza (več dolžin, ostanki, kosovnica)
 vmesnik.py          grafični vmesnik (Tkinter)
 merjenje.py         pomožno merjenje s fotografije (kalibracija + zaznavanje)
 statika.py          poenostavljen statični pregled + statična priloga (PDF) — informativno
+tridim/             3D mreža in izvoz STL/OBJ/GLB (brez copylefta) + neobvezni STEP most
+oznake.py           QR oznake projektov (branje/zapis brez modelov)
 api/index.py        spletni generator (Vercel, Flask)
 mechanical/         katalogsko jedro F0/F1 (resolver, BOM, kontrola) — brez ograjne kode
 cene.yaml           javni cenik za spletni predračun
@@ -331,6 +333,44 @@ Pravila količin (tečaji, vijaki, prečke, diagonala) in odločitve so
 dokumentirani v `docs/issue-3-vrata-dxf.md`. **Risba NI statični izračun** —
 nosilnost, sidranje in veterno breme preveri usposobljen strokovnjak.
 
+## 3D model (STL / OBJ / GLB)
+
+Iz istih mer kot risba se zgradi masni 3D model (stebri, deske, ročaj,
+osnovne plošče). Globinski odmiki in vijaki namenoma niso modelirani —
+2D risba jih ne poda, izmišljene lege bi bile laž; model to pove v
+opombah.
+
+```bash
+python -m tridim --vhod projekt_pokoncna.yaml --izhod ograja.stl
+python -m tridim --vhod projekt_pokoncna.yaml --izhod ograja.glb
+```
+
+Izvoz je za zdaj za predlogo **pokončna** (prečna ima drugačno
+geometrijo in bi jo bilo treba ugibati — program jo zavrne z razlago).
+Model je en raven odsek; stranski krak (globina > 0) prikaže 3D predogled
+v GUI, v izvozu pa je naveden kot opomba.
+
+Prostornina in zaprtost mreže sta preverjeni v testih (izrek o
+divergenci), ne le „izgleda v redu“. **Zakaj ne cadquery:** OpenCASCADE
+je LGPL-2.1 (`casadi` LGPL-3.0), zato copyleft ne gre v EXE; STEP izvoz
+je zato neobvezen most (`--step`, `pip install cadquery`), podrobno v
+`docs/odlocitev-3d-in-ocr.md`.
+
+## QR oznake projektov (brez OCR modelov)
+
+Koda projekta se natisne kot QR in prebere s fotografije — deterministično,
+brez modelov in brez prenosa uteži:
+
+```bash
+python oznake.py --zapisi projekt.yaml --izhod oznaka.png
+python oznake.py --preberi fotografija.png
+```
+
+V GUI: *Vstavi → Preberi oznako projekta (QR)…* in *Orodja → Zapiši
+oznako projekta (QR)…*. Prebrane vrednosti se **ne** uveljavijo same —
+program vpraša za potrditev. Format `TR1|projekt|šifra|višina|širina`;
+neveljavna ali tuja koda se zavrne z razlogom.
+
 ## Revizija izračunov (issue #6, P0)
 
 Kanonični `proizvodni_model` (en vir resnice za tabele, montažni list,
@@ -363,4 +403,9 @@ build (`build_windows.py`). Podrobnosti in dokazila:
 
 Koda je objavljena pod licenco **MIT** (glej `LICENSE`). WPC in znamke
 proizvajalcev pripadajo njihovim lastnikom (npr. WoodCore / roksal.com —
-vir referenčnih specifikacij)..
+vir referenčnih specifikacij).
+
+Samostojni EXE vsebuje tudi kodo tretjih oseb (matplotlib, numpy, ezdxf,
+PyYAML, Pillow, ttkbootstrap, PyInstaller bootloader); njihove licence in
+razlogi za vključitev so v `THIRD_PARTY_NOTICES.md`, ki ga strojno
+preverja `scripts/preveri_licence.py --preveri` (tudi v CI).

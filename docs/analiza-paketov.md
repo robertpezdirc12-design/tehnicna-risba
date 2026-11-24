@@ -23,6 +23,11 @@
 | **scikit-image, scipy** | **da (foto sloj)** | photo_fence_proposal | `detekcija.py` (robova kontrola ritma, 2026-11-23) — NE v EXE |
 
 Nameščeno v tem krogu (2026-04-11): **`scipy 1.17.1`, `trimesh 5.2.2`, `meshio 5.3.5`**.
+**3D in QR (2026-11-23):** `tridim/` (mreža, STL/OBJ/GLB) in `oznake.py`
+(QR) **ne dodata nobene odvisnosti** — GLB pišemo sami, QR bere OpenCV, ki
+je že v foto sloju. `cadquery`/`OCP`/`casadi` namenoma niso vgrajeni
+(LGPL); glej `docs/odlocitev-3d-in-ocr.md`.
+
 `numpy` ostaja 1.26.4 (nedotaknjen). V `requirements.txt` jih **ne dodamo, dokler jih koda
 ne uvozi** — da EXE ostane suh. Navodila za namestitev so spodaj (§5).
 
