@@ -64,7 +64,9 @@ Python: `dxf_izvoz.LEGACY_SLOJI` (slovar) in `dxf_izvoz._sloj(ime)`
 `cfg["segmenti"]` (shema v2): segmenti so postavljeni zaporedno z razmakom
 `MED_RAZMAK = 1000 mm`, vsak s svojo oznako na `TEXT` in lastnimi kotami.
 Kot (`kot`) je del podatkovnega modela; v1 izriše segmente v skupni ravnini
-(vogali v tlorisu so načrtovana razširitev).
+(vogali v tlorisu so načrtovana razširitev). Če je v projektu podan kot ≠ 0,
+DXF v opombah izrecno zapiše, da vogali niso narisani — omejitev ni nikoli
+tiha.
 
 ## Preverjanje kakovosti (`preveri_dxf`)
 

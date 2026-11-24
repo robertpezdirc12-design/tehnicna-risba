@@ -314,9 +314,17 @@ def izvozi_dxf(cfg, pot=None):
     if len(segmenti) > 1:
         kota_h(msp, 0.0, skupna_dolzina, -300.0, -300.0, skupna_dolzina)
 
-    # Opome (na plasti TEXT, nad risbo).
+    # Opombe (na plasti TEXT, nad risbo). Kadar je v projektu podan kot med
+    # segmenti, to izrecno povemo: ta izvoz riše segmente v skupni ravnini,
+    # tiho ravnanje pa bi uporabniku dalo napačen tloris (vogali so
+    # načrtovana razširitev — glej docs/dxf-specifikacija.md).
+    opombe = list(OPOMBE_DXF)
+    if any(s["kot"] for s in segmenti):
+        opombe.append("Kot med segmenti (vogali) NI narisan — segmenti so v "
+                      "skupni ravnini; tloris z vogali je načrtovana "
+                      "razširitev.")
     y_op = max(s["mere"]["visina"] for s in segmenti) + 120.0
-    for i, op in enumerate(OPOMBE_DXF):
+    for i, op in enumerate(opombe):
         tekst(msp, 0.0, y_op + i * 12.0, f"{i + 1}. {op}")
 
     _naslovni_blok(doc, cfg, skupna_dolzina)

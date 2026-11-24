@@ -107,6 +107,34 @@ def test_opozorila_so_vidna_ce_montazni_list_pade(cfg_ograja, monkeypatch,
     assert os.path.getsize(izhod) > 1000
 
 
+def test_opozorilo_ce_predracun_pade(tmp_path, monkeypatch):
+    """Padec predračuna (fig3) ne sme odnesti ostalih strani: PDF ostane
+    popoln glede na izdelano, opozorilo pa pove, kaj manjka."""
+    def napacen(*a, **k):
+        raise RuntimeError("testni padec predračuna")
+    monkeypatch.setattr(risba, "narisi_predracun", napacen)
+    cfg = osnovni_cfg(tmp_path / "predracun.pdf", cene=dict(CENE_PRIMER))
+    izhod, png, dodatni, kolicine = risba.generiraj(cfg)
+    assert any("Predračun" in o for o in risba.ZADNJA_OPOZORILA)
+    assert stevilo_strani(izhod) == 3         # risba, montažni, nalepke
+    assert not any(p.endswith("-predracun.png") for p in dodatni)
+    assert os.path.getsize(izhod) > 1000
+
+
+def test_opozorilo_ce_nalepke_padejo(tmp_path, monkeypatch):
+    """Padec nalepk (fig4) ohrani risbo, montažni list in predračun;
+    kosovnica CSV nastane, PNG nalepk pa ne."""
+    def napacen(*a, **k):
+        raise RuntimeError("testni padec nalepk")
+    monkeypatch.setattr(risba, "narisi_nalepke", napacen)
+    cfg = osnovni_cfg(tmp_path / "nalepke-padec.pdf", cene=dict(CENE_PRIMER))
+    izhod, png, dodatni, kolicine = risba.generiraj(cfg)
+    assert any("Nalepke" in o for o in risba.ZADNJA_OPOZORILA)
+    assert stevilo_strani(izhod) == 3         # risba, montažni, predračun
+    assert not any(p.endswith("-nalepke.png") for p in dodatni)
+    assert any(p.endswith("-kosovnica.csv") for p in dodatni)
+
+
 def test_vecsegmentni_projekt_opozori_da_pdf_ni_popoln(tmp_path):
     """PDF ne zna narisati več segmentov: uporabnik mora dobiti opozorilo,
     ne tihega enosegmentnega dokumenta (segmenti so v DXF izvozu)."""

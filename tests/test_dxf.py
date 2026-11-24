@@ -242,6 +242,33 @@ def test_opombe_vsebujejo_omejitve_cnc(cfg_osnovni):
     assert "M-ELEM-CONT, M-STEB-CONT, M-ODPR-CONT" in besedila
 
 
+def test_kot_segmenta_je_v_opombi_opozorjen(tmp_path):
+    """`kot` je del modela, a v1 riše segmente v skupni ravnini — kadar je
+    podan, mora DXF to izrecno zapisati (nikoli tiho raven tloris)."""
+    cfg = {
+        "ime": "Vogali", "izhod": str(tmp_path / "V-001.pdf"),
+        "segmenti": [
+            {"ime": "S1", "tip": "ograja",
+             "mere": {"sirina": 2400, "visina": 2300, "odcep": 60}},
+            {"ime": "S2", "tip": "ograja", "kot": 90,
+             "mere": {"sirina": 2000, "visina": 2300, "odcep": 60}},
+        ],
+    }
+    pot, _ = dxf_izvoz.izvozi_dxf(cfg)
+    doc = ezdxf.readfile(pot)
+    besedila = " ".join(e.plain_text() for e in doc.modelspace().query("MTEXT"))
+    assert "Kot med segmenti (vogali) NI narisan" in besedila
+    assert "skupni ravnini" in besedila
+
+
+def test_brez_kotov_ni_opombe_o_vogalih(cfg_osnovni):
+    """Brez `kot` opombe o vogalih ni — opozorilo se ne ponavlja brez potrebe."""
+    pot, _ = dxf_izvoz.izvozi_dxf(cfg_osnovni)
+    doc = ezdxf.readfile(pot)
+    besedila = " ".join(e.plain_text() for e in doc.modelspace().query("MTEXT"))
+    assert "Kot med segmenti" not in besedila
+
+
 def test_naslovni_blok_in_layout(cfg_osnovni):
     pot, _ = dxf_izvoz.izvozi_dxf(cfg_osnovni)
     doc = ezdxf.readfile(pot)

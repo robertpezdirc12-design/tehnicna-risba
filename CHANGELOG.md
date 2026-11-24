@@ -1,5 +1,20 @@
 # Zgodovina sprememb
 
+## v1.5.9 — 2026-11-24 (popravek)
+
+- **Podan kot med segmenti ni več tiho izgubljen v DXF.** `kot` je del
+  podatkovnega modela, vendar v1 riše segmente v skupni ravnini; uporabnik
+  s `kot: 90` je dobil raven tloris brez vsakega namiga. Zdaj DXF ob
+  podanem kotu doda opombo „Kot med segmenti (vogali) NI narisan — segmenti
+  so v skupni ravnini; tloris z vogali je načrtovana razširitev.“
+  Brez podanega kota opombe ni (brez šuma).
+- Štirje novi testi za dokumentirane vrzeli: opomba ob kotu in odsotnost
+  opombe brez njega (DXF) ter padec predračuna in padec nalepk (PDF ostane
+  veljaven, opozorilo pove, kaj manjka, PNG pa se ne ustvari).
+- `docs/dxf-specifikacija.md`: omejitev vogalov je zdaj opisana kot
+  nikoli tiha.
+- Preverjeno: polna suite (spodaj); ruff čist; mypy brez novih.
+
 ## v1.5.8 — 2026-11-24 (popravek)
 
 - **CLI za 3D ne sesuje več na Windows konzoli (cp1250).** `tridim/__main__.py`
