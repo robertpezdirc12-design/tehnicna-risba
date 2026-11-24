@@ -1,5 +1,26 @@
 # Zgodovina sprememb
 
+## v1.5.3 — 2026-11-24 (popravek)
+
+- **Fuzzing validacije je odkril tri sesutja.** `preveri_cfg` mora vedno
+  vrniti seznam napak, tudi pri nesmiselnih vrednostih:
+  `razmak_stebrov: 0` pri pokončni (deljenje z nič), `vrata`/`prehodi`
+  kot niz ali seznam nizov (`.get` na nizu) in `inf` v merah pokončne
+  (preliv pri pretvorbi v celo število). Zdaj so vsi trije primeri
+  napaka v seznamu, ne izjema.
+- `vrata`/`prehodi` morata biti seznam slovarjev; `dolzina_palice` mora
+  biti pozitivno končno število (prej je niz ali `inf` tiho obšel
+  preverbo). Vse numerične mere zavrnejo `NaN` in neskončnost.
+- **Neveljavna konfiguracija ni več sled sklada.** `preveri_cfg`,
+  `zdruzi`, `nalozi_konf` in `generiraj` za seznam/niz vrnejo jasno
+  `ValueError`; CLI pri neobstoječi ali neveljavni YAML datoteki izpiše
+  „Napaka pri branju konfiguracije“ namesto `Traceback`.
+- 20 novih testov: 18 v `tests/test_validacija_tipov.py` in 2 CLI
+  (`tests/test_cli_napake.py`); fuzz čez vse mere in najvišje ključe
+  ne najde več nobene izjeme.
+- Preverjeno: polna suite **746 passed, 2 skipped**; ruff čist; mypy 0.
+
+
 ## v1.5.2 — 2026-11-24 (popravek)
 
 - **Validacija ne sesuje več na napačnih tipih.** `preveri_cfg` je npr.

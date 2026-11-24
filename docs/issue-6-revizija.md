@@ -182,6 +182,7 @@ Najdbe in odziv glavnega agenta:
 | `proizvodni_model` z nepopolnim `mere` vrže surovi `KeyError` | P2 | dokumentirano: javni vstop je `generiraj`/`zdruzi`; neposredni klic je interni API |
 | headless način brez testov | P2 | odpravljeno — `tests/test_zagon.py`: kode 0/1/2, branje JSON/YAML, resničen CLI klic (`TEHNICNA_RISBA_HEADLESS=1`) s preverjenim PDF; vstopna točka `vmesnik.zazeni_brez_zaslona` |
 | `generiraj({})` tiho piše `BO-001.pdf` v CWD | P2 | odpravljeno (v1.5.2): manjkajoč `izhod` je `ValueError`, v CWD ne nastane nič; `tests/test_validacija_tipov.py` |
+| `preveri_cfg` se je sesul na `razmak_stebrov: 0`, napačni obliki `vrata`/`prehodi` in `inf` (fuzz) | P2 | odpravljeno (v1.5.3): vsi primeri so napaka v seznamu; 18 novih testov + CLI brez sledi sklada; fuzz brez izjem |
 | nekatere veje (fig3/fig4 degradacija, krajšanje rezalnega načrta, `preveri_cfg` B1–B7, CLI `--potrosi-ostanke`, rotacija segmentov v DXF) brez testov | P2/P3 | tipska odpornost `preveri_cfg` pokrita (v1.5.2); ostale veje so še vedno znana vrzel — predlogi T1–T12 (z ročno izračunanimi vrednostmi) so zapisani za razširitev testne suite |
 | dve definiciji odpada na montažnem listu (PORABA „odpad“ vključuje kerf, REZ „ostanek“ ga ne) | P3 | konservativnost namerna — zapisano v docs/build.md in poročilu; predlog T10 to zaklene |
 

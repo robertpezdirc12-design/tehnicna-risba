@@ -1914,6 +1914,8 @@ def generiraj(cfg, dpi_png=200):
     odpove, je to jasno zapisano v ZADNJA_OPOZORILA in na stderr — nepopoln
     dokument NI prikazan kot običajen uspeh.
     """
+    if cfg is not None and not isinstance(cfg, dict):
+        raise ValueError("Konfiguracija mora biti slovar (ključ: vrednost).")
     if not (cfg or {}).get("izhod"):
         raise ValueError("Manjka 'izhod' (pot do PDF). Brez njega se PDF "
                          "ne sme tiho zapisati v trenutno mapo.")
@@ -2039,7 +2041,10 @@ def main():
                     help="izvozi tudi DXF za CAD/CNC (ezdxf, mm 1:1)")
     a = ap.parse_args()
 
-    cfg = nalozi_konf(a.konf) if a.konf else interaktivno()
+    try:
+        cfg = nalozi_konf(a.konf) if a.konf else interaktivno()
+    except Exception as e:          # neveljavna pot/YAML: brez sledi sklada
+        sys.exit(f"Napaka pri branju konfiguracije: {e}")
     if a.izhod:
         cfg["izhod"] = a.izhod
 

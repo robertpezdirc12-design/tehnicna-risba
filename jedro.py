@@ -402,6 +402,8 @@ def privzeto_stevilo_lamel(m):
 
 
 def zdruzi(cfg):
+    if cfg is not None and not isinstance(cfg, dict):
+        raise ValueError("Konfiguracija mora biti slovar (ključ: vrednost).")
     izhod = dict(PRIVZETO)
     izhod.update(cfg or {})
     surove = (cfg or {}).get("mere")
@@ -425,7 +427,12 @@ def zdruzi(cfg):
 
 def nalozi_konf(pot):
     with open(pot, "r", encoding="utf-8") as f:
-        podatki = yaml.safe_load(f) or {}
+        podatki = yaml.safe_load(f)
+    if podatki is None:
+        podatki = {}
+    if not isinstance(podatki, dict):
+        raise ValueError("Projektna datoteka mora vsebovati sliko "
+                         "(ključ: vrednost), ne seznama.")
     return zdruzi(podatki)
 
 
@@ -440,10 +447,14 @@ def preveri_cfg(cfg):
     ``deska_sirina: "100"`` prebere kot niz, uporabnik pa mora dobiti
     jasno napako namesto sledi sklada.
     """
+    if not isinstance(cfg, dict):
+        return ["Konfiguracija mora biti slovar (ključ: vrednost)."]
+
     def _num(v):
         """Vrne v, če je realno število (ne bool), sicer None."""
         return v if (isinstance(v, (int, float))
-                     and not isinstance(v, bool)) else None
+                     and not isinstance(v, bool)
+                     and math.isfinite(v)) else None
 
     def _poz(v):
         """Vrne v, če je pozitivno realno število, sicer None."""
@@ -587,7 +598,10 @@ def preveri_cfg(cfg):
 
     # alu palice: ročaj/stebri/U-profili ne smejo presegati tovarniške dolžine
     dl_palice = _num(cfg.get("dolzina_palice", 6000))
-    if dl_palice is not None and dl_palice > 0:
+    if dl_palice is None or dl_palice <= 0:
+        nap.append("Tovarniška dolžina alu palice mora biti pozitivno število.")
+        dl_palice = None
+    if dl_palice is not None:
         preseganja = []
         if sirina is not None:
             preseganja.append((sirina, "zaključni profil/ročaj"))
@@ -601,12 +615,13 @@ def preveri_cfg(cfg):
 
     # geometrija pokončne predloge: brez tihega prilagajanja proizvodnih
     # podatkov (B2) — če se deske ne prilegajo, je to napaka, ne popravek.
-    if pokoncna:
+    if pokoncna and None not in (sirina, visina, odcep, rv, steber, ds,
+                                 vrzel, lamele, raz):
         try:
             razpored_pokoncna(m)
         except ValueError as e:
             nap.append(str(e))
-        except (KeyError, TypeError):
+        except (KeyError, TypeError, ZeroDivisionError, OverflowError):
             pass  # manjkajoče/nejasne mere že javijo zgornje preverbe
     foto = cfg.get("foto")
     if foto and not isinstance(foto, (str, os.PathLike)):
@@ -614,10 +629,20 @@ def preveri_cfg(cfg):
     elif foto and not os.path.isfile(foto):
         nap.append(f"Fotografija ne obstaja: {foto}")
     # vrata/prehodi (issue #3) — le če so prisotni (brez vrat ni dodatnih napak)
-    if cfg.get("vrata") or cfg.get("prehodi"):
+    vrata = cfg.get("vrata") or []
+    prehodi = cfg.get("prehodi") or []
+    oblika_ok = True
+    for klj, sez in (("vrata", vrata), ("prehodi", prehodi)):
+        if not isinstance(sez, (list, tuple)):
+            nap.append(f"'{klj}' mora biti seznam vnosov.")
+            oblika_ok = False
+        elif any(not isinstance(v, dict) for v in sez):
+            nap.append(f"Vsak vnos v '{klj}' mora biti slika (dict).")
+            oblika_ok = False
+    if oblika_ok and (vrata or prehodi):
         try:
             nap += vrata_podatki(cfg)["napake"]
-        except (TypeError, ValueError, KeyError) as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             nap.append(f"Vrata/prehodi: {e}")
     return nap
 
