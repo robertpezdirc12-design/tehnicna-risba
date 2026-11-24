@@ -14,7 +14,10 @@ import json
 import urllib.request
 
 # Usklajeno z zadnjo oznako (git tag). Ob izdaji se dvigne skupaj z oznako.
-VERZIJA = "1.2"
+# Preverjanje: tests/test_build.py (modul = pyproject.toml = najnovejši
+# CHANGELOG) — verzija se je nekoč ustavila na 1.2, GUI pa je ponujal
+# "novo" različico, ki je bila že nameščena.
+VERZIJA = "1.5.1"
 REPO = "robertpezdirc12-design/tehnicna-risba"
 URL_ZADNJA = f"https://api.github.com/repos/{REPO}/releases/latest"
 

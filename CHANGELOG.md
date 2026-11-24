@@ -1,5 +1,20 @@
 # Zgodovina sprememb
 
+## v1.5.1 — 2026-11-23 (popravek)
+
+- **Različica v programu je bila 1.2**, čeprav je bila izdaja v1.5: GUI
+  je ob preverjanju posodobitev ponujal »novo« v1.3–v1.5, ki je bila že
+  nameščena. Zdaj 1.5.1, usklajeno na treh mestih (`posodobitev.VERZIJA`,
+  `pyproject.toml`, najnovejša izdaja v tem dnevniku) — preverja
+  `tests/test_build.py`.
+- Testi neinteraktivnega zagona (issue #6, P2): kode 0/1/2, branje
+  JSON in YAML, resničen CLI klic z `TEHNICNA_RISBA_HEADLESS=1` in
+  preverjen PDF. Vstopna točka je izluščena v
+  `vmesnik.zazeni_brez_zaslona` (izjeme še vedno ujame ista funkcija).
+- Test, da `.spec` izloči OCR verigo (`rapidocr_onnxruntime`,
+  `onnxruntime`, `transformers`, `torch`, `pandas`) in da OCR ni v
+  `requirements.txt` — 312 MB regresija se ne more vrniti tiho.
+
 ## v1.5 — 2026-11-23 (build)
 
 - `TehnicnaRisba.spec`: izločena OCR veriga (`rapidocr` → `onnxruntime` →

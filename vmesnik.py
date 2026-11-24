@@ -3019,6 +3019,30 @@ class App(tk.Tk):
             "Za izdelavo risbe: Datoteka → NARIŠI RISBO (Ctrl+N).")
 
 
+def zazeni_brez_zaslona(args):
+    """Neinteraktivno generiranje PDF — vrne izhodno kodo (brez sys.exit).
+
+    Ločeno od ``__main__``, da je mogoče kode 0/1/2 preveriti neposredno.
+    Izjeme se ujamejo TUKAJ: v windowed EXE bi PyInstaller sicer odprl
+    modalni dialog in program bi visel (issue #6, §9).
+    """
+    try:
+        args = [a for a in args if a != "--brez-zaslona"]
+        if not args:
+            print("Uporaba: TehnicnaRisba --brez-zaslona <config.json|config.yaml>",
+                  file=sys.stderr)
+            return 2
+        with open(args[0], "r", encoding="utf-8") as f:
+            cfg = (json.load(f) if args[0].lower().endswith(".json")
+                   else yaml.safe_load(f))
+        izhod, _png, _dod, _kol = risba.generiraj(cfg)
+        print(f"Izdelano: {izhod}")
+        return 0
+    except Exception as e:
+        print(f"NAPAKA: {e}", file=sys.stderr)
+        return 1
+
+
 if __name__ == "__main__":
     # Neinteraktivni način (issue #6, §9 — smoke test zgrajenega programa):
     #   TehnicnaRisba.exe --brez-zaslona <config.json|config.yaml>
@@ -3048,21 +3072,7 @@ if __name__ == "__main__":
     _headless = (os.environ.get("TEHNICNA_RISBA_HEADLESS") == "1"
                  or "--brez-zaslona" in _args)
     if _headless:
-        try:
-            _args = [a for a in _args if a != "--brez-zaslona"]
-            if not _args:
-                print("Uporaba: TehnicnaRisba --brez-zaslona <config.json|config.yaml>",
-                      file=sys.stderr)
-                sys.exit(2)
-            with open(_args[0], "r", encoding="utf-8") as _f:
-                _cfg = (json.load(_f) if _args[0].lower().endswith(".json")
-                        else yaml.safe_load(_f))
-            _izhod, _png, _dod, _kol = risba.generiraj(_cfg)
-            print(f"Izdelano: {_izhod}")
-            sys.exit(0)
-        except Exception as _e:   # v windowed EXE bi sicer PyInstaller odprl modalni dialog
-            print(f"NAPAKA: {_e}", file=sys.stderr)
-            sys.exit(1)
+        sys.exit(zazeni_brez_zaslona(_args))
 
     app = App()
     # OPOMBA: privzetih vrednosti tukaj NE pišemo čez app.v — nalaganje
