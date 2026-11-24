@@ -81,3 +81,30 @@ Sklep: trajno brezplačne možnosti **obstajajo** (Pollinations, Cloudflare
 kvota, Bing), a nobena ni hkrati brez omejitev, brez računa in zanesljive
 kakovosti. Za občasno marketinško sliko zadošča Pollinations ali Bing; za
 produkt pa odločitev ostaja ista — slik ne vgrajujemo.
+
+## Orodje: `scripts/slike_cloudflare.py` (v1.5.12)
+
+Generiranje marketinških ilustracij prek Cloudflare Workers AI
+(`@cf/black-forest-labs/flux-1-schnell`). Skript ni del izdelka in ne gre v
+EXE — aplikacija ga nikoli ne kliče, tehnične risbe ostajajo
+deterministične.
+
+```powershell
+$env:CLOUDFLARE_API_TOKEN = "…"   # samo v okolju, nikoli v datoteki
+$env:CLOUDFLARE_ACCOUNT_ID = "…"
+python scripts/slike_cloudflare.py "anthracite aluminium fence panel, product photo" `
+    --izhod ilustracije/ograja-01.jpg --koraki 4
+```
+
+Izhod: `ilustracije/` (v `.gitignore`) — generirane slike se ne commitajo.
+
+**Kvota in cena:** 10 000 nevronov/dan na račun (skupna z drugimi modeli
+istega računa), obnova 00:00 UTC. Model: 4,80 nevrona na ploščico 512×512 +
+9,60 na korak → 1024×1024 pri 4 korakih ~58 nevronov (~173 slik/dan), pri 8
+korakih ~96 nevronov (~104 slik/dan). Skript ceno izpiše pred klicem.
+
+**Vedenje ob napaki:** manjkajoča spremenljivka pove ime, prazno
+povpraševanje ne kliče API-ja, koraki izven 1–8 so zavrnjeni, neveljaven
+base64 in vsebina, ki ni JPEG/PNG, sta napaki, porabljena kvota pa dobi
+razlago s časom obnove. Testi (`tests/test_slike_cloudflare.py`) tečejo brez
+omrežja — omrežni klic je v testih nadomeščen.

@@ -45,3 +45,6 @@ htmlcov/
 
 # artefakt gradnje (lokalni zapisnik, ne v repozitorij)
 build-zapisnik.json
+
+# generirane ilustracije (orodje scripts/slike_cloudflare.py) — niso izdelek
+ilustracije/

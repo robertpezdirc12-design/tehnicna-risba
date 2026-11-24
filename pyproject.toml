@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tehnicna-risba"
-version = "1.5.11"
+version = "1.5.12"
 description = "Generator tehnicnih risb, razreza in 3D modelov za WPC ograje"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -75,6 +75,12 @@ fail_under = 65
 [tool.pytest.ini_options]
 # pytest-timeout: zaščita pred zataknjenimi testi (omejitev velja na test).
 timeout = 600
+# Skriti testi benchmarka niso del zbirke repozitorija: uvozijo modul iz
+# svoje mape (benchmark/primeri/…/vozlice.py), ki je na sys.path le, ko jih
+# požene benchmark/ocenjevanje.py v svojem delovnem prostoru z lastnim
+# pytest.ini. Brez te izločitve se ob "pytest" v korenu zberejo trije
+# testi, ki padejo z ModuleNotFoundError — to je šum, ne napaka izdelka.
+norecursedirs = ["benchmark"]
 markers = [
     "pocasi: počasnejši testi (večstransko generiranje PDF) — hitra zanka: -m 'not pocasi'",
 ]

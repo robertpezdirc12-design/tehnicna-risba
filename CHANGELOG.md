@@ -1,5 +1,29 @@
 # Zgodovina sprememb
 
+## v1.5.12 — 2026-11-24 (orodja)
+
+Dodano je **ločeno orodje za ilustracije** — ne del izdelka, ne v EXE-ju,
+aplikacija ga nikoli ne kliče. Tehnične risbe ostajajo deterministične;
+slike so namenjene izključno ročni pripravi marketinških ilustracij.
+
+- **`scripts/slike_cloudflare.py`** — generiranje prek Cloudflare Workers AI
+  (`@cf/black-forest-labs/flux-1-schnell`) z brezplačno kvoto **10 000
+  nevronov/dan** na račun (obnova 00:00 UTC; pozimi 01:00 po lokalnem času).
+  Pri 1024×1024 in 4 korakih je to ~58 nevronov oz. **do ~173 slik/dan**.
+  Ključ se bere **samo iz okoljskih spremenljivk** (`CLOUDFLARE_API_TOKEN`,
+  `CLOUDFLARE_ACCOUNT_ID`) — nikoli iz datoteke ali ukazne vrstice; ob
+  manjkajoči spremenljivki skript pove, katera manjka, in ne kliče API-ja.
+- Napake so izrecne: prazno povpraševanje, koraki izven 1–8, neveljaven
+  base64, vsebina, ki ni JPEG/PNG, in porabljena kvota (s sklicem na
+  00:00 UTC) — nič ne odpove tiho.
+- `tests/test_slike_cloudflare.py` — **15 testov brez omrežja** (klic je
+  nadomeščen): manjkajoče okolje, prazno povpraševanje, meje korakov, zapis
+  v novo mapo, napačna končnica, napaka API-ja, razlaga kvote, pokvarjen
+  base64, vsebina, ki ni slika, ocena nevronov in obe poti CLI-ja.
+- `ilustracije/` je v `.gitignore` — generirane slike ne gredo v repozitorij
+  (spletna stran `slike/` še naprej prikazuje resnične izdelke programa).
+- Preverjeno: polna suite; ruff čist; mypy brez novih napak.
+
 ## v1.5.11 — 2026-11-24 (testi)
 
 Zadnja dokumentirana testna vrzel iz revizije („`preveri_cfg` B1–B7“) je
