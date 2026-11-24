@@ -66,7 +66,11 @@ nove odvisnosti.
 2. **Izvoz STL / OBJ / GLB** z lastnimi pisalniki (`tridim/izvoz.py`).
    Format GLB je preverjen v testih (magija, različica, dolžine blokov,
    dostopi).
-3. **STEP ostane neobvezen most** (`tridim/step.py`): če cadquery ni
+3. **Izvoz pokriva obe predlogi** (`model_ograde`): pokončno in prečno,
+   slednja z lamelami, nosilci, okviri odprtin in stranskim krakom;
+   geometrija se ujema s shematskim predogledom (`tridimenzionalno.py`) —
+   to preverjata testska para.
+4. **STEP ostane neobvezen most** (`tridim/step.py`): če cadquery ni
    nameščen, funkcija pove, kaj manjka in zakaj ni vgrajen. Ne izdelamo
    lažnega STEP iz mreže — triangulirana ploskev ni CAD model.
 

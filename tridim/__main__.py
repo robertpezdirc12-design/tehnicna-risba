@@ -12,7 +12,7 @@ import sys
 
 import jedro
 from tridim.izvoz import shrani
-from tridim.sestav import model_pokoncne
+from tridim.sestav import model_ograde
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -38,7 +38,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     try:
-        model = model_pokoncne(cfg)
+        model = model_ograde(cfg)
     except (KeyError, ValueError) as napaka:
         print(f"NAPAKA: modela ni mogoče zgraditi: {napaka}", file=sys.stderr)
         return 2
@@ -58,8 +58,15 @@ def main(argv: list[str] | None = None) -> int:
         mere = model["mere"]
         (x0, y0, z0), (x1, y1, z1) = model["mreza"].meje()
         print(f"Zapisano: {pot}")
-        print(f"  deli: {len(model['deli'])} "
-              f"(stebri {mere['stebrov']}, deske {mere['desk']}, rocaj + osnove)")
+        if "desk" in mere:
+            sestava = (f"stebri {mere['stebrov']}, deske {mere['desk']}, "
+                       "rocaj + osnove")
+        else:
+            sestava = (f"lamele {mere['lamel']}, profili, nosilci"
+                       + (f", odprtine {mere['odprtin']}" if mere.get("odprtin")
+                          else ""))
+        print(f"  deli: {len(model['deli'])} ({sestava})")
+        print(f"  predloga: {cfg.get('predloga')}")
         print(f"  trikotniki: {len(model['mreza'].trikotniki)}")
         print(f"  obseg: {x1 - x0:.1f} × {y1 - y0:.1f} × {z1 - z0:.1f} mm")
         print(f"  prostornina: {mere['prostornina_mm3'] / 1e9:.4f} m³")

@@ -24,7 +24,9 @@ if str(REPO) not in sys.path:
 from tridim import izvoz  # noqa: E402
 from conftest import osnovni_cfg  # noqa: E402
 from tridim.mreza import Mreza, kvader, prizma, trianguliraj  # noqa: E402
-from tridim.sestav import deli_pokoncne, model_pokoncne  # noqa: E402
+from tridim.sestav import (  # noqa: E402
+    deli_pokoncne, model_ograde, model_pokoncne,
+)
 
 
 # ------------------------------------------------------------------ mreža
@@ -384,3 +386,99 @@ def cfg_v_yaml(cfg: dict) -> str:
     import yaml
 
     return yaml.safe_dump(cfg, allow_unicode=True)
+
+
+# ------------------------------------------------- prečna (vodoravne lamele)
+
+
+def test_model_precne_osnovno(tmp_path):
+    cfg = osnovni_cfg(tmp_path / "x.pdf")          # predloga "ograja"
+    cfg["mere"]["globina"] = 0                     # brez stranskega kraka
+    model = model_ograde(cfg)
+    assert model["mreza"].preveri() == []
+    assert model["mere"]["lamel"] == cfg["mere"]["lamele"]
+
+    (x0, _y0, z0), (x1, _y1, z1) = model["mreza"].meje()
+    assert x0 <= 0.0 and x1 >= cfg["mere"]["sirina"]
+    assert z1 == pytest.approx(cfg["mere"]["visina"])
+    assert z0 >= 0.0
+    # tla iz predogleda niso del modela
+    assert any("Tla iz 3D predogleda" in o for o in model["opombe"])
+
+
+def test_model_precne_z_vrati_pusti_odprtino(tmp_path):
+    cfg = osnovni_cfg(tmp_path / "x.pdf",
+                      vrata=[{"tip": "enokrilna", "x": 300, "sirina": 900,
+                              "visina": 1600, "smer": "levo-navzven"}])
+    model = model_ograde(cfg)
+    assert model["mreza"].preveri() == []
+    odprtina = (300.0, 1200.0)
+
+    def prerez(kos):
+        (ax, _ay, _az), (bx, _by, _bz) = kos.mreza.meje()
+        return ax, bx
+
+    for del_ in model["deli"]:
+        if not del_.ime.startswith("lamela"):
+            continue
+        ax, bx = prerez(del_)
+        assert bx <= odprtina[0] + 1e-6 or ax >= odprtina[1] - 1e-6, \
+            f"{del_.ime} seka odprtino {ax:.1f}..{bx:.1f}"
+
+    imena = {d.ime for d in model["deli"]}
+    assert {"okvir V1 levo", "okvir V1 desno", "okvir V1 precka"} <= imena
+
+
+def test_model_precne_se_ujema_s_predogledom(monkeypatch, tmp_path):
+    """Iste lamele kot v shematskem predogledu (isti razpored iz jedro)."""
+    import tridimenzionalno as t3
+
+    cfg = osnovni_cfg(tmp_path / "x.pdf")
+    cfg["mere"]["globina"] = 0
+    model = model_ograde(cfg)
+    deb = float(cfg["mere"]["debelina"])
+
+    klici: list[tuple] = []
+    orig = t3._skatla
+
+    def vohun(kol, ax0, ax1, ay0, ay1, az0, az1, barva):
+        klici.append((round(az0, 3), round(az1, 3),
+                      round(ay0, 3), round(ay1, 3)))
+        return orig(kol, ax0, ax1, ay0, ay1, az0, az1, barva)
+
+    monkeypatch.setattr(t3, "_skatla", vohun)
+    t3.sestavi_3d(cfg)
+
+    prednje = [k for k in klici
+               if k[2] == pytest.approx(-deb / 2) and k[3] == pytest.approx(deb / 2)]
+    izvoz = sorted((round(d.mreza.meje()[0][2], 3), round(d.mreza.meje()[1][2], 3))
+                   for d in model["deli"] if d.ime.startswith("lamela"))
+    assert sorted((k[0], k[1]) for k in prednje) == izvoz
+    assert len(izvoz) == model["mere"]["lamel"] == 11
+
+
+def test_dispecer_predlog(tmp_path):
+    cfg_pok = osnovni_cfg(tmp_path / "a.pdf", predloga="pokončna")
+    assert "desk" in model_ograde(cfg_pok)["mere"]
+    cfg_prec = osnovni_cfg(tmp_path / "b.pdf")
+    assert "lamel" in model_ograde(cfg_prec)["mere"]
+
+    cfg_prec["predloga"] = "neznana"
+    with pytest.raises(ValueError, match="neznana predloga"):
+        model_ograde(cfg_prec)
+
+
+def test_cli_precna_predloga(tmp_path):
+    cfg = osnovni_cfg(tmp_path / "x.pdf")
+    cfg["mere"]["globina"] = 0
+    vhod = tmp_path / "projekt.yaml"
+    vhod.write_text(cfg_v_yaml(cfg), encoding="utf-8")
+    izhod = tmp_path / "precna.stl"
+    dokoncan = subprocess.run(
+        [sys.executable, "-m", "tridim", "--vhod", str(vhod),
+         "--izhod", str(izhod)],
+        cwd=str(REPO), capture_output=True, text=True, timeout=300)
+    assert dokoncan.returncode == 0, dokoncan.stderr
+    assert "lamele" in dokoncan.stdout
+    nazaj = izvoz.preberi_stl(izhod)
+    assert len(nazaj.trikotniki) == 12 * len(model_ograde(cfg)["deli"])

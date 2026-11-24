@@ -159,14 +159,136 @@ def deli_pokoncne(cfg: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+PREDLOGE_PRECNE = ("ograja", "prečna", "precna")
+
+
+def _je_precna(cfg: dict[str, Any]) -> bool:
+    return str(cfg.get("predloga") or "").strip().lower() in PREDLOGE_PRECNE
+
+
+def deli_precne(cfg: dict[str, Any]) -> dict[str, Any]:
+    """Kvadri, opombe in mere za prečno ograjo (vodoravne lamele).
+
+    Geometrija je enaka kot v shematskem predogledu
+    (``tridimenzionalno.py``): lamele med profiloma, nosilci za lamelami,
+    okvirji odprtin in (pri globini > 0) stranski krak v L-obliki.
+    Tla iz predogleda **niso** del modela — so le orientacija.
+    """
+    mere = cfg["mere"]
+    sirina = float(mere["sirina"])
+    visina = float(mere["visina"])
+    odcep = float(mere.get("odcep") or 0.0)
+    globina = float(mere.get("globina") or 0.0)
+    deb = float(mere.get("debelina") or 20.0)
+    razmak_nos = float(mere.get("razmak_nosilcev") or 1000.0)
+
+    zg, sp, lamele, _vrzel, _n = jedro.razpored(mere)
+    vp = jedro.vrata_podatki(cfg)
+    odprtine = vp["odprtine"]
+    kvadri: list[Kvader] = []
+
+    def razdeli(x0: float, x1: float) -> list[tuple[float, float]]:
+        return jedro.razdeli_po_odprtinah(x0, x1, odprtine)
+
+    for i, (z0, z1) in enumerate(lamele, start=1):
+        for j, (a, b) in enumerate(razdeli(0.0, sirina), start=1):
+            kvadri.append(Kvader(f"lamela L{i}.{j}", a, -deb / 2, z0,
+                                 b - a, deb, z1 - z0))
+
+    for ime, (z0, z1) in (("profil zgoraj", zg), ("profil spodaj", sp)):
+        for j, (a, b) in enumerate(razdeli(0.0, sirina), start=1):
+            kvadri.append(Kvader(f"{ime} {j}", a, -40.0, z0,
+                                 b - a, 80.0, z1 - z0))
+
+    pozicije, _dejanski = jedro.pozicije_nosilcev(sirina, razmak_nos)
+    for i, x in enumerate(pozicije, start=1):
+        if any(o[0] - 30.0 <= x <= o[1] + 30.0 for o in odprtine):
+            continue
+        glob_nosilca = 80.0 - deb / 2
+        if glob_nosilca <= 0:              # debela lamela: nosilec ne obstaja
+            continue
+        kvadri.append(Kvader(f"nosilec N{i}", x - 30.0, -80.0, sp[0],
+                             60.0, glob_nosilca, zg[1] - sp[0]))
+
+    for oznaka, z0, z1 in [(o[2], odcep, odcep + 2000.0) for o in odprtine]:
+        vis_o = z1
+        for enota in vp["vrata"] + vp["prehodi"]:
+            if enota.get("oznaka") == oznaka:
+                vis_o = odcep + float(enota["g"]["odprtina"]["visina"])
+        ox0, ox1 = next((o[0], o[1]) for o in odprtine if o[2] == oznaka)
+        kvadri.append(Kvader(f"okvir {oznaka} levo", ox0, -70.0, z0,
+                             60.0, 20.0, vis_o - z0))
+        kvadri.append(Kvader(f"okvir {oznaka} desno", ox1 - 60.0, -70.0, z0,
+                             60.0, 20.0, vis_o - z0))
+        kvadri.append(Kvader(f"okvir {oznaka} precka", ox0, -70.0,
+                             vis_o - 60.0, ox1 - ox0, 20.0, 60.0))
+
+    opombe: list[str] = [
+        "Tla iz 3D predogleda niso del modela — v predogledu so le "
+        "orientacija.",
+        "Vijaki, sidra in pritrdila niso modelirani — kolicine so v "
+        "kosovnici, ne v 3D.",
+    ]
+
+    if globina > 0:
+        # stranski krak: iste lamele in profili, le vzdolz y (kot predogled)
+        for i, (z0, z1) in enumerate(lamele, start=1):
+            kvadri.append(Kvader(f"stranska lamela SL{i}", -deb / 2, 0.0,
+                                 z0, deb, globina, z1 - z0))
+        for ime, (z0, z1) in (("stranski profil zgoraj", zg),
+                              ("stranski profil spodaj", sp)):
+            kvadri.append(Kvader(ime, -40.0, 0.0, z0, 80.0, globina,
+                                 z1 - z0))
+        steber_z0 = max(0.0, odcep - 40.0)
+        for k, ys in enumerate((0.0, globina), start=1):
+            kvadri.append(Kvader(f"stranski steber SS{k}", -40.0,
+                                 max(0.0, ys - 30.0), steber_z0, 80.0, 60.0,
+                                 visina - steber_z0))
+    else:
+        opombe.append("Stranski krak ni modeliran: globina je 0.")
+
+    return {
+        "kvadri": kvadri,
+        "opombe": opombe,
+        "mere": {
+            "sirina": sirina, "visina": visina,
+            "lamel": len(lamele),
+            "odprtin": len(odprtine),
+            "globina": globina,
+        },
+    }
+
+
 def model_pokoncne(cfg: dict[str, Any]) -> dict[str, Any]:
     """Zgradi mrežni 3D model pokončne ograje.
 
     Vrne dict: ``mreza`` (združena), ``deli`` (seznam :class:`Del`),
     ``opombe`` in ``mere`` (povzetek z izračunano prostornino).
     """
-    podatki = deli_pokoncne(cfg)
+    return _sestavi(deli_pokoncne(cfg))
+
+
+def model_precne(cfg: dict[str, Any]) -> dict[str, Any]:
+    """Zgradi mrežni 3D model prečne ograje (vodoravne lamele)."""
+    return _sestavi(deli_precne(cfg))
+
+
+def model_ograde(cfg: dict[str, Any]) -> dict[str, Any]:
+    """Izbere sestav po predlogi konfiguracije (pokončna / prečna)."""
+    if _je_precna(cfg):
+        return model_precne(cfg)
+    if str(cfg.get("predloga") or "").strip().lower() in PREDLOGE:
+        return model_pokoncne(cfg)
+    raise ValueError(
+        f"neznana predloga {cfg.get('predloga')!r} "
+        f"(podprto: {', '.join(PREDLOGE + PREDLOGE_PRECNE)})")
+
+
+def _sestavi(podatki: dict[str, Any]) -> dict[str, Any]:
+    """Skupna pot: kvadri → mreže → združena mreža + povzetek."""
     kvadri: list[Kvader] = podatki["kvadri"]
+    if not kvadri:
+        raise ValueError("model nima nobenega dela")
     deli = [Del(k.ime, k.v_mrezo()) for k in kvadri]
     mreza = deli[0].mreza.zdruzi(*(d.mreza for d in deli[1:]))
     mere = dict(podatki["mere"])

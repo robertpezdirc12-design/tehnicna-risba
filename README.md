@@ -345,10 +345,11 @@ python -m tridim --vhod projekt_pokoncna.yaml --izhod ograja.stl
 python -m tridim --vhod projekt_pokoncna.yaml --izhod ograja.glb
 ```
 
-Izvoz je za zdaj za predlogo **pokončna** (prečna ima drugačno
-geometrijo in bi jo bilo treba ugibati — program jo zavrne z razlago).
-Model je en raven odsek; stranski krak (globina > 0) prikaže 3D predogled
-v GUI, v izvozu pa je naveden kot opomba.
+Podprti sta obe predlogi: **pokončna** (stebri + deske + ročaj + osnovne
+plošče) in **prečna/ograja** (vodoravne lamele med profiloma, nosilci,
+okvirji odprtin za vrata/prehode, pri globini > 0 še stranski krak v
+L-obliki). Tla iz 3D predogleda niso del modela — so le orientacija.
+Neznano predlogo program zavrne z razlago, ne ugiba.
 
 Prostornina in zaprtost mreže sta preverjeni v testih (izrek o
 divergenci), ne le „izgleda v redu“. **Zakaj ne cadquery:** OpenCASCADE

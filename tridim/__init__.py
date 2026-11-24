@@ -21,12 +21,14 @@ from typing import Any
 
 from tridim.izvoz import PISALNIKI, preberi_glb, preberi_obj, preberi_stl, shrani
 from tridim.mreza import Mreza, kvader, prizma, trianguliraj
-from tridim.sestav import Del, Kvader, deli_pokoncne, model_pokoncne
+from tridim.sestav import (Del, Kvader, deli_pokoncne, deli_precne,
+                           model_ograde, model_pokoncne, model_precne)
 
 __all__ = [
     "Mreza", "kvader", "prizma", "trianguliraj",
     "shrani", "preberi_stl", "preberi_obj", "preberi_glb", "PISALNIKI",
-    "Kvader", "Del", "deli_pokoncne", "model_pokoncne", "step",
+    "Kvader", "Del", "deli_pokoncne", "deli_precne",
+    "model_pokoncne", "model_precne", "model_ograde", "step",
 ]
 
 
