@@ -23,6 +23,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import cv2
 
 from model import Mera, IZMERJENO, IZRACUNANO, OCENJENO, NEZNANO
+import marker
 import rektifikacija
 
 A3_W, A3_H = 420.0, 297.0
@@ -315,7 +316,8 @@ def sestavi_podatke(mere, ritem, slika_rect, lokacija="—",
     }
 
 # ---------------------------------------------------------------- pogon
-def izracunaj_mere_pot(slika_pot, referenca=None, vogali=None):
+def izracunaj_mere_pot(slika_pot, referenca=None, vogali=None,
+                       marker_mm=None):
     """Merilni del toka BREZ risanja: fotografija → mere + ritem + opozorila.
 
     Isti podatki, kot jih generiraj() uporabi za skico — GUI lahko ponudi
@@ -328,6 +330,12 @@ def izracunaj_mere_pot(slika_pot, referenca=None, vogali=None):
     vogali: [(x, y) × 4] v slikovnih pikah (TL, TR, BR, BL) — uporabnik
     klikne vogale ograje (P1). S klikanimi vogali + referenco so mere
     IZRAČUNANO iz trdne geometrije (ne več le ocena).
+
+    marker_mm: stranica natisnjenega markerja (mm). Če je marker viden na
+    fotografiji, se dolžina IN višina izmerita prek njega (IZRAČUNANO) in
+    nista odvisni od razmerja stranic poravnane slike. Brez markerja je
+    dolžina, izpeljana iz znane višine, le OCENJENO — iz samih kotov
+    širine ni mogoče izračunati.
 
     Vrne {"mere", "ritem", "opozorila", "rect_pas", "vis_px", "sir_px"}.
     """
@@ -358,7 +366,24 @@ def izracunaj_mere_pot(slika_pot, referenca=None, vogali=None):
             vis_px = float(rect.shape[0])
             sir_px = float(rect.shape[1])
     rect_pas = rect[y0:y1, x0:x1]
-    if vogali and referenca:
+    meritev_markerja = None
+    stran_markerja_px = 0.0
+    if vogali:
+        koti_markerja = marker.zaznaj_marker(slika)
+        if koti_markerja is not None:
+            stran_markerja_px = marker.stranica_px(koti_markerja)
+            meritev_markerja = marker.izmeri_kvadrilateral(
+                vogali, koti_markerja,
+                marker_mm or marker.STRANICA_MM)
+
+    if meritev_markerja is not None:
+        _dol_m, _vis_m = meritev_markerja
+        mm_na_px = float(_dol_m) / max(sir_px, 1e-9)
+        meritev_skale = Mera(
+            float(_dol_m), IZRACUNANO,
+            f"dolžina iz markerja {marker_mm or marker.STRANICA_MM:.0f} mm "
+            f"({stran_markerja_px:.0f} px v sliki)")
+    elif vogali and referenca:
         kaj_ref, vrednost_ref = referenca
         if kaj_ref == "visina_ograje":
             mm_na_px = float(vrednost_ref) / max(vis_px, 1e-9)
@@ -424,16 +449,29 @@ def izracunaj_mere_pot(slika_pot, referenca=None, vogali=None):
                     + ((" — zaznava NEGOTOVA, ocena!" if negotova and not vogali
                         else "")))
 
-    if mm_na_px and n_lam and ritem.get("pitch_px"):
-        vis_mm = vis_px * mm_na_px
+    if meritev_markerja is not None:
+        # meritev iz markerja: obe dimenziji iz geometrije ravnine —
+        # neodvisno od zaznave lamel in od razmerja stranic slike
+        dolz_mm = float(meritev_markerja[0])
+        vis_mm = float(meritev_markerja[1])
+        _vir = (f"iz markerja {marker_mm or marker.STRANICA_MM:.0f} "
+                f"mm ({stran_markerja_px:.0f} px v sliki)")
         mere["visina_ograje"] = _mera(
-            "visina_ograje", vis_mm, _st(referenca is not None),
-            "višina ograje (pas lamel × skala)")
-        # dolžina = širina pasu ograje × skala
-        dolz_mm = sir_px * mm_na_px
+            "visina_ograje", vis_mm, IZRACUNANO, "višina " + _vir)
         mere["dolzina_ograje"] = _mera(
-            "dolzina_ograje", dolz_mm, _st(False),
-            "dolžina ograje (pas lamel × skala)")
+            "dolzina_ograje", dolz_mm, IZRACUNANO, "dolžina " + _vir)
+
+    if mm_na_px and n_lam and ritem.get("pitch_px"):
+        if meritev_markerja is None:
+            vis_mm = vis_px * mm_na_px
+            mere["visina_ograje"] = _mera(
+                "visina_ograje", vis_mm, _st(referenca is not None),
+                "višina ograje (pas lamel × skala)")
+            # dolžina = širina pasu ograje × skala
+            dolz_mm = sir_px * mm_na_px
+            mere["dolzina_ograje"] = _mera(
+                "dolzina_ograje", dolz_mm, _st(False),
+                "dolžina ograje (pas lamel × skala)")
         st_ritem = OCENJENO if nesoglasje else _st(False)
         mere["visina_lamele"] = _mera(
             "visina_lamele", ritem["debelina_px"] * mm_na_px, st_ritem,
@@ -445,11 +483,31 @@ def izracunaj_mere_pot(slika_pot, referenca=None, vogali=None):
             float(n_lam_skupaj),
             IZRACUNANO if not (negotova or nesoglasje) else OCENJENO,
             "preštete lamele na rektificiranem pogledu", enota="kos")
-    else:
+    elif meritev_markerja is None:
         mere["visina_ograje"] = Mera(None, NEZNANO,
                                      "ritem lamel ni zaznan — potrebna referenca")
         mere["dolzina_ograje"] = Mera(None, NEZNANO,
                                       "ritem lamel ni zaznan — potrebna referenca")
+
+    if vogali and meritev_markerja is None:
+        # izpeljana dimenzija (tista, ki ni referenca) je le ocena: iz
+        # samih kotov razmerje stranic ni določeno — perspektiva ga popači.
+        izpeljana = ("visina_ograje" if referenca
+                     and referenca[0] == "dolzina_ograje"
+                     else "dolzina_ograje")
+        m_izp = mere.get(izpeljana)
+        if m_izp is not None and m_izp.vrednost_mm:
+            mere[izpeljana] = Mera(
+                m_izp.vrednost_mm, OCENJENO,
+                m_izp.opis + " — brez markerja razmerje stranic ni "
+                "določeno")
+        osnova = izpeljana.split("_")[0]
+        opozorila.append(
+            f"{osnova.capitalize()} je izpeljana iz poravnane slike; pri "
+            "poševnem posnetku to ni pravo razmerje stranic (iz samih "
+            "kotov ga ni mogoče izračunati). Vrednost je OCENA — za "
+            "meritev prilepi natisnjen marker (merilo) v ravnino ograje "
+            "ali vnesi obe dimenziji ročno.")
 
     if referenca is None:
         opozorila.append(
@@ -459,7 +517,8 @@ def izracunaj_mere_pot(slika_pot, referenca=None, vogali=None):
             "rect_pas": rect_pas, "vis_px": vis_px, "sir_px": sir_px}
 
 
-def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None, vogali=None):
+def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None, vogali=None,
+              marker_mm=None):
     """Celoten tok: fotografija → avtomatska A3 skica (PDF).
 
     referenca: (kaj, vrednost_mm) ali None. Brez reference so vse mere
@@ -469,7 +528,8 @@ def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None, vogali=None):
     klikne vogale ograje (P1). S klikanimi vogali + referenco so mere
     IZRAČUNANO iz trdne geometrije (ne več le ocena).
     """
-    podatki = izracunaj_mere_pot(slika_pot, referenca=referenca, vogali=vogali)
+    podatki = izracunaj_mere_pot(slika_pot, referenca=referenca,
+                                 vogali=vogali, marker_mm=marker_mm)
     pod = sestavi_podatke(podatki["mere"], podatki["ritem"],
                           podatki["rect_pas"], lokacija=lokacija,
                           opozorila=podatki["opozorila"])

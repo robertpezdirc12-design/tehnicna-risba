@@ -34,6 +34,7 @@ from model import ParametriNove, Rezultat
 import zaznavanje
 import marker
 import perioda
+import vnos
 import rektifikacija
 import kalibracija
 import izracun
@@ -85,23 +86,12 @@ def izvozi_kosovnico_csv(rezultat: Rezultat, pot: str) -> str:
 
 
 def razcleni_vogale(niz: str) -> list[tuple[float, float]]:
-    """"x1,y1;x2,y2;x3,y3;x4,y4" → [(x, y) × 4] (TL, TR, BR, BL)."""
-    if not niz or not niz.strip():
-        raise ValueError("--vogali je prazen")
-    deli = [d.strip() for d in niz.replace("\n", ";").split(";")
-            if d.strip()]
-    if len(deli) != 4:
-        raise ValueError("potrebni so natanko 4 koti v obliki "
-                         "'x,y;x,y;x,y;x,y' (prejeto "
-                         f"{len(deli)})")
-    tocke: list[tuple[float, float]] = []
-    for del_ in deli:
-        try:
-            x, y = (float(v) for v in del_.split(","))
-        except ValueError:
-            raise ValueError(f"kot {del_!r} ni v obliki 'x,y'") from None
-        tocke.append((x, y))
-    return tocke
+    """"x1,y1;x2,y2;x3,y3;x4,y4" → [(x, y) × 4] (TL, TR, BR, BL).
+
+    Razčlenjevanje je skupno z GUI-jem (`vnos.razcleni_kote`), da se
+    oblika vnosa ne razlikuje med CLI in oknom.
+    """
+    return vnos.razcleni_kote(str(niz).replace("\n", ";"))
 
 
 def _preveri_vogale(tocke: list[tuple[float, float]], sirina: int,

@@ -1878,7 +1878,7 @@ class App(tk.Tk):
         """
         okno = tk.Toplevel(self)
         okno.title("Predlog mer iz fotografije")
-        okno.geometry("560x460")
+        okno.geometry("640x580")
         okno.transient(self)
         ttk.Label(okno, text="Predlog mer iz fotografije",
                   font=("Segoe UI", 11, "bold")).pack(
@@ -1896,6 +1896,24 @@ class App(tk.Tk):
         ref_vnos = ttk.Entry(ref_okvir, width=10)
         ref_vnos.pack(side="left", padx=6)
 
+        geo_okvir = ttk.Frame(okno)
+        geo_okvir.pack(fill="x", padx=12, pady=(2, 0))
+        ttk.Label(geo_okvir, text="Koti ograje (x,y;x,y;x,y;x,y):").pack(
+            side="left")
+        koti_vnos = ttk.Entry(geo_okvir, width=34)
+        koti_vnos.pack(side="left", padx=6)
+
+        mer_okvir = ttk.Frame(okno)
+        mer_okvir.pack(fill="x", padx=12, pady=(2, 2))
+        ttk.Label(mer_okvir, text="Marker (mm):").pack(side="left")
+        marker_vnos = ttk.Entry(mer_okvir, width=6)
+        marker_vnos.insert(0, "150")
+        marker_vnos.pack(side="left", padx=6)
+        ttk.Button(mer_okvir, text="Natisni marker …",
+                   command=lambda: _natisni_marker()).pack(side="left")
+        ttk.Label(mer_okvir, text="brez markerja je dolžina le ocena",
+                  foreground="#777777").pack(side="left", padx=6)
+
         vsebina = ttk.Frame(okno)
         vsebina.pack(fill="both", expand=True, padx=12, pady=4)
         info = tk.Text(okno, height=5, wrap="word", state="disabled")
@@ -1911,10 +1929,60 @@ class App(tk.Tk):
             info.insert("end", "\n".join(besedila) or "(brez opozoril)")
             info.config(state="disabled")
 
+        def _vogali_in_marker():
+            """Preberi neobvezna vnosa: 4 koti ograje + stranica markerja."""
+            import vnos
+            besedilo = koti_vnos.get().strip()
+            vogali_v = (vnos.razcleni_kote(besedilo) if besedilo else None)
+            raw_m = marker_vnos.get().strip().replace(",", ".")
+            marker_mm_v = None
+            if raw_m:
+                marker_mm_v = float(raw_m)
+                if marker_mm_v <= 0:
+                    raise ValueError("Stranica markerja mora biti "
+                                     "pozitivna (mm).")
+            return vogali_v, marker_mm_v
+
+        def _natisni_marker():
+            """Shrani A4 list z markerjem za tisk v merilu 1:1."""
+            import marker
+            try:
+                mm = float(marker_vnos.get().strip().replace(",", ".")
+                           or "150")
+            except ValueError:
+                stanje_lbl.config(text="Stranica markerja mora biti "
+                                       "število.")
+                return
+            pot_m = filedialog.asksaveasfilename(
+                title="Shrani A4 list z markerjem",
+                defaultextension=".png",
+                initialfile="marker-ograja.png",
+                filetypes=[("PNG slika", "*.png")])
+            if not pot_m:
+                return
+            try:
+                marker.shrani_list(pot_m, mm)
+            except (OSError, ValueError) as e:
+                messagebox.showerror("Marker ni shranjen", str(e))
+                return
+            messagebox.showinfo(
+                "Marker (A4)",
+                f"List je shranjen:\n{pot_m}\n\n"
+                "1) natisni v merilu 1:1 (brez 'prilagodi strani'),\n"
+                "2) preveri 100-mm črto z ravnilom,\n"
+                "3) prilepi marker v RAVNINO ograje (ne na steklo),\n"
+                "4) fotografiraj tako, da je marker viden,\n"
+                "5) vnesi 4 kote ograje in pritisni »Preračunaj«.")
+
         def preracunaj(referenca=None):
             try:
+                vogali_v, marker_mm_v = _vogali_in_marker()
                 podatki = avtomatska_skica.izracunaj_mere_pot(
-                    pot, referenca=referenca)
+                    pot, referenca=referenca, vogali=vogali_v,
+                    marker_mm=marker_mm_v)
+            except ValueError as e:
+                stanje_lbl.config(text=str(e), fg="#b00020")
+                return
             except Exception as e:
                 stanje_lbl.config(text=f"Merjenje ni uspelo: {e}")
                 return

@@ -30,6 +30,21 @@ python zazeni.py --fotografija foto.jpg --izhod izhod/ --marker-mm 150 \
     --vogali "300,520;1500,300;1500,830;300,950"
 ```
 
+### V programu (brez ukazne vrstice)
+
+Glavni program → zavihek *Fotografija* → gumb **Predlog mer iz fotografije**.
+V oknu sta dve neobvezni polji:
+
+- **Koti ograje** — `x,y;x,y;x,y;x,y` (TL, TR, BR, BL), slika se poravna v
+  čelni pogled in elementi se preštejejo;
+- **Marker (mm)** — stranica natisnjenega markerja (privzeto 150). Gumb
+  **Natisni marker …** shrani A4 list (PNG, 300 dpi) s 100-mm kontrolno
+  črto; natisni ga v merilu 1:1 in prilepi v ravnino ograje.
+
+Brez obeh polj okno deluje kot prej (predlog iz zaznave). Z markerjem sta
+dolžina in višina `izračunano`; z vnesenimi koti brez markerja je znana
+dimenzija `izmerjeno`, izpeljana pa `ocenjeno` z opozorilom.
+
 Marker znane velikosti odpravi geometrijsko nedoločenost: iz samih kotov
 širine **ni** mogoče izračunati (pravokotnik 6:1 od daleč in 3:1 pod drugim
 kotom dasta isto sliko). Izmerjeno: čelno **0,03 %**, poševno z markerjem
@@ -113,9 +128,11 @@ python -m pytest testi_pfp.py -q
 | `rektifikacija.py` | poravnava v čelni pogled (izginjajoče točke ali 4 koti) |
 | `perioda.py` | perioda in število elementov iz svetilnostnega profila |
 | `marker.py` | A4 ArUco marker + meritev prek homografije markerja |
+| `avtomatska_skica.py` | fotografija → A3 skica (sprednji pogled, prerez, detajl) |
+| `vnos.py` | skupno razčlenjevanje kotov (CLI + GUI) |
 | `zazeni.py` | CLI (celoten tok) |
 | `napravi_testne_slike.py` | generator sintetičnih prizorov z znanimi merami |
-| `testi_pfp.py` | samostojni testi (66) |
+| `testi_pfp.py` | samostojni testi (68) |
 
 Nič v tej mapi se ne priklopi v glavni program brez izrecne odobritve uporabnika.
 ## Avtomatska skica (P1) — fotografija → A3 risba
@@ -130,7 +147,9 @@ fotografijo, kosovnico s statusi in naslovni blok.
   vogalov.
 - **P1 (klik + referenca)**: `--interaktivno` (klik 4 vogalov v oknu) ali
   `--vogali "x1,y1 x2,y2 x3,y3 x4,y4"` + `--referenca visina_ograje=1050`.
-  S klikanimi vogali in referenco so mere `izracunano` iz trdne geometrije.
+  Znana dimenzija je `izmerjeno`; **druga je `ocenjeno`** (razmerje stranic
+  iz samih kotov ni določeno). Z `--marker-mm` sta obe `izracunano`.
+  Okno *Predlog mer* v `vmesnik.py` ponuja ista polja (koti + marker).
 - **Poštenost**: brez reference vse mere `ocenjeno` (standardna lamela);
   neverodostojne vrednosti so javno zavrnjene (`neznano`) z opozorilom;
   dokument z negotovo zaznavo NI "pripravljen za izdelavo".

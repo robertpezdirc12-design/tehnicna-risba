@@ -1,5 +1,27 @@
 # Zgodovina sprememb
 
+## v1.5.17 — 2026-11-24 (vmesnik)
+
+**Marker in koti tudi v oknu; izpeljana mera ni več lažno »izračunana«.**
+
+- **GUI (`vmesnik.py`), okno »Predlog mer iz fotografije«:** novi polji
+  *Koti ograje* (`x,y;x,y;x,y;x,y`) in *Marker (mm)* ter gumb *Natisni
+  marker …* (shrani A4 list s tlorisom markerja in 100-mm kontrolno črto).
+  Brez vnosa se obnaša kot prej, s koti se slika poravna, z markerjem se
+  izmerita obe dimenziji.
+- **`avtomatska_skica.izracunaj_mere_pot()`/`generiraj()`** sprejmeta
+  `marker_mm`. Kadar je marker viden, sta dolžina in višina `izračunano`
+  iz geometrije ravnine — neodvisno od zaznave lamel (prej so ob
+  neprepoznanem ritmu ostale `neznano`).
+- **Poštenost:** če je znana le ena dimenzija (npr. višina) in markerja ni,
+  je izpeljana dimenzija zdaj `ocenjeno` z opozorilom, da razmerje stranic
+  iz samih kotov ni določeno. Prej je bila označena `izračunano`, kar je
+  bila lažna gotovost (perspektiva popači razmerje).
+- **`vnos.py` (novo):** skupno razčlenjevanje kotov za CLI in GUI;
+  `zazeni.razcleni_vogale` ga uporablja (ena implementacija, enaka
+  sporočila).
+
+Testi: **68** (`python -m pytest photo_fence_proposal/testi_pfp.py -q`).
 ## v1.5.16 — 2026-11-24 (merjenje)
 
 **Merjenje z natisnjenim markerjem in periodično štetje elementov.**

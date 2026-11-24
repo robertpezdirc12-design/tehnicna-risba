@@ -123,6 +123,7 @@ Torej: **nobena od predlaganih izboljšav ne zahteva novega paketa**, razen
 | 1 | **Čelni pogled**: 4 točke, homografija (`rektifikacija.iz_vogalov`) | 0,5 dneva | ne | višina: ~1 %; **širina: neizmerljiva** (glej 4.1) | **narejeno v 1.5.16** |
 | 2 | **Periodično štetje** (`perioda.py`, svetilnost + avtokorelacija) | 1 dan | ne | 0 % na sintetičnih, −1…−3 elementa na tujih | **narejeno v 1.5.16** |
 | 3 | **ArUco merilo** (`marker.py`) | 0,5 dneva | ne | 0,03 % čelno; 1–3 % poševno (marker ≥ 120 px) | **narejeno v 1.5.16** |
+| 3b | **Vgradnja v okno** (`vmesnik.py`: koti + marker + tiskanje lista; `avtomatska_skica` meri z markerjem) | 0,5 dneva | ne | ista kot 1–3 (ista koda); izpeljana mera brez markerja zdaj `ocenjeno` | **narejeno v 1.5.17** |
 | 4 | Samodejne izginjajoče točke (LSD + RANSAC) namesto klika | 3–5 dni | ne | +1–3 % | odprto |
 | 5 | (neobvezno) SAM2/GroundingDINO za samodejni izrez | 1–2 tedna | onnxruntime + 30–150 MB | ne izboljša mer | odprto |
 
@@ -151,6 +152,8 @@ Izmerjeno na sintetični sceni 6000 × 1000 mm (koti znani do piksla):
 |---|---|
 | `photo_fence_proposal/perioda.py` | perioda in število elementov iz svetilnostnega profila (CLAHE + odstranjen trend), avtokorelacija, izbor **najmanjšega** lokalnega maksimuma ≥ 0,6 × maksimuma z izostritvijo ±4 px; štetje z lokalno normalizacijo in kontrolo popolnosti (`pricakovano = round(širina / perioda)`) |
 | `photo_fence_proposal/marker.py` | A4 list z 150-mm ArUco markerjem (300 dpi, 100-mm kontrolna črta), zaznava s podpikselnim izostritvom kotov, meritev pravokotnika v mm prek homografije markerja |
+| `photo_fence_proposal/vnos.py` | skupno razčlenjevanje vnosa kotov (`x,y;x,y;x,y;x,y`) — ena implementacija za CLI in okno |
+| `vmesnik.py` (okno *Predlog mer*) | polji *Koti ograje* in *Marker (mm)*, gumb *Natisni marker …*; kliče `avtomatska_skica.izracunaj_mere_pot(vogali=…, marker_mm=…)` |
 | `photo_fence_proposal/zazeni.py` | `--vogali "x,y;x,y;x,y;x,y"` (poravnava + štetje), `--marker-mm` (merilo), marker se išče na izvirniku, koti se preslikajo v mm; vsaka mera dobi status `IZRACUNANO`/`OCENJENO` in opozorilo |
 
 Če markerja ni, program **ne ugiba širine**: izpiše opozorilo, da je iz

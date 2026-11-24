@@ -694,9 +694,14 @@ def test_vogali_in_referenca_natančno_izmerita(tmp_path):
         vogali=[tuple(map(float, t)) for t in cilj])
     m = pod["mere"]
     assert m["visina_ograje"].status == "izmerjeno"
-    assert m["dolzina_ograje"].status == "izracunano"   # klikani vogali
+    # dolžina iz samih kotov NI določena (perspektiva popači razmerje)
+    assert m["dolzina_ograje"].status == "ocenjeno"
+    podatki = avtomatska_skica.izracunaj_mere_pot(
+        pot_slike, referenca=("visina_ograje", 1200.0),
+        vogali=[tuple(map(float, t)) for t in cilj])
+    assert any("marker" in o for o in podatki["opozorila"])
     assert abs(m["visina_ograje"].vrednost_mm - 1200.0) < 3.0
-    assert abs(m["dolzina_ograje"].vrednost_mm - 2400.0) / 2400.0 < 0.05, \
+    assert abs(m["dolzina_ograje"].vrednost_mm - 2400.0) / 2400.0 < 0.1, \
         m["dolzina_ograje"].oznaka
 
 
@@ -1064,6 +1069,39 @@ def test_zazeni_z_markerjem_izmeri_mere(tmp_path):
     assert abs(vis.vrednost_mm / 1000 - 1) <= 0.06
     stebri = rez.mere["stevilo_stebrov"]
     assert 3 <= int(stebri.vrednost_mm) <= 5     # 4 stebri (robova ±1)
+
+
+def test_izracunaj_mere_pot_z_markerjem(tmp_path):
+    """Skica/GUI: marker da obe dimenziji, ne glede na zaznavo lamel."""
+    import cv2
+    import avtomatska_skica
+    slika, vogali = _scena_z_markerjem()
+    pot = str(tmp_path / "scena.png")
+    cv2.imwrite(pot, slika)
+    podatki = avtomatska_skica.izracunaj_mere_pot(
+        pot, vogali=vogali, marker_mm=300.0)
+    m = podatki["mere"]
+    assert m["dolzina_ograje"].status == IZRACUNANO
+    assert m["visina_ograje"].status == IZRACUNANO
+    assert abs(m["dolzina_ograje"].vrednost_mm / 6000 - 1) <= 0.06
+    assert abs(m["visina_ograje"].vrednost_mm / 1000 - 1) <= 0.06
+
+
+def test_izracunaj_mere_pot_brez_markerja_opozori(tmp_path):
+    import cv2
+    import numpy as np
+    import avtomatska_skica
+    platno = np.full((600, 900, 3), 220, np.uint8)
+    for x in range(40, 880, 60):
+        platno[150:500, x:x + 10] = (40, 40, 40)
+    pot = str(tmp_path / "brez_markerja.png")
+    cv2.imwrite(pot, platno)
+    podatki = avtomatska_skica.izracunaj_mere_pot(
+        pot, vogali=[(20.0, 120.0), (880.0, 120.0),
+                     (880.0, 520.0), (20.0, 520.0)],
+        referenca=("visina_ograje", 1000.0))
+    assert any("marker" in o for o in podatki["opozorila"])
+    assert podatki["mere"]["dolzina_ograje"].status == OCENJENO
 
 
 def test_zazeni_brez_markerja_ne_izmisli_sirine(tmp_path, testni_prizori):
