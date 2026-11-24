@@ -106,6 +106,22 @@ def test_opozorila_so_vidna_ce_montazni_list_pade(cfg_ograja, monkeypatch,
     assert stevilo_strani(izhod) == 1         # samo risba (kolicine = nič)
     assert os.path.getsize(izhod) > 1000
 
+
+def test_vecsegmentni_projekt_opozori_da_pdf_ni_popoln(tmp_path):
+    """PDF ne zna narisati več segmentov: uporabnik mora dobiti opozorilo,
+    ne tihega enosegmentnega dokumenta (segmenti so v DXF izvozu)."""
+    cfg = osnovni_cfg(tmp_path / "segmenti.pdf")
+    cfg["segmenti"] = [
+        {"ime": "S1", "tip": "ograda", "mere": dict(cfg["mere"])},
+        {"ime": "S2", "tip": "ograda", "mere": dict(cfg["mere"], sirina=2000)},
+    ]
+    risba.ZADNJA_OPOZORILA.clear()
+    izhod, png, dodatni, kolicine = risba.generiraj(cfg, dpi_png=60)
+    assert any("več segmentov (2)" in o and "DXF" in o
+               for o in risba.ZADNJA_OPOZORILA)
+    assert os.path.getsize(izhod) > 1000
+
+
 def test_status_dokumenta_v_naslovnem_bloku(tmp_path):
     """Plan 2 (ISO 7200): STATUS se izpiše v naslovnem bloku."""
     cfg = osnovni_cfg(tmp_path / "status.pdf")

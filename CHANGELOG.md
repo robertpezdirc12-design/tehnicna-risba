@@ -1,5 +1,16 @@
 # Zgodovina sprememb
 
+## v1.5.4 — 2026-11-24 (popravek)
+
+- **Večsegmentni projekt ne izgleda več tiho kot en segment.** PDF še
+  vedno nariše samo glavni pogled (vsi segmenti so v DXF izvozu), a zdaj
+  to zapiše v opozorila dokumenta in na stderr, namesto da bi uporabnik
+  dobil na videz popoln enosegmentni PDF.
+- CLI zastavici `--dxf` in `--potrosi-ostanke` sta prvič pokriti z
+  resničnim podprocesom: DXF se prebere z `ezdxf`, odpis ostankov pa
+  preveri novo zalogo in varnostno kopijo (`tests/test_cli_zastavice.py`).
+- Preverjeno: polna suite **748 passed, 3 skipped** (en preskok: Tk okolje); ruff čist; mypy 0.
+
 ## v1.5.3 — 2026-11-24 (popravek)
 
 - **Fuzzing validacije je odkril tri sesutja.** `preveri_cfg` mora vedno

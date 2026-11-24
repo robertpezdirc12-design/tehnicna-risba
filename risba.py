@@ -1931,6 +1931,10 @@ def generiraj(cfg, dpi_png=200):
         raise ValueError("Kontrola pravilnosti ni uspela — PDF ni bil "
                          "izdelan:\n- " + "\n- ".join(napake))
     del ZADNJA_OPOZORILA[:]
+    segmenti = cfg.get("segmenti")
+    if isinstance(segmenti, (list, tuple)) and len(segmenti) > 1:
+        _opozori(f"Projekt ima več segmentov ({len(segmenti)}); PDF prikaže "
+                 "samo glavni pogled — vsi segmenti so v DXF izvozu (--dxf).")
     izhod = os.path.abspath(cfg["izhod"])
     ml_fn = {"ograja": narisi_montazni_list,
              "ograda": narisi_montazni_list,
