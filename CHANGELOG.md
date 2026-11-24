@@ -1,5 +1,16 @@
 # Zgodovina sprememb
 
+## v1.5.15 — 2026-11-24 (preverjanje)
+
+**Ročno potrjena dolžina zdaj povozi zaznavo.** Preizkus: `--dolzina 4000
+--visina 1000` je obdržal 19 zaznanih »stebrov« iz fotografije (18 polj,
+180 vijakov) — nesmisel za 4 m ograjo. Zdaj se polja in stebri izračunajo iz
+potrjene dolžine in razmaka (zaznanega, če je verjeten, sicer privzetih
+2000 mm), z opozorilom, da je zaznava nasprotovala meritvi.
+
+Rezultat za 4 × 1 m: **2 polji, 3 stebri, 5 lamel, 20 vijakov** (prej 19
+stebrov, 180 vijakov). Testi: **55**.
+
 ## v1.5.14 — 2026-11-24 (preverjanje)
 
 **Preizkus na poljubnih fotografijah z interneta** (Wikimedia Commons:

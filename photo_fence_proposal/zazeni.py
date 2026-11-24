@@ -82,6 +82,7 @@ def izvozi_kosovnico_csv(rezultat: Rezultat, pot: str) -> str:
 
 MIN_RAZMAK_STEBROV_MM = 300.0   # ožje ni steber, ampak letev/prečka
 MAX_RAZMAK_STEBROV_MM = 5000.0
+RAZMAK_PRIVZET_MM = 2000.0      # privzet razmak, kadar ni zaznan
 
 
 def _preveri_razmak(rezultat: Rezultat) -> None:
@@ -100,6 +101,34 @@ def _preveri_razmak(rezultat: Rezultat) -> None:
         f"Zaznani razmak vertikalnih elementov je {razmak.vrednost_mm:.0f} mm — "
         "to niso stebri ograje (običajno 1000–3000 mm), zato mere niso "
         "uporabne; potreben je ročni vnos mere (--dolzina/--visina).")
+
+
+def _uskladi_polja(rezultat: Rezultat, dolzina_mm: float) -> None:
+    """Polja in stebri morajo slediti ROČNO potrjeni dolžini, ne zaznavi.
+
+    Zaznava na tujih fotografijah rada prešteje letve (19 »stebrov« na
+    4 m ograji): če uporabnik poda --dolzina, velja ta meritev.
+    """
+    from model import Mera, OCENJENO
+
+    razmak = rezultat.mere.get("razmak_stebrov")
+    rm = razmak.vrednost_mm if razmak and razmak.vrednost_mm else None
+    vir = "zaznan"
+    if not (MIN_RAZMAK_STEBROV_MM <= (rm or 0.0) <= MAX_RAZMAK_STEBROV_MM):
+        rm, vir = RAZMAK_PRIVZET_MM, "privzet"
+    n_polj = max(1, int(round(dolzina_mm / rm)))
+    prej = rezultat.mere.get("stevilo_polj")
+    rezultat.mere["stevilo_polj"] = Mera(
+        float(n_polj), OCENJENO,
+        f"iz ročno potrjene dolžine in razmaka {rm:.0f} mm ({vir})")
+    rezultat.mere["stevilo_stebrov"] = Mera(
+        float(n_polj + 1), OCENJENO,
+        "polja + 1 (iz ročno potrjene dolžine)")
+    if prej and prej.vrednost_mm and int(prej.vrednost_mm) != n_polj:
+        rezultat.opozorila.append(
+            f"Zaznava je našla {int(prej.vrednost_mm) + 1} stebrov, kar ne gre "
+            f"skupaj z ročno dolžino {dolzina_mm:.0f} mm — uporabljena je "
+            "ročna meritev.")
 
 
 def pozeni(pot_fotografije: str, izhod: str, parametri: ParametriNove,
@@ -134,6 +163,7 @@ def pozeni(pot_fotografije: str, izhod: str, parametri: ParametriNove,
     if dolzina_mm:
         rezultat.mere["dolzina_ograje"] = Mera(dolzina_mm, IZMERJENO,
                                                "potrdil uporabnik (ročni vnos)")
+        _uskladi_polja(rezultat, dolzina_mm)
 
     # 3b) opozorila zaznave (zavržene mere, negotova zaznava) morajo priti
     # v dokument — sicer uporabnik ne vidi, ZAKAJ je mera neznana

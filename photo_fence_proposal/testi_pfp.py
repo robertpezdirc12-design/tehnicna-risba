@@ -906,3 +906,12 @@ def test_predracun_neuporabna_zaznava():
                               "vijak_kos": 1.0})
     assert p.informativno is True
     assert any("ni uporabna" in o for o in p.opozorila)
+def test_rocna_dolzina_povozi_zaznavo(testni_prizori, tmp_path):
+    """Ročno potrjena dolžina 4 m ne sme obdržati 19 zaznanih "stebrov"."""
+    import zazeni
+    _ime, pot, _resni = testni_prizori[0]
+    rez = zazeni.pozeni(pot, str(tmp_path / "izhod"), ParametriNove(),
+                        visina_mm=1000, dolzina_mm=4000)
+    assert rez.mere["stevilo_polj"].vrednost_mm == 2
+    steber = next(p for p in rez.kosovnica if p.naziv == "Steber")
+    assert steber.kolicina == 3
