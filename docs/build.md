@@ -14,6 +14,11 @@ preizkus, kontrolne vsote in pravila izdaje.
 - odvisnosti iz `requirements.txt` (vključno **Pillow** — `merjenje.py`
   ga uvozi nepogojno) + `pypdf` za preverjanje artefaktov
 - popoln freeze okolja gradnje: `requirements-build.txt`
+- **OpenCV ni vgrajen:** `TehnicnaRisba.spec` izključi `cv2`, zato foto
+  merjenje in QR oznake v EXE niso na voljo (GUI to pove v sporočilu o
+  napaki). Kdor jih potrebuje v EXE, mora `cv2` odstraniti iz `excludes`
+  in ponovno zgraditi — takrat se spremeni tudi obseg licenc
+  (`THIRD_PARTY_NOTICES.md`)
 - UPX **ni** potreben in ni nameščen (`TehnicnaRisba.spec` ima
   `upx=False` — konsistenten izid brez odvisnosti od zunanjega orodja)
 
