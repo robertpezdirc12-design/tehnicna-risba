@@ -1,5 +1,21 @@
 # Zgodovina sprememb
 
+## v1.5 — 2026-11-23 (build)
+
+- `TehnicnaRisba.spec`: izločena OCR veriga (`rapidocr` → `onnxruntime` →
+  `onnxruntime.transformers` → `transformers` → `torch`) in `pandas`.
+  Izmerjeno: EXE **312 MB → 55,3 MB**, gradnja **21:39 → 2:40**, smoke
+  nespremenjen (3 strani + terenski PDF).
+- `build-zapisnik.json` je artefakt gradnje (v `.gitignore`).
+
+## v1.4 — 2026-11-23
+
+- GUI: *Orodja → Izvozi 3D model (STL/OBJ/GLB)…* (preveri mrežo, pove
+  prostornino in opombe).
+- Neobvezna OCR pot (`rapidocr-onnxruntime`, ni v `requirements.txt`, ni v
+  EXE): QR ima prednost, OCR je nadomestna pot s pragom zaupanja 0,60 in
+  obvezno potrditvijo.
+
 ## v1.3 — 2026-11-23 (zaklep)
 
 Nadaljevanje v1.2 (oznake v1.0–v1.2 so iz predhodnih izdaj). Ta izdaja

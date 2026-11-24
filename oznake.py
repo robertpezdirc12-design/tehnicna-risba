@@ -221,7 +221,9 @@ NAVODILO_BESEDILO = (
     "iz PaddleOCR). Namesti ga ločeno: "
     "python -m pip install rapidocr-onnxruntime. QR pot deluje brez "
     "njega in je zanesljivejša — OCR je samo nadomestna pot za "
-    "natisnjene oznake brez QR kode."
+    "natisnjene oznake brez QR kode. Samostojni EXE je zgrajen BREZ "
+    "tega paketa (TehnicnaRisba.spec izključi rapidocr/onnxruntime) — "
+    "tam OCR ni na voljo; uporabi QR pot ali Python različico."
 )
 
 

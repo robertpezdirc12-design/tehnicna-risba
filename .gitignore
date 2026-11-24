@@ -42,3 +42,6 @@ _pyi_build.log
 .coverage
 .coverage.*
 htmlcov/
+
+# artefakt gradnje (lokalni zapisnik, ne v repozitorij)
+build-zapisnik.json

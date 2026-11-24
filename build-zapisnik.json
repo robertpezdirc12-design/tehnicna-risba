@@ -1,6 +1,6 @@
 {
   "zapisnik_verzija": 1,
-  "zacetek": "2026-11-21 07:27:30 UTC",
+  "zacetek": "2026-11-24 07:32:04 UTC",
   "razlicice": {
     "python": "3.11.9",
     "pyinstaller": "6.22.3",
@@ -8,27 +8,31 @@
     "upx": false
   },
   "git": {
-    "commit": "02f513c9d93d2fdbab84c0db7e6c1f71a20a500e",
+    "commit": "8f07a1da9404e01ba82c0db1fcfeeacec4f8bda2",
     "veja": "main",
-    "dirty": false
+    "dirty": true
   },
-  "spec_sha256": "8f9f45db0e61b042cfb316208af9d095b65a7a4f6986b3f296006bf38f9cf3ac",
+  "spec_sha256": "7472fd4ed3f44f40f2dfcd469581cd73670bc0fb638e6d1cb8ad73b2420e5dcc",
   "ukaz": "python build_windows.py --smoke",
   "build": {
     "exe": "C:\\Users\\admin\\Downloads\\tehnicna-risba\\dist\\TehnicnaRisba.exe",
-    "velikost_b": 102806824,
-    "sha256": "c41dfdae5011523f1af0afe23c072cd2b60fe6ba0bec963c65f92f5d8987c1e8"
+    "velikost_b": 55261968,
+    "sha256": "67d249fbd88d9820a2ebaa529220f1d22fba7005bc89d7885a77adcb4c409211"
+  },
+  "podpis": {
+    "podpisano": false,
+    "razlog": "PODPIS_PFX ni nastavljen"
   },
   "smoke": {
-    "pdf": "C:\\Users\\admin\\AppData\\Local\\Temp\\tr_smoke_nib6pp1m\\smoke.pdf",
+    "pdf": "C:\\Users\\admin\\AppData\\Local\\Temp\\tr_smoke_susz31ak\\smoke.pdf",
     "strani": 3,
-    "velikost_b": 84815,
-    "terenski_pdf": "C:\\Users\\admin\\AppData\\Local\\Temp\\tr_smoke_nib6pp1m\\terenski.pdf",
+    "velikost_b": 95149,
+    "terenski_pdf": "C:\\Users\\admin\\AppData\\Local\\Temp\\tr_smoke_susz31ak\\terenski.pdf",
     "nacini": [
       "TEHNICNA_RISBA_HEADLESS=1",
       "--brez-zaslona",
       "--terenski-smoke"
     ]
   },
-  "trajanje_s": 500.5
+  "trajanje_s": 159.9
 }

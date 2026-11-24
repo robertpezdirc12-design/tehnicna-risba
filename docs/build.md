@@ -14,6 +14,14 @@ preizkus, kontrolne vsote in pravila izdaje.
 - odvisnosti iz `requirements.txt` (vključno **Pillow** — `merjenje.py`
   ga uvozi nepogojno) + `pypdf` za preverjanje artefaktov
 - popoln freeze okolja gradnje: `requirements-build.txt`
+- **Izločene težke verige (merjeno 2026-11-23):** `TehnicnaRisba.spec`
+  izključi `rapidocr_onnxruntime`, `onnxruntime`, `transformers`, `torch`,
+  `pandas`, `sklearn`, `rembg`, `accelerate`. Razlog: `oznake.py` uvozi
+  OCR šele ob klicu, PyInstaller pa je za njim potegnil
+  `onnxruntime.transformers` → `transformers` → `torch`. Izmerjeno na istem
+  stroju: **312 MB → 55,3 MB** EXE, gradnja **1299 s → 160 s**, smoke
+  nespremenjen (3 strani PDF + terenski PDF). V EXE klic OCR javi, da
+  paket ni vgrajen (brez tihe napake).
 - **OpenCV ni vgrajen:** `TehnicnaRisba.spec` izključi `cv2`, zato foto
   merjenje in QR oznake v EXE niso na voljo (GUI to pove v sporočilu o
   napaki). Kdor jih potrebuje v EXE, mora `cv2` odstraniti iz `excludes`

@@ -12,6 +12,12 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=['cv2',
+              # OCR ni del EXE (oznake.py ga uvozi sele ob klicu). Veriga, ki
+              # jo je PyInstaller sicer potegnil: rapidocr -> onnxruntime ->
+              # onnxruntime.transformers -> transformers -> torch (~250 MB).
+              # Zato izlocimo ze koren; v EXE klic javi, da OCR ni vgrajen.
+              'rapidocr_onnxruntime', 'onnxruntime', 'transformers', 'torch',
+              'pandas', 'sklearn', 'rembg', 'accelerate',
               # težke, neuporabljene odvisnosti (issue #6 §9: hitrejši in
               # vitkejši build; matplotlib/ezdxf jih ne potrebujejo)
               'PySide6', 'PySide2', 'shiboken6', 'shiboken2',
