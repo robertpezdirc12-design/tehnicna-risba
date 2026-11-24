@@ -48,3 +48,36 @@ Takrat velja: ključ **samo iz okoljske spremenljivke** (`EDENAI_KEY`),
 privzeto izklopljeno, izven EXE-ja, brez zapisa ključa v repozitorij, z
 opozorilom ob klicu. Za *marketing* je bolje najeti fotografa ali uporabiti
 lastne fotografije izvedenih ograj — te so tudi pravno čiste.
+
+## Trajno brezplačne alternative (preverjeno 2026-11-24)
+
+**Pollinations.ai** — odprtokodna platforma (Berlin), klasični API je brez
+prijave in brez ključa: `https://image.pollinations.ai/prompt/<povpraševanje>?width=768&height=768&seed=5`.
+Preizkušeno: klic deluje (HTTP 200, JPEG z logotipom v kotu), vendar so
+**omejitve trde** — ena slika na 45 s na IP (drugi klic v isti minuti vrne
+HTTP 402 z `Retry-After`), največ 768×768, „best effort“ brez garancije.
+Kakovost je neenakomerna: preprosto povpraševanje („rdeče jabolko“) je
+zadeto, pri povpraševanju o ograji pa je model trikrat vrnil povsem
+nepovezane podobe. Za občasno sliko da, za zanesljivo uporabo ne.
+
+**Cloudflare Workers AI** — trajno brezplačna kvota **10.000 nevronov/dan**
+(ponastavitev ob 00:00 UTC), model `@cf/black-forest-labs/flux-1-schnell`
+(≈ 4,8 nevrona na ploščico 512×512 na korak). Zahteva brezplačen račun
+Cloudflare in žeton; brez logotipa, komercialna raba dovoljena. To je
+najbolj resen trajno brezplačen API, ki ne oglašuje in ne zahteva kartice.
+
+**Bing Image Creator / Microsoft Designer** — brezplačno s katerim koli
+Microsoftovim računom, kakovost DALL·E-razreda, dnevne kvote; spletni
+vmesnik, uradnega API-ja ni, slika nosi oznako. Trajno brezplačno.
+
+**Craiyon** — klasičen oglasno financiran brezplačni generator; kakovost
+nizka, za resno rabo ne.
+
+**Lokalno (ComfyUI + SDXL/FLUX)** — trajno brezplačno in brez omrežja, a
+zahteva GPU z ≈ 8 GB VRAM; edina možnost, ki se ujema s pravilom „brez
+omrežja“ v tem repozitoriju.
+
+Sklep: trajno brezplačne možnosti **obstajajo** (Pollinations, Cloudflare
+kvota, Bing), a nobena ni hkrati brez omejitev, brez računa in zanesljive
+kakovosti. Za občasno marketinško sliko zadošča Pollinations ali Bing; za
+produkt pa odločitev ostaja ista — slik ne vgrajujemo.
