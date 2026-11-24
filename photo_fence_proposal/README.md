@@ -72,6 +72,10 @@ python -m pytest testi_pfp.py -q
   izračuna (brez negativnega odpada), ampak javi, da je potrebno spajanje palic.
 - Ročni vnosi `--visina` / `--dolzina` morajo biti pozitivne vrednosti v mm
   (negativne ali ničelne so zavrnjene z jasno napako).
+- Zaznava na **tujih fotografijah** (preizkus 24. 11. 2026, 5 fotografij z
+  Wikimedie) zgreši za −60 % do +140 %, ker šteje balustre/profilih kot stebre.
+  Kako to popraviti (čelni pogled, periodično štetje, ArUco merilo) je
+  razloženo v [`docs/izboljsave-zaznave-ograje.md`](../docs/izboljsave-zaznave-ograje.md).
 
 ## Datoteke
 
