@@ -367,6 +367,12 @@ python oznake.py --zapisi projekt.yaml --izhod oznaka.png
 python oznake.py --preberi fotografija.png
 ```
 
+Če je nameščen `rapidocr-onnxruntime` (ni v `requirements.txt`), program
+zna prebrati tudi **natisnjeno** oznako brez QR kode: `python oznake.py
+--preberi slika.png` najprej poskusi QR, nato OCR. Rezultat OCR je vedno
+označen kot „vir: OCR“ in zahteva potrditev — ročne pisave namenoma ne
+obeta. Namestitev: `python -m pip install rapidocr-onnxruntime`.
+
 V GUI: *Vstavi → Preberi oznako projekta (QR)…* in *Orodja → Zapiši
 oznako projekta (QR)…*. Prebrane vrednosti se **ne** uveljavijo same —
 program vpraša za potrditev. Format `TR1|projekt|šifra|višina|širina`;

@@ -338,3 +338,140 @@ def test_gui_zapisi_brez_podatkov_opozori(monkeypatch, tmp_path):
                         lambda naslov, besedilo: sporocila.append(besedilo))
     vmesnik.App._oznaka_zapisi(podtakni(app))
     assert sporocila and "imena projekta" in sporocila[0]
+
+
+# ----------------------------------------------- OCR (neobvezna pot)
+# OCR inferenca traja ~7 s na sliko (merjeno), zato so ti testi označeni
+# kot "pocasi" — hitra zanka jih preskoči (-m "not pocasi").
+
+
+def _slika_z_besedilom(besedilo: str, velikost: int = 64):
+    """Nariše besedilo na belo sliko (kot natisnjena oznaka)."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    slika = Image.new("RGB", (1500, 260), "white")
+    try:
+        font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", velikost)
+    except Exception:                       # pragma: no cover — brez pisave
+        font = ImageFont.load_default()
+    ImageDraw.Draw(slika).text((30, 80), besedilo, fill="black", font=font)
+    return np.asarray(slika)
+
+
+def _ima_ocr() -> bool:
+    import importlib.util
+
+    return importlib.util.find_spec("rapidocr_onnxruntime") is not None
+
+
+@pytest.mark.pocasi
+def test_ocr_prebere_oznako():
+    if not _ima_ocr():
+        pytest.skip("rapidocr ni nameščen — OCR pot ni na voljo")
+    rezultat = oznake.preberi_besedilo(_slika_z_besedilom(VELJAVNA))
+    assert rezultat.uspeh, rezultat.opozorila
+    oznaka = rezultat.oznake[0]
+    assert oznaka.projekt == "PO-TEST"
+    assert oznaka.mere == {"visina": 1850.0, "sirina": 2500.0}
+    # vsaka vrstica ima zabeleženo zaupanje
+    assert rezultat.vrstice and all(0.0 <= z <= 1.0 for _b, z in rezultat.vrstice)
+
+
+@pytest.mark.pocasi
+def test_ocr_napacna_vsebina_opozori():
+    if not _ima_ocr():
+        pytest.skip("rapidocr ni nameščen")
+    rezultat = oznake.preberi_besedilo(
+        _slika_z_besedilom("PO-009 visina 1850"))
+    assert not rezultat.uspeh
+    assert any("ni veljavna oznaka" in o for o in rezultat.opozorila)
+
+
+@pytest.mark.pocasi
+def test_ocr_zaupanje_pod_pragom_zavrne():
+    if not _ima_ocr():
+        pytest.skip("rapidocr ni nameščen")
+    # prag 1.01 ni dosegljiv nobeni vrstici -> vse zavrnjene z razlogom
+    rezultat = oznake.preberi_besedilo(
+        _slika_z_besedilom(VELJAVNA), prag=1.01)
+    assert not rezultat.uspeh
+    assert any("ni upoštevana" in o for o in rezultat.opozorila)
+
+
+@pytest.mark.pocasi
+def test_ocr_prazna_slika():
+    if not _ima_ocr():
+        pytest.skip("rapidocr ni nameščen")
+    rezultat = oznake.preberi_besedilo(
+        np.full((240, 240, 3), 255, dtype=np.uint8))
+    assert not rezultat.uspeh
+    assert any("ni berljivega besedila" in o for o in rezultat.opozorila)
+
+
+def test_najdi_oznake_qr_ima_prednost(monkeypatch, tmp_path):
+    pot = oznake.zapisi_oznako(VELJAVNA, tmp_path / "o.png")
+
+    def ne_klici(*_a, **_k):                  # OCR se ne sme poklicati
+        raise AssertionError("OCR ne sme teci, ko QR uspe")
+
+    monkeypatch.setattr(oznake, "preberi_besedilo", ne_klici)
+    najdba = oznake.najdi_oznake(pot)
+    assert najdba.uspeh and najdba.vir == "qr"
+
+
+@pytest.mark.pocasi
+def test_najdi_oznake_ocr_kot_nadomestna_pot(tmp_path):
+    if not _ima_ocr():
+        pytest.skip("rapidocr ni nameščen")
+    pot = tmp_path / "oznaka_brez_qr.png"
+    from PIL import Image
+
+    Image.fromarray(_slika_z_besedilom(VELJAVNA)).save(pot)
+    najdba = oznake.najdi_oznake(pot)
+    assert najdba.uspeh and najdba.vir == "ocr"
+    assert any("OCR (ne QR)" in o for o in najdba.opozorila)
+
+
+def test_najdi_oznake_brez_ocr(monkeypatch, tmp_path):
+    from PIL import Image
+
+    pot = tmp_path / "samo_besedilo.png"
+    Image.fromarray(_slika_z_besedilom(VELJAVNA)).save(pot)
+    najdba = oznake.najdi_oznake(pot, dovoli_ocr=False)
+    assert not najdba.uspeh and najdba.vir == ""
+
+
+def test_ocr_manjkajoca_knjiznica(monkeypatch):
+    import builtins
+
+    pravi = builtins.__import__
+
+    def lazni(ime, *a, **k):
+        if ime.startswith("rapidocr"):
+            raise ImportError("ni paketa")
+        return pravi(ime, *a, **k)
+
+    monkeypatch.setattr(builtins, "__import__", lazni)
+    with pytest.raises(oznake.ManjkajocaKnjiznica, match="rapidocr"):
+        oznake.preberi_besedilo(np.full((10, 10, 3), 255, dtype=np.uint8))
+
+
+@pytest.mark.pocasi
+def test_gui_oznaka_preberi_z_ocr(monkeypatch, tmp_path):
+    """GUI uporabi OCR, a vseeno zahteva potrditev in opozori na vir."""
+    import vmesnik
+
+    if not _ima_ocr():
+        pytest.skip("rapidocr ni nameščen")
+    from PIL import Image
+
+    pot = tmp_path / "brez_qr.png"
+    Image.fromarray(_slika_z_besedilom(VELJAVNA)).save(pot)
+
+    app = _App(osnovni_cfg(tmp_path / "x.pdf"))
+    vprasanja = []
+    monkeypatch.setattr(vmesnik.messagebox, "askyesno",
+                        lambda naslov, besedilo, **k: vprasanja.append(besedilo) or True)
+    vmesnik.App._oznaka_preberi(podtakni(app), str(pot))
+    assert app.v["ime"].get() == "PO-TEST"
+    assert vprasanja and "OCR" in vprasanja[0]

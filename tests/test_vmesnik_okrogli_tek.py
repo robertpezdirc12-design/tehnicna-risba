@@ -136,3 +136,100 @@ def test_status_spremenjen_ne_pade(app):
     app.v["stranka"].set("Nova stranka")
     app._status_spremenjen()
     assert isinstance(app.status.cget("text"), str)
+
+
+# ---------------------------------------------------- izvoz 3D iz obrazca
+
+
+class _Var:
+    def __init__(self, vrednost=""):
+        self.vrednost = vrednost
+
+    def set(self, vrednost):
+        self.vrednost = vrednost
+
+    def get(self):
+        return self.vrednost
+
+
+class _Status:
+    def __init__(self):
+        self.besedilo = ""
+
+    def config(self, text=None, fg=None):
+        if text is not None:
+            self.besedilo = text
+
+
+class _App3D:
+    """Nadomestek App za preizkus metode _3d_izvoz brez okna."""
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.status = _Status()
+
+    def _zberi_cfg(self):
+        return self.cfg
+
+
+def _podtakni(app) -> object:
+    return app
+
+
+def test_gui_izvozi_3d_model(monkeypatch, tmp_path):
+    import vmesnik
+    from tridim import izvoz
+
+    cfg = osnovni_cfg(tmp_path / "x.pdf")
+    app = _App3D(cfg)
+    cilj = tmp_path / "model.glb"
+    monkeypatch.setattr(vmesnik.filedialog, "asksaveasfilename",
+                        lambda **k: str(cilj))
+    sporocila = []
+    monkeypatch.setattr(vmesnik.messagebox, "showinfo",
+                        lambda naslov, besedilo, **k: sporocila.append(besedilo))
+    vmesnik.App._3d_izvoz(_podtakni(app))
+
+    assert cilj.is_file()
+    dokument, mreza = izvoz.preberi_glb(cilj)
+    assert dokument["asset"]["version"] == "2.0"
+    assert len(mreza.trikotniki) > 0
+    assert "3D model" in app.status.besedilo
+    assert sporocila and "Prostornina" in sporocila[0]
+
+
+def test_gui_izvoz_3d_preklic(monkeypatch, tmp_path):
+    import vmesnik
+
+    app = _App3D(osnovni_cfg(tmp_path / "x.pdf"))
+    monkeypatch.setattr(vmesnik.filedialog, "asksaveasfilename",
+                        lambda **k: "")
+    vmesnik.App._3d_izvoz(_podtakni(app))
+    assert not list(tmp_path.glob("*.stl"))
+
+
+def test_gui_izvoz_3d_neveljaven_vnos(monkeypatch, tmp_path):
+    import vmesnik
+
+    class _Slab(_App3D):
+        def _zberi_cfg(self):
+            raise ValueError("Polje »Širina« mora biti število.")
+
+    sporocila = []
+    monkeypatch.setattr(vmesnik.messagebox, "showerror",
+                        lambda naslov, besedilo, **k: sporocila.append(besedilo))
+    vmesnik.App._3d_izvoz(_podtakni(_Slab(osnovni_cfg(tmp_path / "x.pdf"))))
+    assert sporocila and "Širina" in sporocila[0]
+
+
+def test_gui_izvoz_3d_napacna_pot(monkeypatch, tmp_path):
+    import vmesnik
+
+    app = _App3D(osnovni_cfg(tmp_path / "x.pdf"))
+    monkeypatch.setattr(vmesnik.filedialog, "asksaveasfilename",
+                        lambda **k: str(tmp_path / "ni-mapa" / "x.stl"))
+    sporocila = []
+    monkeypatch.setattr(vmesnik.messagebox, "showerror",
+                        lambda naslov, besedilo, **k: sporocila.append(besedilo))
+    vmesnik.App._3d_izvoz(_podtakni(app))
+    assert sporocila and "izvoz" in sporocila[0].lower()

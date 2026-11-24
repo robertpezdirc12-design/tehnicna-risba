@@ -1145,6 +1145,54 @@ class App(tk.Tk):
                            fg="#1b5e20")
         messagebox.showinfo("Ponudba", f"Ponudba je izdelana:\n{izhod}")
 
+    def _3d_izvoz(self):
+        """Izvozi masni 3D model (STL/OBJ/GLB) iz trenutnih mer."""
+        try:
+            cfg = self._zberi_cfg()
+        except ValueError as e:
+            messagebox.showerror("Napaka pri vnosu", str(e))
+            return
+        try:
+            import tridim
+        except ImportError:
+            messagebox.showerror("Manjka modul", "Paket tridim/ ni najden.")
+            return
+        osnovno = os.path.splitext(os.path.basename(cfg.get("izhod")
+                                                    or "model"))[0]
+        pot = filedialog.asksaveasfilename(
+            title="Izvozi 3D model", defaultextension=".stl",
+            initialfile=f"{osnovno}.stl",
+            filetypes=[("STL (natiski)", "*.stl"),
+                       ("OBJ (modelirniki)", "*.obj"),
+                       ("GLB (splet, glTF 2.0)", "*.glb")])
+        if not pot:
+            return
+        try:
+            model = tridim.model_ograde(cfg)
+        except (KeyError, ValueError) as e:
+            messagebox.showerror("3D model ni mogoč", str(e))
+            return
+        tezave = model["mreza"].preveri()
+        if tezave:
+            messagebox.showerror("3D model ni uporaben", "; ".join(tezave))
+            return
+        try:
+            cilj = tridim.shrani(model["mreza"], pot)
+        except (OSError, ValueError) as e:
+            messagebox.showerror("Izvoz ni uspel", str(e))
+            return
+        mere = model["mere"]
+        self.status.config(
+            text=f"3D model: {os.path.basename(str(cilj))} — "
+                 f"{len(model['deli'])} delov, "
+                 f"{mere['prostornina_mm3'] / 1e9:.4f} m³", fg="#1b5e20")
+        opombe = "\n".join(model["opombe"])
+        messagebox.showinfo(
+            "3D model izvožen",
+            f"{cilj}\n\nDelov: {len(model['deli'])}\n"
+            f"Prostornina: {mere['prostornina_mm3'] / 1e9:.4f} m³"
+            f"\n\n{opombe}")
+
     def _3d_predogled(self):
         """Odpre shematski 3D prikaz ograje (Plan I)."""
         try:
@@ -1753,22 +1801,25 @@ class App(tk.Tk):
         if not pot:
             return
         try:
-            rezultat = oznake.preberi_oznake(pot)
+            najdba = oznake.najdi_oznake(pot)
         except (OSError, ValueError, oznake.ManjkajocaKnjiznica) as e:
             messagebox.showerror("Oznake ni mogoče prebrati", str(e))
             return
-        if not rezultat.uspeh:
+        if not najdba.uspeh:
             messagebox.showwarning("Oznaka ni prebrana",
-                                   "\n".join(rezultat.opozorila))
+                                   "\n".join(najdba.opozorila))
             return
-        oznaka = rezultat.oznake[0]
+        oznaka = najdba.oznake[0]
         polja = oznake.oznake_za_polja(oznaka)
         vrstice = "\n".join(f"  {k}: {v}" for k, v in polja.items())
         opozorilo = ""
-        if rezultat.opozorila:
-            opozorilo = "\n\nOpombe:\n" + "\n".join(rezultat.opozorila)
-        if len(rezultat.oznake) > 1:
-            opozorilo += (f"\n\nNa sliki je {len(rezultat.oznake)} oznak — "
+        if najdba.vir == "ocr":
+            opozorilo = ("\n\nVir: OCR (ne QR) — prepiši si vrednosti "
+                         "na papir in jih primerjaj z originalom.")
+        if najdba.opozorila:
+            opozorilo += "\n\nOpombe:\n" + "\n".join(najdba.opozorila)
+        if len(najdba.oznake) > 1:
+            opozorilo += (f"\n\nNa sliki je {len(najdba.oznake)} oznak — "
                           "uporabljena je prva.")
         vprasanje = ("Prebrano iz oznake:\n" + vrstice +
                      "\n\nUporabim te vrednosti? Obstoječe v obrazcu bodo "
@@ -2253,6 +2304,8 @@ class App(tk.Tk):
         o.add_command(label="Zapiši oznako projekta (QR)…",
                       command=self._oznaka_zapisi)
         o.add_separator()
+        o.add_command(label="Izvozi 3D model (STL/OBJ/GLB)…",
+                      command=self._3d_izvoz)
         o.add_command(label="Statični pregled", command=self._statika_pregled)
         o.add_command(label="Statična priloga (PDF)", command=self._statika_priloga)
         o.add_command(label="Nova vrsta (pilot)…",

@@ -23,6 +23,11 @@
 | **scikit-image, scipy** | **da (foto sloj)** | photo_fence_proposal | `detekcija.py` (robova kontrola ritma, 2026-11-23) — NE v EXE |
 
 Nameščeno v tem krogu (2026-04-11): **`scipy 1.17.1`, `trimesh 5.2.2`, `meshio 5.3.5`**.
+**OCR (2026-11-23, v1.4):** `rapidocr-onnxruntime` (Apache-2.0) je
+**neobvezen** in samo v `requirements-dev.txt`; koda ga uvozi šele v
+`oznake.preberi_besedilo`. Ni v `requirements.txt` in ni v EXE. OCR je
+nadomestna pot za natisnjene oznake (QR je primaren).
+
 **3D in QR (2026-11-23):** `tridim/` (mreža, STL/OBJ/GLB) in `oznake.py`
 (QR) **ne dodata nobene odvisnosti** — GLB pišemo sami, QR bere OpenCV, ki
 je že v foto sloju. `cadquery`/`OCP`/`casadi` namenoma niso vgrajeni

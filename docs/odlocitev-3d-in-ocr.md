@@ -99,12 +99,24 @@ poslovna odločitev, ne tehnična; do takrat velja: copyleft ne gre v EXE.
 - v GUI se vrednosti **ne** uveljavijo same: uporabnik potrdi
   (`_oznaka_preberi`).
 
-**Kdaj bi OCR dodali:** ko bi bile izpolnjene vse tri zahteve hkrati —
-(a) licenca uteži jasna in zapisana na kartici, (b) velikost in
-delovanje brez GPU sprejemljiva za EXE, (c) merjena natančnost na
-resničnih ročnih napisih boljša od QR poti. OCR bi bil **dodatek** za
-primere brez oznake, ne nadomestilo zanjo; vmesnik bi moral vrniti isto
-strukturo (`Oznaka`), da se potrditveni tok ne bi podvajal.
+**Dopolnitev (v1.4): OCR je dodan kot NEOBVEZNA pot, ne kot del izdelka.**
+`oznake.preberi_besedilo` uporabi `rapidocr-onnxruntime` (Apache-2.0;
+ONNX-uteži izpeljane iz PaddleOCR) samo, če je paket nameščen; brez njega
+program pove, kaj manjka. Paket ni v `requirements.txt`, ni v EXE in ni v
+nobenem uvozu ob zagonu.
+
+Meritve v tem okolju (CPU, brez GPU): branje natisnjene oznake
+`TR1|PO-9|PO-009|1850|2500` da pravilen rezultat z zaupanjem 0,99;
+inferenca traja ~7 s na sliko (~4,7 s pri omejitvi na 640 px, a brez
+dobička v natančnosti). Zato: QR ostaja primarna pot (takojšnja in
+deterministična), OCR je nadomestna pot z dvema varovaloma — prag
+zaupanja 0,60 (pod njim se vrstica zavrže z razlogom) in obvezna
+potrditev uporabnika, ki v dialogu vidi, da je vir OCR.
+
+**Česa OCR še vedno ne dela:** ročne pisave in popačenih fotografij.
+Za to bi bile potrebne meritve na resničnih vzorcih; brez njih trditev o
+natančnosti ne bi bila poštena. Prav tako OCR ni v EXE — kdor ga hoče v
+izdelku, mora hkrati rešiti distribucijo uteži.
 
 ## 5. Posledice
 

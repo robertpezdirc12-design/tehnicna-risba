@@ -60,6 +60,7 @@ PRICAKOVANO = {
     "Orodja": ["Izberi fotografijo…", "Meri s slike (pomožno merjenje)",
                "Avtomatska skica (iz foto)", "Predlog mer (iz foto)",
                "Zapiši oznako projekta (QR)…",
+               "Izvozi 3D model (STL/OBJ/GLB)…",
                "Statični pregled",
                "Statična priloga (PDF)",
                "Nova vrsta (pilot)…", "Primerjaj načrte razreza…",

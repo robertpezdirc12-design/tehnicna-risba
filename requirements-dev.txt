@@ -14,3 +14,6 @@ scikit-image>=0.21
 scipy>=1.10
 # tests/ neposredno uvažajo cv2 (merjenje, foto sloj) — CI mora zbrati teste
 opencv-python>=4.8
+# OCR pot (neobvezna; testi so oznaceni s 'pocasi'): Apache-2.0 koda,
+# ONNX-utezi izpeljane iz PaddleOCR (Apache-2.0 kartice) — NI v EXE.
+rapidocr-onnxruntime>=1.3

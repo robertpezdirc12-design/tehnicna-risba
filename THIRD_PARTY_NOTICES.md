@@ -54,6 +54,15 @@ python scripts/preveri_licence.py --zapisi    # osveži tabelo
 ## Česa namenoma ne vgrajujemo
 
 `cadquery`/`OCP` (OpenCASCADE LGPL-2.1, `casadi` LGPL-3.0), `gmsh`
-(GPL-2.0+), `pymeshlab` (GPL-3.0) in modeli OCR niso del izdelka. Razlogi
+(GPL-2.0+), `pymeshlab` (GPL-3.0) in modeli OCR niso del izdelka.
+
+Neobvezni, a dokumentirani:
+
+| Komponenta | Licenca | Kje je | Zakaj ni v EXE |
+|---|---|---|---|
+| `rapidocr-onnxruntime` | Apache-2.0 (uteži iz PaddleOCR) | `requirements-dev.txt`, uvožen samo v `oznake.preberi_besedilo` | ~ONNX modeli + `onnxruntime`; OCR je nadomestna pot, QR zadošča |
+| `cadquery` | Apache-2.0 (vleče LGPL OCP) | neobvezni STEP most | LGPL v izdelku ne želimo |
+
+ Razlogi
 in pogoji, pod katerimi bi se to lahko spremenilo, so v
 `docs/odlocitev-3d-in-ocr.md`.
