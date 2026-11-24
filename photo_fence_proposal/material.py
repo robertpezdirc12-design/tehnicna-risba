@@ -73,7 +73,13 @@ def izracunaj_material(rezultat: Rezultat) -> Rezultat:
         # dolzina je tu zmeraj prisotna (dolzina_mm izhaja iz nje)
         # iz razmaka, če je znan, sicer iz dolžine/2000 mm hevristike
         razmak = mere.get("razmak_stebrov")
-        if razmak and razmak.vrednost_mm:
+        if n_polj:
+            # število polj (zaznano ali izračunano) je najboljši vir:
+            # stebrov je vedno za enega več — tudi kadar razmak ni znan
+            n_stebrov = n_polj + 1
+            status_stebrov = _status_skupaj(
+                st_polj.status if st_polj else NEZNANO)
+        elif razmak and razmak.vrednost_mm:
             n_stebrov = n_polj + 1 if n_polj else max(
                 2, int(math.ceil(dolzina_mm / razmak.vrednost_mm)) + 1)
             status_stebrov = _status_skupaj(razmak.status)

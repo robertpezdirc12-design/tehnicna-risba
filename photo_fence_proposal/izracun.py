@@ -211,6 +211,15 @@ def sestavi(rezultat: Rezultat, cenik: dict[str, float]) -> Predracun:
                    and v.naziv != "Delo — montaža")
     informativno = (not rezultat.vse_kljucne_mere_potrjene
                     or any(r.status not in STATUSI_POTRJENI for r in vrstice))
+    # zaznava, ki ji ne verjamemo (zavržene mere, napačen razmak), ne sme
+    # zgledati kot uporaben izračun — tudi če so cene iz cenika
+    nezanesljiva = any(("ni fizično verodostojna" in o.lower())
+                       or ("niso stebri" in o.lower())
+                       for o in rezultat.opozorila)
+    if nezanesljiva:
+        informativno = True
+        opozorila.append("Zaznava ni uporabna — znesek je le groba ocena, "
+                         "ni podlaga za ponudbo.")
     if informativno:
         opozorila.append("Mere iz fotografije niso potrjene — znesek je "
                          "informativne narave, ne ponudba.")

@@ -1,5 +1,27 @@
 # Zgodovina sprememb
 
+## v1.5.14 — 2026-11-24 (preverjanje)
+
+**Preizkus na poljubnih fotografijah z interneta** (Wikimedia Commons:
+baročni balkon, hiša s tremi balkoni, stekleni balkon nebotičnika). Rezultat:
+na tujih fotografijah mere **niso uporabne** (baročni balkon: 24 000 mm
+namesto ~11 m; hiša s tremi balkoni: 1582 mm; izrez enega balkona: 2198 mm).
+Program tega ne more ugotoviti sam — zato je zdaj vsaj **glasno**:
+
+- **Opozorila zaznave so se izgubljala:** zavržena mera (»višina 12 250 mm ni
+  fizično verodostojna«) je ostala le v internem objektu in ni prišla v
+  povzetek, PDF niti JSON. Zdaj se prenesejo v dokument.
+- **Kosovnica je bila v nasprotju z zaznavo:** 19 zaznanih stebrov in 18 polj
+  sta dala »Steber 2 kos« (izpeljava iz dolžine, ker razmak ni bil znan).
+  Zdaj velja število polj + 1.
+- **Nov preizkus razmaka stebrov:** razmak < 300 mm ali > 5000 mm pomeni, da
+  zaznani vertikalci niso stebri (na steklenem balkonu 193 mm) — opozorilo.
+- **Predračun ob neuporabni zaznavi:** označen je kot groba ocena
+  (»ni podlaga za ponudbo«), tudi ko so cene iz cenika.
+
+Preverjeno: `testi_pfp.py` **54 testov** (3 novi), sintetični prizori
+ostajajo znotraj ±3,9 %, ruff čist.
+
 ## v1.5.13 — 2026-11-24 (orodja)
 
 **Fotografija → mere → risba → predračun** v enem toku (`photo_fence_proposal`).

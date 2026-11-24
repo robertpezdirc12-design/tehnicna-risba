@@ -80,6 +80,28 @@ def izvozi_kosovnico_csv(rezultat: Rezultat, pot: str) -> str:
     return pot
 
 
+MIN_RAZMAK_STEBROV_MM = 300.0   # ožje ni steber, ampak letev/prečka
+MAX_RAZMAK_STEBROV_MM = 5000.0
+
+
+def _preveri_razmak(rezultat: Rezultat) -> None:
+    """Zaznani vertikalci z razmakom < 300 mm niso stebri ograje.
+
+    Zaznavanje na poljubnih fotografijah (balkoni, okna, balustrade) rado
+    prešteje letve/prečke kot stebre — takrat je treba to povedati glasno,
+    ne pa izpeljati dolžine iz nesmiselnega razmaka.
+    """
+    razmak = rezultat.mere.get("razmak_stebrov")
+    if not razmak or razmak.vrednost_mm is None:
+        return
+    if MIN_RAZMAK_STEBROV_MM <= razmak.vrednost_mm <= MAX_RAZMAK_STEBROV_MM:
+        return
+    rezultat.opozorila.append(
+        f"Zaznani razmak vertikalnih elementov je {razmak.vrednost_mm:.0f} mm — "
+        "to niso stebri ograje (običajno 1000–3000 mm), zato mere niso "
+        "uporabne; potreben je ročni vnos mere (--dolzina/--visina).")
+
+
 def pozeni(pot_fotografije: str, izhod: str, parametri: ParametriNove,
            referenca: tuple[str, float] | None = None,
            visina_mm: float | None = None,
@@ -112,6 +134,12 @@ def pozeni(pot_fotografije: str, izhod: str, parametri: ParametriNove,
     if dolzina_mm:
         rezultat.mere["dolzina_ograje"] = Mera(dolzina_mm, IZMERJENO,
                                                "potrdil uporabnik (ročni vnos)")
+
+    # 3b) opozorila zaznave (zavržene mere, negotova zaznava) morajo priti
+    # v dokument — sicer uporabnik ne vidi, ZAKAJ je mera neznana
+    rezultat.opozorila.extend(o for o in zaznava.opozorila
+                               if o not in rezultat.opozorila)
+    _preveri_razmak(rezultat)
 
     # 4) material + razrez
     material.izracunaj_material(rezultat)

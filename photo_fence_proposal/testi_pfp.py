@@ -871,3 +871,38 @@ def test_cli_izdela_predracun(testni_prizori, tmp_path):
         assert p.is_file() and p.stat().st_size > 0, ime
     povzetek = (izhod / "06-povzetek.txt").read_text(encoding="utf-8")
     assert "PREDRAČUN" in povzetek
+def test_stebri_iz_stevila_polj_tudi_brez_razmaka():
+    """19 zaznanih stebrov = 18 polj; kosovnica ne sme reči 2 stebra."""
+    rez = Rezultat(zaznava=None, parametri=ParametriNove())
+    rez.mere = {
+        "dolzina_ograje": Mera(1582.0, OCENJENO, "x"),
+        "visina_ograje": Mera(1000.0, IZMERJENO, "x"),
+        "stevilo_stebrov": Mera(19.0, IZMERJENO, "x"),
+        "stevilo_polj": Mera(18.0, IZRACUNANO, "x"),
+    }
+    material.izracunaj_material(rez)
+    steber = next(p for p in rez.kosovnica if p.naziv == "Steber")
+    assert steber.kolicina == 19
+
+
+def test_preveri_razmak_opozori_na_letve():
+    import zazeni
+    rez = Rezultat(zaznava=None, parametri=ParametriNove())
+    rez.mere = {"razmak_stebrov": Mera(193.0, IZRACUNANO, "x")}
+    zazeni._preveri_razmak(rez)
+    assert any("niso stebri" in o for o in rez.opozorila)
+
+    rez2 = Rezultat(zaznava=None, parametri=ParametriNove())
+    rez2.mere = {"razmak_stebrov": Mera(1500.0, IZRACUNANO, "x")}
+    zazeni._preveri_razmak(rez2)
+    assert rez2.opozorila == []
+
+
+def test_predracun_neuporabna_zaznava():
+    rez = _potrjen_rezultat()
+    rez.opozorila.append("Zaznani razmak vertikalnih elementov je 193 mm — "
+                         "to niso stebri ograje")
+    p = izracun.sestavi(rez, {"wpc_deska_m": 10.0, "alu_m": 20.0,
+                              "vijak_kos": 1.0})
+    assert p.informativno is True
+    assert any("ni uporabna" in o for o in p.opozorila)
