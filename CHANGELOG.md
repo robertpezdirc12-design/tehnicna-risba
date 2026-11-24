@@ -1,5 +1,21 @@
 # Zgodovina sprememb
 
+## v1.5.6 — 2026-11-24 (popravek)
+
+- **Neznan ali napačno zapisan tip segmenta v DXF ni več tiho
+  pokončna ograja.** `_elementi_segmenta` je imel `else` vejo, ki je
+  vsak tip razen `"ograja"`/`"ograda"` izrisala kot pokončno. Segment
+  s `tip: "OGRAJA"` ali celo tipkarsko napako (`"ograaj"`) je tako
+  ustvaril napačno geometrijo za CNC. Zdaj se tip normalizira, neznan
+  tip pa se zavrne z jasno napako.
+- `preveri_cfg` preveri tudi segmente: seznam, vsak vnos kot dict,
+  `tip` (ograja/pokončna) in `mere` kot objekt. Prej so se slabi
+  segmenti ujeli šele v DXF izvozu ali pa so se tiho izrisali.
+- Trije novi testi: velika začetnica tipa, neznan tip in slaba oblika
+  segmentov.
+- Preverjeno: polna suite **754 passed, 2 skipped** (preskok Tk se
+  spreminja z okoljem); ruff čist; mypy 0.
+
 ## v1.5.5 — 2026-11-24 (popravek)
 
 - **Predloga se normalizira pred validacijo.** `preveri_cfg` je

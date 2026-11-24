@@ -401,7 +401,7 @@ def privzeto_stevilo_lamel(m):
     return max(1, int((cona - 8) // (lv + 8)))
 
 
-def _predloga_norm(v):
+def normaliziraj_predlogo(v):
     """Ena oblika imena predloge za validacijo in izris ("ograda" = "ograja")."""
     p = str(v or "ograja").strip().lower()
     return "ograja" if p == "ograda" else p
@@ -412,7 +412,7 @@ def zdruzi(cfg):
         raise ValueError("Konfiguracija mora biti slovar (ključ: vrednost).")
     izhod = dict(PRIVZETO)
     izhod.update(cfg or {})
-    pred = _predloga_norm(izhod.get("predloga"))
+    pred = normaliziraj_predlogo(izhod.get("predloga"))
     if pred in ("ograja", "pokončna"):
         izhod["predloga"] = pred
     surove = (cfg or {}).get("mere")
@@ -516,7 +516,7 @@ def preveri_cfg(cfg):
     if odcep is None or odcep < 0:
         nap.append("Mera 'odcep' mora biti nenegativno število.")
         odcep = None
-    pokoncna = _predloga_norm(cfg.get("predloga")) == "pokončna"
+    pokoncna = normaliziraj_predlogo(cfg.get("predloga")) == "pokončna"
     raz = ds = None
     if pokoncna:
         raz = _poz(m.get("razmak_stebrov", 1500))
@@ -637,6 +637,25 @@ def preveri_cfg(cfg):
         nap.append("'foto' mora biti pot do datoteke.")
     elif foto and not os.path.isfile(foto):
         nap.append(f"Fotografija ne obstaja: {foto}")
+    # shema v2: segmenti so del DXF izvoza; neznan tip ali slaba oblika
+    # bi se sicer tiho izrisala kot pokončna (dxf_izvoz ima else vejo).
+    segmenti = cfg.get("segmenti")
+    if segmenti is not None:
+        if not isinstance(segmenti, (list, tuple)):
+            nap.append("'segmenti' mora biti seznam segmentov.")
+        else:
+            for i, s in enumerate(segmenti, 1):
+                if not isinstance(s, dict):
+                    nap.append(f"Segment {i} mora biti objekt (dict).")
+                    continue
+                tip = normaliziraj_predlogo(s.get("tip") or cfg.get("predloga"))
+                if tip not in ("ograja", "pokončna"):
+                    nap.append(f"Segment {i}: neznan tip {s.get('tip')!r} "
+                               "(dovoljeno: ograja, pokončna).")
+                mere_s = s.get("mere")
+                if mere_s is not None and not isinstance(mere_s, dict):
+                    nap.append(f"Segment {i}: 'mere' mora biti objekt.")
+
     # vrata/prehodi (issue #3) — le če so prisotni (brez vrat ni dodatnih napak)
     vrata = cfg.get("vrata") or []
     prehodi = cfg.get("prehodi") or []

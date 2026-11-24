@@ -20,6 +20,21 @@ def _cfg(predloga, mere):
     return cfg
 
 
+def test_segmenti_slaba_oblika_in_neznan_tip():
+    cfg = osnovni_cfg("x.pdf")
+    cfg["segmenti"] = ["x"]
+    assert any("Segment 1 mora biti objekt" in n
+               for n in jedro.preveri_cfg(cfg))
+
+    cfg["segmenti"] = [{"tip": "ograaj", "mere": {}}]
+    assert any("Segment 1: neznan tip" in n
+               for n in jedro.preveri_cfg(cfg))
+
+    cfg["segmenti"] = [{"tip": "ograja", "mere": []}]
+    assert any("Segment 1: 'mere' mora biti objekt" in n
+               for n in jedro.preveri_cfg(cfg))
+
+
 def test_velika_zacetnica_pokoncne_ne_obide_validacije():
     cfg = _cfg("pokončna", {"razmak_stebrov": 0, "lamele": 8, "lamela_v": 100})
     cfg["predloga"] = "POKONČNA"

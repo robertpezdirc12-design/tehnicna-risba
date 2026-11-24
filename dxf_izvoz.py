@@ -22,6 +22,7 @@ from typing import Any, cast
 import ezdxf
 from ezdxf import units as ez_units
 
+import jedro
 import risba
 import vrata
 
@@ -154,7 +155,7 @@ def _elementi_segmenta(mere, tip, vrata_sez=None, prehodi_sez=None):
     visina = mere["visina"]
     sirina = mere["sirina"]
 
-    if tip in ("ograja", "ograda"):
+    if tip == "ograja":
         zg, sp, lamele, _vrzel, _n = risba.razpored(mere)
         el.append(("kvadrat", (0.0, sp[0], sirina, sp[1] - sp[0]), "POSTS"))
         el.append(("kvadrat", (0.0, zg[0], sirina, zg[1] - zg[0]), "POSTS"))
@@ -163,7 +164,7 @@ def _elementi_segmenta(mere, tip, vrata_sez=None, prehodi_sez=None):
         poz, _raz = risba.pozicije_nosilcev(sirina, mere.get("razmak_nosilcev", 2500.0))
         for x in poz:
             el.append(("kvadrat", (x - 40.0, odcep, 80.0, visina - odcep), "POSTS"))
-    else:  # pokončna
+    elif tip == "pokončna":
         r = risba.razpored_pokoncna(mere)
         for x in r["centri"]:
             el.append(("kvadrat", (x - mere["steber_sirina"] / 2.0, odcep,
@@ -175,6 +176,9 @@ def _elementi_segmenta(mere, tip, vrata_sez=None, prehodi_sez=None):
         if r.get("rocaj") is not None:
             z0, z1 = r["rocaj"]
             el.append(("kvadrat", (0.0, z0, sirina, z1 - z0), "POSTS"))
+    else:
+        raise ValueError(f"Neznan tip segmenta {tip!r} — dovoljeno: "
+                         "ograja, pokončna.")
 
     # Vrata in prehodi v segmentu (odprtine v polnilu).
     for i, v in enumerate(vrata_sez or [], start=1):
@@ -234,12 +238,25 @@ def segmenti_iz_cfg(cfg):
     if cfg.get("segmenti"):
         segmenti: list = []
         for s in cfg["segmenti"]:
+            if not isinstance(s, dict):
+                raise ValueError(f"Segment {len(segmenti) + 1} mora biti "
+                                 "objekt (dict).")
+            mere_s = s.get("mere")
+            if mere_s is not None and not isinstance(mere_s, dict):
+                raise ValueError(f"Segment {s.get('ime') or len(segmenti) + 1}: "
+                                 "'mere' mora biti objekt.")
+            tip = jedro.normaliziraj_predlogo(
+                s.get("tip") or cfg.get("predloga"))
+            if tip not in ("ograja", "pokončna"):
+                raise ValueError(f"Segment {s.get('ime') or len(segmenti) + 1}: "
+                                 f"neznan tip {s.get('tip')!r} — dovoljeno: "
+                                 "ograja, pokončna.")
             mere = dict(cfg.get("mere") or {})
-            mere.update(s.get("mere") or {})
+            mere.update(mere_s or {})
             mere = risba.zdruzi({"mere": mere})["mere"]
             segmenti.append({
                 "ime": s.get("ime") or f"S{len(segmenti) + 1}",
-                "tip": s.get("tip") or cfg.get("predloga", "ograja"),
+                "tip": tip,
                 "mere": mere,
                 "kot": float(s.get("kot") or 0.0),
                 "vrata": s.get("vrata") or [],
@@ -249,7 +266,7 @@ def segmenti_iz_cfg(cfg):
     mere = risba.zdruzi(cfg)["mere"]
     return [{
         "ime": "Glavni",
-        "tip": cfg.get("predloga", "ograja"),
+        "tip": jedro.normaliziraj_predlogo(cfg.get("predloga")),
         "mere": mere,
         "kot": 0.0,
         "vrata": cfg.get("vrata") or [],

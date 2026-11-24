@@ -179,6 +179,25 @@ def test_preveri_dxf_zavrača_prazno(tmp_path):
 # Več segmenti / prehodi
 # ---------------------------------------------------------------------------
 
+def test_tip_segmenta_velika_zacetnica_se_normalizira(tmp_path):
+    cfg = {
+        "izhod": str(tmp_path / "S-001.pdf"),
+        "segmenti": [{"ime": "S1", "tip": "OGRAJA",
+                      "mere": {"sirina": 2400, "visina": 2300, "odcep": 60}}],
+    }
+    assert dxf_izvoz.segmenti_iz_cfg(cfg)[0]["tip"] == "ograja"
+
+
+def test_tip_segmenta_neznan_se_zavrne(tmp_path):
+    cfg = {
+        "izhod": str(tmp_path / "S-001.pdf"),
+        "segmenti": [{"ime": "S1", "tip": "ograaj",
+                      "mere": {"sirina": 2400, "visina": 2300, "odcep": 60}}],
+    }
+    with pytest.raises(ValueError, match="neznan tip"):
+        dxf_izvoz.segmenti_iz_cfg(cfg)
+
+
 def test_segmenti_zamaknjeni_brez_prekrivanja(tmp_path):
     cfg = {
         "ime": "Segmenti",

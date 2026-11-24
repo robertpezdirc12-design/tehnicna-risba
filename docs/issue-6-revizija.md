@@ -186,6 +186,7 @@ Najdbe in odziv glavnega agenta:
 | nekatere veje (fig3/fig4 degradacija, krajšanje rezalnega načrta, `preveri_cfg` B1–B7, rotacija segmentov v DXF) brez testov | P2/P3 | tipska odpornost `preveri_cfg` pokrita (v1.5.2); CLI `--dxf` in `--potrosi-ostanke` pokrita z resničnim podprocesom (v1.5.4); ostale veje so še vedno znana vrzel — predlogi T1–T12 so zapisani za razširitev testne suite |
 | večsegmentni projekt je v PDF tiho izgledal kot en segment | P2 | odpravljeno (v1.5.4): PDF zabeleži opozorilo „več segmentov … samo glavni pogled … DXF“; test v `test_pdf_ciklus.py`; DXF ostaja polni izvoz |
 | `predloga: "POKONČNA"` je obšla validacijo pokončne (primerjava z malo začetnico) | P2 | odpravljeno (v1.5.5): `zdruzi` in `preveri_cfg` normalizirata ime; velika začetnica ne obide geometrije, neznana predloga se še vedno zavrne |
+| tip segmenta `"OGRAJA"`/tipkarska napaka je v DXF tiho postal pokončna ograja (`else` veja) | P1 | odpravljeno (v1.5.6): tip se normalizira, neznan se zavrne; `preveri_cfg` preveri obliko segmentov in `mere` |
 | dve definiciji odpada na montažnem listu (PORABA „odpad“ vključuje kerf, REZ „ostanek“ ga ne) | P3 | konservativnost namerna — zapisano v docs/build.md in poročilu; predlog T10 to zaklene |
 
 - skupaj **163 testov** (74 iz #2 nespremenjenih + 61 iz #3 + 28 novih),
