@@ -1,5 +1,21 @@
 # Zgodovina sprememb
 
+## v1.5.10 — 2026-11-24 (testi)
+
+Sprememba vedenja ni nobena — zapira se dokumentirana testna vrzel iz
+revizije (najdba P2/P3: „krajšanje rezalnega načrta brez testov“).
+
+- **Krajšanje montažnega lista je zdaj zaklenjeno s testi.** Nad 10 vrstami
+  se v REZALNEM NAČRTU pokaže 10 vrst in vrstica „… ostalih N vrst“ s
+  sklicem na CSV/nalepke; vizualni rez pokaže največ 5 trakov in zapiše
+  „prikazanih 5 od N trakov“. Prej teh mej ni preverjal noben test.
+  Štirje testi: okrnitev nad 10 vrstami, neokrnjenih 10 vrst, 7 trakov
+  (5 + zapis), 5 trakov (brez zapisa).
+- Čiščenje vej: vse feature veje so bile že zlite v `main` (0 lastnih
+  commitov), zato so odstranjene lokalno in na `origin` — ostane samo
+  `main`.
+- Preverjeno: polna suite; ruff čist; mypy brez novih.
+
 ## v1.5.9 — 2026-11-24 (popravek)
 
 - **Podan kot med segmenti ni več tiho izgubljen v DXF.** `kot` je del
