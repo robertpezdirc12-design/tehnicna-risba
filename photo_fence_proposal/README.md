@@ -15,6 +15,8 @@ python zazeni.py --fotografija ..\slike\moja_ograja.jpg --izhod izhod/
     --tip wpc_vodoravne_lamele --barva antracit
     --referenca razmak_stebrov=2000     # ena znana referenčna mera (mm)
     --visina 1800 --dolzina 6000        # neobvezno: ročno potrjene mere
+    --podjetje "Mojster d.o.o." --stranka "Naročnik" --objekt "Terasa"
+    # --cene ..\cene.yaml (privzeto se najde sam) · --brez-predracuna
 ```
 
 Testi (samostojni, ne vplivajo na obstoječo `tests/`):
@@ -36,6 +38,13 @@ python -m pytest testi_pfp.py -q
    risba s kotiranjem + statusi, kosovnica, informativni razrez/odpad.
    Dokument je **INFORMATIVNI PREDLOG**, dokler ključne mere niso potrjene;
    šele potem je označen kot *pripravljeno za izdelavo*.
+6. **Predračun** (`07-predracun.pdf`, `08-predracun.csv`) — kosovnica,
+   ovrednotena s cenikom `cene.yaml` iz korena projekta (ali `--cene`).
+   Cene se **ne izmišljajo**: manjkajoč ključ = »cena po dogovoru«, znesek
+   ostane prazen in skupni znesek NI izračunan. Postavke, ki jih kosovnica
+   ne vsebuje (sidra, osnove, nosilci, zaključni profili), se ne prištejejo
+   tiho — dokument jih našteje kot opozorilo za monterja. Dokler ključne
+   mere niso potrjene, je predračun označen **INFORMATIVNO** in ni ponudba.
 
 ## Poštene omejitve (pomembno)
 
@@ -74,6 +83,7 @@ python -m pytest testi_pfp.py -q
 | `predlog.py` | vizualni predlog na fotografiji (A) |
 | `tehniska_risba.py` | tehnična risba s kotiranjem in statusi (B) |
 | `material.py` | kosovnica + informativni razrez/odpad |
+| `izracun.py` | predračun iz kosovnice + cenika (`cene.yaml`), PDF/CSV |
 | `zazeni.py` | CLI (celoten tok) |
 | `napravi_testne_slike.py` | generator sintetičnih prizorov z znanimi merami |
 | `testi_pfp.py` | samostojni testi (32) |

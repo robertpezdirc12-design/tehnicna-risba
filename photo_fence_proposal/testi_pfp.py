@@ -18,6 +18,7 @@ from model import (Mera, ParametriNove, Rezultat, NEZNANO, OCENJENO,
                    IZMERJENO, IZRACUNANO)
 import zaznavanje
 import kalibracija
+import izracun
 import material
 import napravi_testne_slike
 
@@ -119,7 +120,7 @@ def test_napaka_mer_na_prizorih(testni_prizori, capsys):
         for ime, nagib, napake in porocilo:
             niz = ", ".join(f"{k}: ±{v:.0f} mm" for k, v in napake.items())
             print(f"  {ime} (nagib {nagib}°): {niz}")
-        print("=== (kalibracija na razmak: dolžina (n−1)×razmak je po konstrukciji "
+        print("=== (kalibracija na razmak: dolzina (n-1)xrazmak je po konstrukciji "
               "natančna; višina je odvisna od zaznave letvi ===")
 
 
@@ -231,7 +232,7 @@ def test_napaka_mer_regresija(testni_prizori, capsys):
         assert nd_v < 0.05 * resni["dolzina_ograje"], f"{ime}: navzkrižno ±{nd_v:.0f} mm"
         with capsys.disabled():
             print(f"  regresija {ime}: dolzina ±{nd:.0f} mm, visina ±{nv:.0f} mm, "
-                  f"navzkrižno (kal. višina→dolžina) ±{nd_v:.0f} mm")
+                  f"navzkrizno (kal. visina->dolzina) ±{nd_v:.0f} mm")
 
 
 def test_risba_namesto_fotografije_ne_izmisli_mer(tmp_path):
@@ -766,3 +767,107 @@ def test_izberi_vogale_interaktivni_tok_z_lupo():
     inter.tipka("enter")
     assert not plt.fignum_exists(fig.number)
     assert len(inter.tocke) == 4
+# ---------------------------------------------------------------------------
+# Predračun iz kosovnice (izracun.py)
+# ---------------------------------------------------------------------------
+
+def _potrjen_rezultat():
+    rez = Rezultat(zaznava=None, parametri=ParametriNove())
+    rez.mere = {
+        "dolzina_ograje": Mera(6000.0, IZMERJENO, "x"),
+        "visina_ograje": Mera(1800.0, IZMERJENO, "x"),
+        "stevilo_polj": Mera(3.0, IZRACUNANO, "x"),
+        "stevilo_stebrov": Mera(4.0, IZMERJENO, "x"),
+        "razmak_stebrov": Mera(2000.0, IZRACUNANO, "x"),
+    }
+    material.izracunaj_material(rez)
+    return rez
+
+
+def test_izracun_prebere_cenik_in_preskoci_ostalo(tmp_path):
+    pot = tmp_path / "cenik.yaml"
+    pot.write_text("# komentar\nwpc_deska_m: 24.50  # deska\n"
+                   "alu_m: 18\nneveljavno: abc\nprazno:\n",
+                   encoding="utf-8")
+    c = izracun.preberi_cenik(pot)
+    assert c == {"wpc_deska_m": 24.5, "alu_m": 18.0}
+    assert izracun.preberi_cenik(tmp_path / "ni.yaml") == {}
+    assert izracun.preberi_cenik(None) == {}
+
+
+def test_izracun_manjkajoca_cena_ni_nicla():
+    p = izracun.sestavi(_potrjen_rezultat(), {})
+    assert all(v.cena_enote is None and v.znesek is None for v in p.vrstice)
+    assert p.skupaj is None
+    assert set(p.manjkajoce_cene) >= {"wpc_deska_m", "alu_m", "vijak_kos"}
+
+
+def test_izracun_zneski_po_ceniku():
+    cenik = {"wpc_deska_m": 10.0, "alu_m": 20.0, "vijak_kos": 1.0,
+             "dela_ure": 2, "dela_ur_cena": 30.0}
+    p = izracun.sestavi(_potrjen_rezultat(), cenik)
+    po_nazivu = {v.naziv: v for v in p.vrstice}
+    # 10 lamel po 6000 mm = 60 m
+    assert po_nazivu["WPC lamele"].kolicina == pytest.approx(60.0)
+    assert po_nazivu["WPC lamele"].znesek == pytest.approx(600.0)
+    # 4 stebri po (1800 + 200) mm = 8 m
+    assert po_nazivu["Aluminijasti stebri"].kolicina == pytest.approx(8.0)
+    assert po_nazivu["Aluminijasti stebri"].znesek == pytest.approx(160.0)
+    assert po_nazivu["Vijaki M8×70"].znesek == pytest.approx(60.0)
+    assert p.skupaj_material == pytest.approx(820.0)
+    assert p.skupaj_delo == pytest.approx(60.0)
+    assert p.skupaj == pytest.approx(880.0)
+    assert p.manjkajoce_cene == []
+
+
+def test_izracun_brez_visine_je_informativno():
+    rez = Rezultat(zaznava=None, parametri=ParametriNove())
+    rez.mere = {"dolzina_ograje": Mera(6000.0, IZMERJENO, "x"),
+                "visina_ograje": Mera(None, NEZNANO, "x")}
+    material.izracunaj_material(rez)
+    p = izracun.sestavi(rez, {"wpc_deska_m": 10.0, "alu_m": 20.0,
+                              "vijak_kos": 1.0})
+    assert p.informativno is True
+    assert any("informativne" in o.lower() for o in p.opozorila)
+
+
+def test_predracun_pdf_in_csv(tmp_path):
+    rez = _potrjen_rezultat()
+    p = izracun.sestavi(rez, {"wpc_deska_m": 10.0, "alu_m": 20.0,
+                              "vijak_kos": 1.0})
+    pdf = tmp_path / "predracun.pdf"
+    izracun.narisi_predracun(p, rez, pdf, podjetje="Test", stranka="X")
+    assert pdf.read_bytes().startswith(b"%PDF")
+    assert pdf.stat().st_size > 3000
+    csv_pot = tmp_path / "predracun.csv"
+    izracun.izvozi_csv(p, csv_pot)
+    vsebina = csv_pot.read_text(encoding="utf-8")
+    assert "SKUPAJ" in vsebina and "WPC lamele" in vsebina
+
+
+def test_cli_manjkajoc_cenik_vrne_napako(testni_prizori, tmp_path, capsys):
+    import zazeni
+    _ime, pot, _resni = testni_prizori[0]
+    kod = zazeni.main(["--fotografija", pot,
+                       "--izhod", str(tmp_path / "izhod"),
+                       "--cene", str(tmp_path / "ni_cenika.yaml")])
+    assert kod == 2
+    assert "ne obstaja" in capsys.readouterr().err
+
+
+def test_cli_izdela_predracun(testni_prizori, tmp_path):
+    import zazeni
+    _ime, pot, resni = testni_prizori[0]
+    izhod = tmp_path / "izhod"
+    zazeni.pozeni(
+        pot, str(izhod), ParametriNove(),
+        referenca=("razmak_stebrov",
+                   resni["dolzina_ograje"] / resni["stevilo_polj"]),
+        cene_pot=os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "..", "cene.yaml"),
+        stranka="Test")
+    for ime in ("07-predracun.pdf", "08-predracun.csv"):
+        p = izhod / ime
+        assert p.is_file() and p.stat().st_size > 0, ime
+    povzetek = (izhod / "06-povzetek.txt").read_text(encoding="utf-8")
+    assert "PREDRAČUN" in povzetek

@@ -1,5 +1,30 @@
 # Zgodovina sprememb
 
+## v1.5.13 — 2026-11-24 (orodja)
+
+**Fotografija → mere → risba → predračun** v enem toku (`photo_fence_proposal`).
+Dodatek ostaja samostojen in brez AI modelov — vse lokalno (OpenCV).
+
+- **`izracun.py`** — nov modul: kosovnico ovrednoti s cenikom `cene.yaml`
+  (WPC po metrih porabe, stebri po metrih profila, vijaki po kosih, delo po
+  urah). Cene se **ne izmišljajo**: manjkajoč ključ pomeni »cena po
+  dogovoru«, skupni znesek ostane neizračunan, dokler cena manjka.
+  Postavke, ki jih kosovnica ne vsebuje (sidra, osnove, nosilci, zaključni
+  profili), se ne prištejejo tiho — izpišejo se kot opozorilo za monterja.
+- **`07-predracun.pdf` in `08-predracun.csv`** — A4 predračun z glavo
+  (podjetje/stranka/objekt), postavkami, seštevki, statusi mer in blokom
+  opozoril. Dokler ključne mere niso potrjene, je dokument označen
+  **INFORMATIVNO** in ni ponudba.
+- CLI: `--cene`, `--brez-predracuna`, `--podjetje`, `--stranka`, `--objekt`;
+  brez cenika se predračun ne izdela (jasno opozorilo, ne tiho ničla).
+- **Konzola (Windows cp1250):** izpis je prek cevi v UTF-8, znaki `≈`, `×`,
+  `—` se za konzolo zamenjajo — `UnicodeEncodeError` pri povzetku je
+  odpravljen (enak razred napake kot v v1.5.8).
+- Preverjeno: `testi_pfp.py` **51 testov** (7 novih za predračun), ruff čist,
+  mypy brez novih napak; na realni fotografiji dokument ostane
+  INFORMATIVNI PREDLOG (zaznava 15 »stebrov« namesto dejanskih — meritve
+  se ne izmišljajo).
+
 ## v1.5.12 — 2026-11-24 (orodja)
 
 Dodano je **ločeno orodje za ilustracije** — ne del izdelka, ne v EXE-ju,

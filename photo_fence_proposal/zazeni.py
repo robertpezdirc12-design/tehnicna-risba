@@ -14,6 +14,11 @@ Izhodne datoteke v --izhod:
     04-kosovnica.csv         kosovnica / material
     05-povzetek.json         mere s statusi + opozorila (strojno berljivo)
     06-povzetek.txt          človeku prijazen povzetek
+    07-predracun.pdf         predračun iz kosovnice in cenika (neobvezno)
+    08-predracun.csv         predračun, strojno berljivo
+
+Predračun se izdela samo, če je cenik podan (--cene) ali najden v korenu
+projekta (cene.yaml). Brez cenika se ne izmišljuje nobena cena.
 """
 from __future__ import annotations
 
@@ -27,9 +32,30 @@ import cv2
 from model import ParametriNove, Rezultat
 import zaznavanje
 import kalibracija
+import izracun
 import material
 import predlog
 import tehniska_risba
+
+
+ZAMENJAVE_KONZOLA = {"≈": "~", "³": "3", "×": "x", "Ø": "fi", "–": "-",
+                     "—": "-", "·": "."}
+
+
+def za_konzolo(besedilo: str) -> str:
+    """Prilagodi besedilo kodni strani konzole (Windows cp1250).
+
+    Zapis v datoteke ostane UTF-8; tu zamenjamo le znake, ki jih konzola
+    ne zmore (≈, ×, —), da izpis ne pade z UnicodeEncodeError.
+    """
+    kod = getattr(sys.stdout, "encoding", None) or "utf-8"
+    try:
+        besedilo.encode(kod)
+        return besedilo
+    except UnicodeEncodeError:
+        for znak, nadomestek in ZAMENJAVE_KONZOLA.items():
+            besedilo = besedilo.replace(znak, nadomestek)
+        return besedilo.encode(kod, "replace").decode(kod, "replace")
 
 
 def izvozi_kosovnico_csv(rezultat: Rezultat, pot: str) -> str:
@@ -57,7 +83,9 @@ def izvozi_kosovnico_csv(rezultat: Rezultat, pot: str) -> str:
 def pozeni(pot_fotografije: str, izhod: str, parametri: ParametriNove,
            referenca: tuple[str, float] | None = None,
            visina_mm: float | None = None,
-           dolzina_mm: float | None = None) -> Rezultat:
+           dolzina_mm: float | None = None,
+           cene_pot: str | None = None, stranka: str = "",
+           podjetje: str = "", objekt: str = "") -> Rezultat:
     os.makedirs(izhod, exist_ok=True)
 
     # 1) zaznavanje (klasični OpenCV)
@@ -97,13 +125,29 @@ def pozeni(pot_fotografije: str, izhod: str, parametri: ParametriNove,
     with open(os.path.join(izhod, "05-povzetek.json"), "w",
               encoding="utf-8") as f:
         f.write(rezultat.v_json())
+    povzetek = rezultat.povzetek()
+    if cene_pot:
+        cenik = izracun.preberi_cenik(cene_pot)
+        predracun = izracun.sestavi(rezultat, cenik)
+        izracun.narisi_predracun(
+            predracun, rezultat, os.path.join(izhod, "07-predracun.pdf"),
+            podjetje=podjetje, stranka=stranka, objekt=objekt)
+        izracun.izvozi_csv(predracun, os.path.join(izhod, "08-predracun.csv"))
+        povzetek += "\n\n" + predracun.povzetek()
     with open(os.path.join(izhod, "06-povzetek.txt"), "w",
               encoding="utf-8") as f:
-        f.write(rezultat.povzetek())
+        f.write(povzetek)
     return rezultat
 
 
 def main(argv=None):
+    # cevi ne znajo cp1250: ko izhod ni konzola, piši UTF-8 (konzola ostane
+    # privzeto kodiranje — tam Python č/š/ž izpiše pravilno)
+    if not sys.stdout.isatty():
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+        except AttributeError:      # pragma: no cover — <3.7
+            pass
     p = argparse.ArgumentParser(prog="photo_fence_proposal",
                                 description="Predlog nove ograje iz fotografije "
                                             "stare (brez AI modelov, lokalno)")
@@ -119,6 +163,13 @@ def main(argv=None):
                    help="ročno potrjena višina ograje v mm")
     p.add_argument("--dolzina", type=float, default=None,
                    help="ročno potrjena dolžina ograje v mm")
+    p.add_argument("--cene", default=None,
+                   help="cenik (cene.yaml); privzeto iz korena projekta")
+    p.add_argument("--brez-predracuna", action="store_true",
+                   help="ne izdelaj predračuna (samo risba + kosovnica)")
+    p.add_argument("--podjetje", default="", help="izvajalec (glava ponudbe)")
+    p.add_argument("--stranka", default="", help="stranka (glava ponudbe)")
+    p.add_argument("--objekt", default="", help="objekt (glava ponudbe)")
     args = p.parse_args(argv)
 
     for ime_mere, vrednost in (("--visina", args.visina),
@@ -137,15 +188,36 @@ def main(argv=None):
                   f"(prejeto: {args.referenca!r})", file=sys.stderr)
             return 2
 
+    cene_pot: str | None = None
+    if not args.brez_predracuna:
+        if args.cene:
+            if not os.path.isfile(args.cene):
+                print(f"NAPAKA: cenik {args.cene!r} ne obstaja — predračuna "
+                      "ni mogoče izdelati (brez --cene se ne izmišljuje cen).",
+                      file=sys.stderr)
+                return 2
+            cene_pot = args.cene
+        else:
+            privzeti = os.path.join(os.path.dirname(os.path.dirname(
+                os.path.abspath(__file__))), "cene.yaml")
+            if os.path.isfile(privzeti):
+                cene_pot = privzeti
+            else:
+                print("OPOZORILO: cenik cene.yaml ni najden — predračun ne bo "
+                      "izdelan (uporabi --cene ali --brez-predracuna).",
+                      file=sys.stderr)
+
     parametri = ParametriNove(tip=args.tip, barva=args.barva)
     try:
         rezultat = pozeni(args.fotografija, args.izhod, parametri,
-                          referenca, args.visina, args.dolzina)
+                          referenca, args.visina, args.dolzina,
+                          cene_pot=cene_pot, stranka=args.stranka,
+                          podjetje=args.podjetje, objekt=args.objekt)
     except ValueError as e:
         print(f"NAPAKA: {e}", file=sys.stderr)
         return 1
 
-    print(rezultat.povzetek())
+    print(za_konzolo(rezultat.povzetek()))
     print(f"\nIzpisi v: {args.izhod}")
     return 0
 
