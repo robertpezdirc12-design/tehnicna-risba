@@ -14,6 +14,9 @@
 - Test, da `.spec` izloči OCR verigo (`rapidocr_onnxruntime`,
   `onnxruntime`, `transformers`, `torch`, `pandas`) in da OCR ni v
   `requirements.txt` — 312 MB regresija se ne more vrniti tiho.
+- `build-zapisnik.json` odstranjen iz indeksa: `.gitignore` ga je že
+  pokrival, a je ostal sleden in je vsaka gradnja umazala delovno drevo.
+  Zdaj je res lokalni artefakt (datoteka na disku ostane).
 
 ## v1.5 — 2026-11-23 (build)
 
