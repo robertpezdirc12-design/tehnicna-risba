@@ -30,6 +30,26 @@ python zazeni.py --fotografija foto.jpg --izhod izhod/ --marker-mm 150 \
     --vogali "300,520;1500,300;1500,830;300,950"
 ```
 
+### Več posnetkov iste ograje (soglasje)
+
+Ena fotografija svojo napako skrije. Če isto ograjo posnamete **dvakrat**
+(marker na vsakem posnetku, koti na vsakem), se napaka pokaže kot
+**nesoglasje** — in program je ne zakrije s povprečjem:
+
+```bash
+python zazeni.py --fotografija prva.jpg --izhod izhod/ --marker-mm 150 \
+    --vogali "300,520;1500,300;1500,830;300,950" \
+    --dodatna "druga.jpg|120,540;1480,280;1490,820;310,960"
+```
+
+Dve meritvi, ki se ujemata znotraj **2 %**, dasta mediano z opisom
+`soglasje 2 posnetkov (razpršenost 0,4 %)` in status `izracunano`. Če se ne
+ujemata, mera **ni** izračunana, v dokumentu pa je razpon, npr. *dolžina
+5925–6600 mm, razpršenost 10,4 % — preveri kote in marker*. Prag 2 % je
+izbran zavestno: napaka enega posnetka je izmerjena 0,03–3 %, zato bi
+strožji prag zavračal pravilne meritve, ohlapnejši pa ne bi ujel napačne
+stranice markerja (5–13 %).
+
 ### V programu (brez ukazne vrstice)
 
 Glavni program → zavihek *Fotografija* → gumb **Predlog mer iz fotografije**.
@@ -39,7 +59,11 @@ V oknu sta dve neobvezni polji:
   čelni pogled in elementi se preštejejo;
 - **Marker (mm)** — stranica natisnjenega markerja (privzeto 150). Gumb
   **Natisni marker …** shrani A4 list (PNG, 300 dpi) s 100-mm kontrolno
-  črto; natisni ga v merilu 1:1 in prilepi v ravnino ograje.
+  črto; natisni ga v merilu 1:1 in prilepi v ravnino ograje;
+- **2. posnetek (pot|x,y;…)** — neobvezno: druga fotografija iste ograje z
+  lastnimi koti. Če se meritvi ujemata znotraj 2 %, velja mediana in opis
+  pove *soglasje 2 posnetkov*; če ne, mera ni izračunana in opozorilo
+  navede razpon.
 
 Brez obeh polj okno deluje kot prej (predlog iz zaznave). Z markerjem sta
 dolžina in višina `izračunano`; z vnesenimi koti brez markerja je znana
@@ -130,9 +154,10 @@ python -m pytest testi_pfp.py -q
 | `marker.py` | A4 ArUco marker + meritev prek homografije markerja |
 | `avtomatska_skica.py` | fotografija → A3 skica (sprednji pogled, prerez, detajl) |
 | `vnos.py` | skupno razčlenjevanje kotov (CLI + GUI) |
+| `vec_posnetkov.py` | soglasje več posnetkov iste ograje (mediana + prag 2 %) |
 | `zazeni.py` | CLI (celoten tok) |
 | `napravi_testne_slike.py` | generator sintetičnih prizorov z znanimi merami |
-| `testi_pfp.py` | samostojni testi (68) |
+| `testi_pfp.py` | samostojni testi (78) |
 
 Nič v tej mapi se ne priklopi v glavni program brez izrecne odobritve uporabnika.
 ## Avtomatska skica (P1) — fotografija → A3 risba

@@ -976,7 +976,7 @@ def test_marker_list_ima_natancno_velikost(tmp_path):
 
 
 def _scena_z_markerjem(ppmm=0.5, velikost_markerja_mm=300.0,
-                       platno=(900, 1800)):
+                       platno=(900, 1800), dst=None):
     """Ravnina 6000×1000 mm z markerjem, zavita v perspektivo."""
     import numpy as np
     import cv2
@@ -998,7 +998,9 @@ def _scena_z_markerjem(ppmm=0.5, velikost_markerja_mm=300.0,
     platno_slika = np.full((platno[0], platno[1], 3), 110, np.uint8)
     w, h = ravnina.shape[1], ravnina.shape[0]
     src = np.float32([[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]])
-    dst = np.float32([[150, 200], [1650, 230], [1580, 700], [220, 660]])
+    if dst is None:
+        dst = [[150, 200], [1650, 230], [1580, 700], [220, 660]]
+    dst = np.float32(dst)
     M = cv2.getPerspectiveTransform(src, dst)
     warp = cv2.warpPerspective(ravnina, M, (platno[1], platno[0]))
     maska = cv2.warpPerspective(np.full((h, w), 255, np.uint8), M,
@@ -1071,6 +1073,112 @@ def test_zazeni_z_markerjem_izmeri_mere(tmp_path):
     assert 3 <= int(stebri.vrednost_mm) <= 5     # 4 stebri (robova ±1)
 
 
+def test_soglasje_se_ujema():
+    """Dve meritvi, ki se ujemata → mediana + dovolj."""
+    import vec_posnetkov as v
+    sog = v.soglasje([v.Meritev("a.jpg", 6000.0, 1000.0),
+                      v.Meritev("b.jpg", 6030.0, 1005.0)])
+    assert sog.dovolj
+    assert abs(sog.dolzina_mm - 6015.0) < 1e-6
+    assert abs(sog.visina_mm - 1002.5) < 1e-6
+    assert sog.razprsenost <= 0.02
+    assert not sog.opozorila
+
+
+def test_soglasje_nesoglasje_opozori():
+    """Razlika 10 % ni ista meritev — rezultat NI izračunan."""
+    import vec_posnetkov as v
+    sog = v.soglasje([v.Meritev("a.jpg", 6000.0, 1000.0),
+                      v.Meritev("b.jpg", 6600.0, 1100.0)])
+    assert not sog.dovolj
+    assert sog.dolzina_mm is None
+    assert any("NE ujemajo" in o for o in sog.opozorila)
+    assert "6600" in " ".join(sog.opozorila)
+
+
+def test_soglasje_brez_markerja_na_enem_posnetku():
+    import vec_posnetkov as v
+    sog = v.soglasje([v.Meritev("a.jpg", 6000.0, 1000.0),
+                      v.Meritev("b.jpg", 6010.0, 1001.0),
+                      v.Meritev("c.jpg", None, None)])
+    assert sog.dovolj
+    assert any("ni bilo mogoče prebrati" in o for o in sog.opozorila)
+
+
+def test_soglasje_z_eno_meritvijo_ni_dovolj():
+    import vec_posnetkov as v
+    sog = v.soglasje([v.Meritev("a.jpg", 6000.0, 1000.0),
+                      v.Meritev("b.jpg", None, None)])
+    assert not sog.dovolj
+    assert any("vsaj DVA" in o for o in sog.opozorila)
+
+
+def test_izmeri_dve_perspektivi_soglasje(tmp_path):
+    """Dva posnetka iste ograje (marker 300 mm) → soglasje znotraj 3 %."""
+    import cv2
+    import vec_posnetkov as v
+    a, vog_a = _scena_z_markerjem()
+    b, vog_b = _scena_z_markerjem(
+        dst=[[120, 240], [1700, 190], [1720, 720], [90, 690]])
+    pa, pb = str(tmp_path / "a.png"), str(tmp_path / "b.png")
+    cv2.imwrite(pa, a)
+    cv2.imwrite(pb, b)
+    ma = v.izmeri(pa, vog_a, 300.0)
+    mb = v.izmeri(pb, vog_b, 300.0)
+    assert ma.dolzina_mm and mb.dolzina_mm
+    sog = v.soglasje([ma, mb])
+    assert sog.dovolj
+    assert abs(sog.dolzina_mm / 6000 - 1) <= 0.03
+    assert abs(sog.visina_mm / 1000 - 1) <= 0.03
+
+
+def test_izmeri_neberljiv_marker_vrzi_none(tmp_path):
+    """Preoster kot → markerja ni; rezultat je None, ne izmišljena mera."""
+    import cv2
+    import vec_posnetkov as v
+    slika, vogali = _scena_z_markerjem(
+        dst=[[60, 300], [1750, 120], [1760, 780], [40, 700]])
+    pot = str(tmp_path / "ostro.png")
+    cv2.imwrite(pot, slika)
+    m = v.izmeri(pot, vogali, 300.0)
+    assert m.dolzina_mm is None
+    assert m.visina_mm is None
+
+
+def test_razcleni_dodatno():
+    import vec_posnetkov as v
+    pot, koti = v.razcleni_dodatno("slike/druga.jpg|10,20;30,20;30,40;10,40")
+    assert pot == "slike/druga.jpg"
+    assert koti == [(10.0, 20.0), (30.0, 20.0), (30.0, 40.0), (10.0, 40.0)]
+    pot2, koti2 = v.razcleni_dodatno("C:\\slike\\a.png:1,2;3,2;3,4;1,4")
+    assert pot2 == "C:\\slike\\a.png" and len(koti2) == 4
+    for slab in ("brez locila", "a.jpg|1,2;3,2;3,4"):
+        try:
+            v.razcleni_dodatno(slab)
+        except ValueError:
+            continue
+        raise AssertionError(f"moralo bi zavrniti: {slab!r}")
+
+
+def test_zazeni_z_dodatnim_posnetkom_soglasje(tmp_path):
+    """CLI pot: dve fotografiji → soglasje 2 posnetkov v opisu mere."""
+    import cv2
+    import zazeni
+    a, vog_a = _scena_z_markerjem()
+    b, vog_b = _scena_z_markerjem(
+        dst=[[120, 240], [1700, 190], [1720, 720], [90, 690]])
+    pa, pb = str(tmp_path / "a.png"), str(tmp_path / "b.png")
+    cv2.imwrite(pa, a)
+    cv2.imwrite(pb, b)
+    rez = zazeni.pozeni(pa, str(tmp_path / "izhod"), ParametriNove(),
+                        vogali=vog_a, velikost_markerja_mm=300.0,
+                        dodatni=[(pb, vog_b)])
+    dol = rez.mere["dolzina_ograje"]
+    assert dol.status == IZRACUNANO
+    assert "soglasje 2" in dol.opis
+    assert abs(dol.vrednost_mm / 6000 - 1) <= 0.04
+
+
 def test_izracunaj_mere_pot_z_markerjem(tmp_path):
     """Skica/GUI: marker da obe dimenziji, ne glede na zaznavo lamel."""
     import cv2
@@ -1085,6 +1193,47 @@ def test_izracunaj_mere_pot_z_markerjem(tmp_path):
     assert m["visina_ograje"].status == IZRACUNANO
     assert abs(m["dolzina_ograje"].vrednost_mm / 6000 - 1) <= 0.06
     assert abs(m["visina_ograje"].vrednost_mm / 1000 - 1) <= 0.06
+
+
+def test_izracunaj_mere_pot_soglasje(tmp_path):
+    """Dve fotografiji → mediana + opis »soglasje 2«, ne tiho povprečje."""
+    import cv2
+    import avtomatska_skica
+    a, vog_a = _scena_z_markerjem()
+    b, vog_b = _scena_z_markerjem(
+        dst=[[120, 240], [1700, 190], [1720, 720], [90, 690]])
+    pa, pb = str(tmp_path / "a.png"), str(tmp_path / "b.png")
+    cv2.imwrite(pa, a)
+    cv2.imwrite(pb, b)
+    podatki = avtomatska_skica.izracunaj_mere_pot(
+        pa, vogali=vog_a, marker_mm=300.0, dodatni=[(pb, vog_b)])
+    dol = podatki["mere"]["dolzina_ograje"]
+    assert dol.status == IZRACUNANO
+    assert "soglasje 2" in dol.opis
+    assert abs(dol.vrednost_mm / 6000 - 1) <= 0.03
+
+
+def test_izracunaj_mere_pot_nesoglasje_opozori(tmp_path):
+    """2. posnetek z napačno označenimi koti (±6 %) → opozorilo, ne povprečje."""
+    import cv2
+    import avtomatska_skica
+    a, vog_a = _scena_z_markerjem()
+    b, vog_b = _scena_z_markerjem()
+    # kote drugega posnetka razširi za 6 % okoli središča (uporabnik je
+    # kliknil preširoko) — meritvi se morata razkriti kot neskladni
+    sx = sum(p[0] for p in vog_b) / 4.0
+    sy = sum(p[1] for p in vog_b) / 4.0
+    vog_b = [(sx + (x - sx) * 1.06, sy + (y - sy) * 1.06)
+             for x, y in vog_b]
+    pa, pb = str(tmp_path / "a.png"), str(tmp_path / "b.png")
+    cv2.imwrite(pa, a)
+    cv2.imwrite(pb, b)
+    podatki = avtomatska_skica.izracunaj_mere_pot(
+        pa, vogali=vog_a, marker_mm=300.0, dodatni=[(pb, vog_b)])
+    assert any("NE ujemajo" in o for o in podatki["opozorila"])
+    dol = podatki["mere"]["dolzina_ograje"]
+    # prva meritev ostane; soglasja ni, zato ni mediane
+    assert abs(dol.vrednost_mm / 6000 - 1) <= 0.06
 
 
 def test_izracunaj_mere_pot_brez_markerja_opozori(tmp_path):

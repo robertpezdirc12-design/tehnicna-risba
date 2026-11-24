@@ -317,7 +317,7 @@ def sestavi_podatke(mere, ritem, slika_rect, lokacija="—",
 
 # ---------------------------------------------------------------- pogon
 def izracunaj_mere_pot(slika_pot, referenca=None, vogali=None,
-                       marker_mm=None):
+                       marker_mm=None, dodatni=None):
     """Merilni del toka BREZ risanja: fotografija → mere + ritem + opozorila.
 
     Isti podatki, kot jih generiraj() uporabi za skico — GUI lahko ponudi
@@ -336,6 +336,10 @@ def izracunaj_mere_pot(slika_pot, referenca=None, vogali=None,
     nista odvisni od razmerja stranic poravnane slike. Brez markerja je
     dolžina, izpeljana iz znane višine, le OCENJENO — iz samih kotov
     širine ni mogoče izračunati.
+
+    dodatni: [(pot, koti), ...] — dodatni posnetki iste ograje. Če se
+    meritve ujemajo znotraj 2 %, velja mediana (`soglasje N posnetkov`);
+    ob nesoglasju mera NI izračunana in opozorilo pove razpon.
 
     Vrne {"mere", "ritem", "opozorila", "rect_pas", "vis_px", "sir_px"}.
     """
@@ -461,6 +465,19 @@ def izracunaj_mere_pot(slika_pot, referenca=None, vogali=None,
         mere["dolzina_ograje"] = _mera(
             "dolzina_ograje", dolz_mm, IZRACUNANO, "dolžina " + _vir)
 
+    if meritev_markerja is not None and dodatni:
+        sog = _soglasje_meritev(slika_pot, meritev_markerja, dodatni,
+                                float(marker_mm or marker.STRANICA_MM))
+        opozorila.extend(o for o in sog.opozorila if o not in opozorila)
+        if sog.dovolj and sog.dolzina_mm and sog.visina_mm:
+            n = sum(1 for m in sog.meritve if m.dolzina_mm and m.visina_mm)
+            vir = (f"soglasje {n} posnetkov (razpršenost "
+                   f"{sog.razprsenost * 100:.2f} %)")
+            mere["visina_ograje"] = Mera(sog.visina_mm, IZRACUNANO,
+                                         "višina — " + vir)
+            mere["dolzina_ograje"] = Mera(sog.dolzina_mm, IZRACUNANO,
+                                          "dolžina — " + vir)
+
     if mm_na_px and n_lam and ritem.get("pitch_px"):
         if meritev_markerja is None:
             vis_mm = vis_px * mm_na_px
@@ -517,8 +534,18 @@ def izracunaj_mere_pot(slika_pot, referenca=None, vogali=None,
             "rect_pas": rect_pas, "vis_px": vis_px, "sir_px": sir_px}
 
 
+def _soglasje_meritev(slika_pot, meritev, dodatni, marker_mm: float):
+    """Soglasje: prva meritev je že izračunana, ostale izmeri tu."""
+    import vec_posnetkov
+    meritve = [vec_posnetkov.Meritev(slika_pot, float(meritev[0]),
+                                     float(meritev[1]))]
+    for pot_d, koti_d in dodatni:
+        meritve.append(vec_posnetkov.izmeri(pot_d, koti_d, marker_mm))
+    return vec_posnetkov.soglasje(meritve)
+
+
 def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None, vogali=None,
-              marker_mm=None):
+              marker_mm=None, dodatni=None):
     """Celoten tok: fotografija → avtomatska A3 skica (PDF).
 
     referenca: (kaj, vrednost_mm) ali None. Brez reference so vse mere
@@ -529,7 +556,8 @@ def generiraj(slika_pot, pot_pdf, lokacija="—", referenca=None, vogali=None,
     IZRAČUNANO iz trdne geometrije (ne več le ocena).
     """
     podatki = izracunaj_mere_pot(slika_pot, referenca=referenca,
-                                 vogali=vogali, marker_mm=marker_mm)
+                                 vogali=vogali, marker_mm=marker_mm,
+                                 dodatni=dodatni)
     pod = sestavi_podatke(podatki["mere"], podatki["ritem"],
                           podatki["rect_pas"], lokacija=lokacija,
                           opozorila=podatki["opozorila"])

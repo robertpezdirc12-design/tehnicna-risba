@@ -1878,7 +1878,7 @@ class App(tk.Tk):
         """
         okno = tk.Toplevel(self)
         okno.title("Predlog mer iz fotografije")
-        okno.geometry("640x580")
+        okno.geometry("640x620")
         okno.transient(self)
         ttk.Label(okno, text="Predlog mer iz fotografije",
                   font=("Segoe UI", 11, "bold")).pack(
@@ -1914,6 +1914,17 @@ class App(tk.Tk):
         ttk.Label(mer_okvir, text="brez markerja je dolžina le ocena",
                   foreground="#777777").pack(side="left", padx=6)
 
+        sog_okvir = ttk.Frame(okno)
+        sog_okvir.pack(fill="x", padx=12, pady=(0, 2))
+        ttk.Label(sog_okvir, text="2. posnetek (pot|x,y;…):").pack(
+            side="left")
+        dodatni_vnos = ttk.Entry(sog_okvir, width=28)
+        dodatni_vnos.pack(side="left", padx=6)
+        ttk.Button(sog_okvir, text="Izberi …",
+                   command=lambda: _izberi_dodatnega()).pack(side="left")
+        ttk.Label(sog_okvir, text="za soglasje (neobvezno)",
+                  foreground="#777777").pack(side="left", padx=6)
+
         vsebina = ttk.Frame(okno)
         vsebina.pack(fill="both", expand=True, padx=12, pady=4)
         info = tk.Text(okno, height=5, wrap="word", state="disabled")
@@ -1929,8 +1940,21 @@ class App(tk.Tk):
             info.insert("end", "\n".join(besedila) or "(brez opozoril)")
             info.config(state="disabled")
 
+        def _izberi_dodatnega():
+            """Izberi drugo fotografijo iste ograje; kote vpišeš za ločilom."""
+            pot_d = filedialog.askopenfilename(
+                title="Izberi 2. posnetek iste ograje",
+                filetypes=[("Slike", "*.jpg *.jpeg *.png *.bmp *.webp"),
+                           ("Vse datoteke", "*.*")])
+            if not pot_d:
+                return
+            dodatni_vnos.delete(0, "end")
+            dodatni_vnos.insert(0, f"{pot_d}|")
+            dodatni_vnos.focus_set()
+
         def _vogali_in_marker():
-            """Preberi neobvezna vnosa: 4 koti ograje + stranica markerja."""
+            """Preberi neobvezne vnose: koti ograje, marker, 2. posnetek."""
+            import vec_posnetkov
             import vnos
             besedilo = koti_vnos.get().strip()
             vogali_v = (vnos.razcleni_kote(besedilo) if besedilo else None)
@@ -1941,7 +1965,14 @@ class App(tk.Tk):
                 if marker_mm_v <= 0:
                     raise ValueError("Stranica markerja mora biti "
                                      "pozitivna (mm).")
-            return vogali_v, marker_mm_v
+            raw_d = dodatni_vnos.get().strip()
+            dodatni_v = None
+            if raw_d:
+                if not vogali_v:
+                    raise ValueError("Za 2. posnetek so potrebni koti prve "
+                                     "fotografije (polje »Koti ograje«).")
+                dodatni_v = [vec_posnetkov.razcleni_dodatno(raw_d)]
+            return vogali_v, marker_mm_v, dodatni_v
 
         def _natisni_marker():
             """Shrani A4 list z markerjem za tisk v merilu 1:1."""
@@ -1976,10 +2007,10 @@ class App(tk.Tk):
 
         def preracunaj(referenca=None):
             try:
-                vogali_v, marker_mm_v = _vogali_in_marker()
+                vogali_v, marker_mm_v, dodatni_v = _vogali_in_marker()
                 podatki = avtomatska_skica.izracunaj_mere_pot(
                     pot, referenca=referenca, vogali=vogali_v,
-                    marker_mm=marker_mm_v)
+                    marker_mm=marker_mm_v, dodatni=dodatni_v)
             except ValueError as e:
                 stanje_lbl.config(text=str(e), fg="#b00020")
                 return

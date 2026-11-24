@@ -34,6 +34,7 @@ from model import ParametriNove, Rezultat
 import zaznavanje
 import marker
 import perioda
+import vec_posnetkov
 import vnos
 import rektifikacija
 import kalibracija
@@ -253,6 +254,40 @@ def _prestej_elemente(rezultat: Rezultat, slika) -> None:
             "celotni širini; pri močni perspektivi je lahko za ±1 "
             "napačno — pred ponudbo preveri na objektu.")
 
+def _soglasje_posnetkov(rezultat: Rezultat, pot_fotografije: str, vogali,
+                        dodatni, velikost_markerja_mm: float,
+                        visina_mm: float | None,
+                        dolzina_mm: float | None) -> None:
+    """Meritev iz več posnetkov: nesoglasje razkrije napako posameznika.
+
+    Soglasje PREVZAME mero iz enega posnetka (če se posnetki ujemajo) —
+    soglasje je močnejši dokaz kot en sam posnetek. Ob nesoglasju se
+    mera NE spremeni in uporabnik dobi opozorilo z razponom.
+    """
+    from model import Mera, IZRACUNANO
+
+    meritve = [vec_posnetkov.izmeri(pot_fotografije, vogali,
+                                    velikost_markerja_mm)]
+    for pot_d, koti_d in dodatni:
+        meritve.append(vec_posnetkov.izmeri(pot_d, koti_d,
+                                            velikost_markerja_mm))
+    sog = vec_posnetkov.soglasje(meritve)
+    for o in sog.opozorila:
+        if o not in rezultat.opozorila:
+            rezultat.opozorila.append(o)
+    if not sog.dovolj:
+        return
+    n = sum(1 for m in meritve if m.dolzina_mm and m.visina_mm)
+    opis = (f"soglasje {n} posnetkov (razpršenost "
+            f"{sog.razprsenost * 100:.2f} %)")
+    if not dolzina_mm and sog.dolzina_mm:
+        rezultat.mere["dolzina_ograje"] = Mera(sog.dolzina_mm, IZRACUNANO,
+                                                opis)
+    if not visina_mm and sog.visina_mm:
+        rezultat.mere["visina_ograje"] = Mera(sog.visina_mm, IZRACUNANO,
+                                              opis)
+
+
 def pozeni(pot_fotografije: str, izhod: str, parametri: ParametriNove,
            referenca: tuple[str, float] | None = None,
            visina_mm: float | None = None,
@@ -260,7 +295,9 @@ def pozeni(pot_fotografije: str, izhod: str, parametri: ParametriNove,
            cene_pot: str | None = None, stranka: str = "",
            podjetje: str = "", objekt: str = "",
            vogali: list[tuple[float, float]] | None = None,
-           velikost_markerja_mm: float = marker.STRANICA_MM) -> Rezultat:
+           velikost_markerja_mm: float = marker.STRANICA_MM,
+           dodatni: list[tuple[str, list[tuple[float, float]]]]
+           | None = None) -> Rezultat:
     os.makedirs(izhod, exist_ok=True)
 
     # 1) poravnava v čelni pogled (4 koti, ki jih označi uporabnik)
@@ -307,6 +344,9 @@ def pozeni(pot_fotografije: str, izhod: str, parametri: ParametriNove,
     if poravnano:
         _mere_iz_markerja(rezultat, izvirnik, vogali, velikost_markerja_mm,
                           visina_mm, dolzina_mm)
+        if dodatni:
+            _soglasje_posnetkov(rezultat, pot_fotografije, vogali, dodatni,
+                                velikost_markerja_mm, visina_mm, dolzina_mm)
         _prestej_elemente(rezultat, bgr)
     _preveri_razmak(rezultat)
 
@@ -368,6 +408,11 @@ def main(argv=None):
                    help="4 koti ograje za poravnavo v čelni pogled: "
                         "'x1,y1;x2,y2;x3,y3;x4,y4' (TL, TR, BR, BL) — "
                         "dolžina/višina se nato izračunata iz homografije")
+    p.add_argument("--dodatna", action="append", default=None,
+                   metavar="POT|KOTI",
+                   help="dodatni posnetek iste ograje za soglasje mer: "
+                        "'pot|x,y;x,y;x,y;x,y' (lahko večkrat); "
+                        "zahteva --vogali prve fotografije")
     p.add_argument("--cene", default=None,
                    help="cenik (cene.yaml); privzeto iz korena projekta")
     p.add_argument("--brez-predracuna", action="store_true",
@@ -420,6 +465,19 @@ def main(argv=None):
             print(f"NAPAKA: --vogali: {e}", file=sys.stderr)
             return 2
 
+    dodatni: list[tuple[str, list[tuple[float, float]]]] = []
+    if args.dodatna:
+        if not vogali:
+            print("NAPAKA: --dodatna zahteva --vogali (kote prve "
+                  "fotografije).", file=sys.stderr)
+            return 2
+        for niz in args.dodatna:
+            try:
+                dodatni.append(vec_posnetkov.razcleni_dodatno(niz))
+            except ValueError as e:
+                print(f"NAPAKA: --dodatna: {e}", file=sys.stderr)
+                return 2
+
     parametri = ParametriNove(tip=args.tip, barva=args.barva)
     try:
         rezultat = pozeni(args.fotografija, args.izhod, parametri,
@@ -427,7 +485,8 @@ def main(argv=None):
                           cene_pot=cene_pot, stranka=args.stranka,
                           podjetje=args.podjetje, objekt=args.objekt,
                           vogali=vogali,
-                          velikost_markerja_mm=args.marker_mm)
+                          velikost_markerja_mm=args.marker_mm,
+                          dodatni=dodatni or None)
     except ValueError as e:
         print(f"NAPAKA: {e}", file=sys.stderr)
         return 1

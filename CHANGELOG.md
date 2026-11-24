@@ -1,5 +1,33 @@
 # Zgodovina sprememb
 
+## v1.5.18 — 2026-11-24 (merjenje)
+
+**Soglasje več posnetkov: napaka ene fotografije se ne skrije več v povprečju.**
+
+- **`vec_posnetkov.py` (novo):** izmeri vsak posnetek posebej (marker +
+  koti) in vrne mediano. Če se posnetki ne ujemajo znotraj **2 %**, mera
+  NI izračunana (`Soglasje.dolzina_mm is None`), uporabnik pa dobi razpon
+  (npr. *dolžina 5925–6600 mm, razpršenost 10,4 %*). Prag 2 % je izbran
+  zavestno: napaka enega posnetka je 0,03–3 %, strožji prag bi zavračal
+  pravilne meritve, ohlapnejši ne bi ujel napačne stranice markerja (5–13 %).
+- **`zazeni.pozeni(..., dodatni=[(pot, koti), ...])`** in ukaz
+  `--dodatna "pot.jpg|x,y;x,y;x,y;x,y"` (lahko večkrat, zahteva
+  `--vogali`). Ob soglasju ima mera opis `soglasje 2 posnetkov
+  (razpršenost 0,9 %)` in status `izracunano`; ročni vnos uporabnika ima
+  prednost.
+- **Okno »Predlog mer iz fotografije«:** novo neobvezno polje
+  *2. posnetek (pot|x,y;…)* + gumb *Izberi …*; druga fotografija gre
+  skozi `avtomatska_skica.izracunaj_mere_pot(dodatni=…)`, tako da sta
+  soglasje in opozorilo vidna tudi brez ukazne vrstice.
+- **Izmerjeno (sintetični sceni 6000×1000 mm, marker 300 mm):** 5925 in
+  5980 mm → razpršenost 0,9 %, mediana 5952 mm (−0,8 %); preoster kot
+  (marker neberljiv) vrne `None`, ne izmišljene mere.
+- **`docs/nacrt-draftwright-pro.md` (novo):** raziskava zunanjih 3D/AI
+  projektov (COLMAP, Grounded SAM 2, Open3D, CadQuery, FreeCAD, Meshroom,
+  JSCAD, step2pdf) s preverjenimi zvezdicami/licencami in fazami z vrati;
+  noben paket ni bil nameščen ali vgrajen.
+
+Testi: **78** (`python -m pytest photo_fence_proposal/testi_pfp.py -q`).
 ## v1.5.17 — 2026-11-24 (vmesnik)
 
 **Marker in koti tudi v oknu; izpeljana mera ni več lažno »izračunana«.**

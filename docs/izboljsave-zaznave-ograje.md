@@ -124,6 +124,7 @@ Torej: **nobena od predlaganih izboljšav ne zahteva novega paketa**, razen
 | 2 | **Periodično štetje** (`perioda.py`, svetilnost + avtokorelacija) | 1 dan | ne | 0 % na sintetičnih, −1…−3 elementa na tujih | **narejeno v 1.5.16** |
 | 3 | **ArUco merilo** (`marker.py`) | 0,5 dneva | ne | 0,03 % čelno; 1–3 % poševno (marker ≥ 120 px) | **narejeno v 1.5.16** |
 | 3b | **Vgradnja v okno** (`vmesnik.py`: koti + marker + tiskanje lista; `avtomatska_skica` meri z markerjem) | 0,5 dneva | ne | ista kot 1–3 (ista koda); izpeljana mera brez markerja zdaj `ocenjeno` | **narejeno v 1.5.17** |
+| 3c | **Soglasje več posnetkov** (`vec_posnetkov.py`, `--dodatna`, polje v oknu): dve meritvi iste ograje → mediana ali jasno opozorilo | 0,5 dneva | ne | 2 sintetični perspektivi: 5925 in 5980 mm (razpršenost 0,9 %); 6 % napačni koti padejo na prag 2 % | **narejeno v 1.5.18** |
 | 4 | Samodejne izginjajoče točke (LSD + RANSAC) namesto klika | 3–5 dni | ne | +1–3 % | odprto |
 | 5 | (neobvezno) SAM2/GroundingDINO za samodejni izrez | 1–2 tedna | onnxruntime + 30–150 MB | ne izboljša mer | odprto |
 
