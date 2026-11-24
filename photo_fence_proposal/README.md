@@ -15,9 +15,27 @@ python zazeni.py --fotografija ..\slike\moja_ograja.jpg --izhod izhod/
     --tip wpc_vodoravne_lamele --barva antracit
     --referenca razmak_stebrov=2000     # ena znana referenčna mera (mm)
     --visina 1800 --dolzina 6000        # neobvezno: ročno potrjene mere
+    # --vogali "x,y;x,y;x,y;x,y"         # 4 koti ograje → čelni pogled + štetje
+    # --marker-mm 150                    # merilo: natisnjen ArUco marker
     --podjetje "Mojster d.o.o." --stranka "Naročnik" --objekt "Terasa"
     # --cene ..\cene.yaml (privzeto se najde sam) · --brez-predracuna
 ```
+
+### Merjenje z natisnjenim markerjem (priporočeno)
+
+```bash
+python marker.py --izhod marker-ograja.png   # A4 list, natisni v merilu 1:1
+# marker prilepi NA OGROJO (v isto ravnino), fotografiraj, označi 4 kote:
+python zazeni.py --fotografija foto.jpg --izhod izhod/ --marker-mm 150 \
+    --vogali "300,520;1500,300;1500,830;300,950"
+```
+
+Marker znane velikosti odpravi geometrijsko nedoločenost: iz samih kotov
+širine **ni** mogoče izračunati (pravokotnik 6:1 od daleč in 3:1 pod drugim
+kotom dasta isto sliko). Izmerjeno: čelno **0,03 %**, poševno z markerjem
+300 mm (68 px v sliki) **1–3 %**. Pod 60 px se marker zavrne, pod 120 px
+program opozori. Brez markerja ostanejo širine neznane, razen če jih vnesete
+ročno.
 
 Testi (samostojni, ne vplivajo na obstoječo `tests/`):
 
@@ -57,6 +75,9 @@ python -m pytest testi_pfp.py -q
   napake **navzkrižna kalibracija** na višino → napaka dolžine **0,2–3,9 %**),
   višina **0,2–3,8 %** (merjena iz središč zunanjih letvi; glej `testi_pfp.py`,
   izpis `NAPAKA MER`).
+- **Merjenje**: brez markerja v ravnini ograje program širine ne izračuna
+  (geometrijsko nedoločeno) in tega ne skriva; število stebrov iz
+  periodičnega štetja je `ocenjeno`, kadar se ne ujema s širino/periodo.
 - **Faza 4 — realne fotografije** (`testni_primeri_realni/`, 5 fotografij starih
   ograj z Wikimedie, viri in licence v `VIRA.txt`): **prekomerna zaznava**
   (12–22 "stebrov" namesto dejanskih — deske, drevesa, robovi), opozorilo
@@ -89,9 +110,12 @@ python -m pytest testi_pfp.py -q
 | `tehniska_risba.py` | tehnična risba s kotiranjem in statusi (B) |
 | `material.py` | kosovnica + informativni razrez/odpad |
 | `izracun.py` | predračun iz kosovnice + cenika (`cene.yaml`), PDF/CSV |
+| `rektifikacija.py` | poravnava v čelni pogled (izginjajoče točke ali 4 koti) |
+| `perioda.py` | perioda in število elementov iz svetilnostnega profila |
+| `marker.py` | A4 ArUco marker + meritev prek homografije markerja |
 | `zazeni.py` | CLI (celoten tok) |
 | `napravi_testne_slike.py` | generator sintetičnih prizorov z znanimi merami |
-| `testi_pfp.py` | samostojni testi (32) |
+| `testi_pfp.py` | samostojni testi (66) |
 
 Nič v tej mapi se ne priklopi v glavni program brez izrecne odobritve uporabnika.
 ## Avtomatska skica (P1) — fotografija → A3 risba

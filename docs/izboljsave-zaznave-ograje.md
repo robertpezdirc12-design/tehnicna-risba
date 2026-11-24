@@ -118,61 +118,61 @@ Torej: **nobena od predlaganih izboljšav ne zahteva novega paketa**, razen
 
 ## 4. Priporočeni načrt (po razmerju pridobitev/cena)
 
-| # | Korak | Delo | Nove odvisnosti | Pričakovana napaka mer | Tveganje |
+| # | Korak | Delo | Nove odvisnosti | Izmerjena napaka | Stanje |
 |---|---|---|---|---|---|
-| 1 | **Čelni pogled**: 4 točke, homografija, merjenje v poravnani sliki | 1–2 dni | ne | **1–3 %** | uporabnik mora klikniti 4 točke |
-| 2 | **Periodično štetje** po poravnani sliki (avtokorelacija + lokalna faza) | 1–2 dni | ne | ±1 element | poševni deli, nepravilne ograje |
-| 3 | **ArUco merilo** (natisnjen marker) | 0,5 dneva | ne | 1–3 % | marker mora biti viden |
-| 4 | Samodejne izginjajoče točke (LSD + RANSAC) namesto klika | 3–5 dni | ne | +1–3 % | fasadne linije niso vedno vidne |
-| 5 | (neobvezno) SAM2/GroundingDINO za samodejni izrez | 1–2 tedna | onnxruntime + 30–150 MB | ne izboljša mer | velikost, licence |
+| 1 | **Čelni pogled**: 4 točke, homografija (`rektifikacija.iz_vogalov`) | 0,5 dneva | ne | višina: ~1 %; **širina: neizmerljiva** (glej 4.1) | **narejeno v 1.5.16** |
+| 2 | **Periodično štetje** (`perioda.py`, svetilnost + avtokorelacija) | 1 dan | ne | 0 % na sintetičnih, −1…−3 elementa na tujih | **narejeno v 1.5.16** |
+| 3 | **ArUco merilo** (`marker.py`) | 0,5 dneva | ne | 0,03 % čelno; 1–3 % poševno (marker ≥ 120 px) | **narejeno v 1.5.16** |
+| 4 | Samodejne izginjajoče točke (LSD + RANSAC) namesto klika | 3–5 dni | ne | +1–3 % | odprto |
+| 5 | (neobvezno) SAM2/GroundingDINO za samodejni izrez | 1–2 tedna | onnxruntime + 30–150 MB | ne izboljša mer | odprto |
 
-Vrstni red je pomemben: **koraka 1 in 2 rešita 90 % težave**, ki je bila
-izmerjena v prejšnjem preizkusu (napačno štetje + popačena ravnina). Učeni
-modeli so najdražji in najmanj koristni za točnost.
+Vrstni red je bil pravilen, a z eno pomembno korekcijo: **korak 1 sam po
+sebi ne more izmeriti širine** (dokaz v 4.1). Šele marker iz koraka 3 naredi
+širino merljivo — zato sta 1 in 2 skupaj vredna natanko toliko, kolikor jim
+doda 3. Učeni modeli ostajajo najdražji in za točnost mer najmanj koristni.
 
-### Kako bi korak 1 izgledal v kodi (osnutek)
+### 4.1 Zakaj štirje koti ograje ne zadostujejo za širino
 
-```python
-import cv2, numpy as np
+Homografija ima 8 prostostnih stopenj, štirje koti pa dajo 8 enačb — zato
+je rešitev natanko ena, **a le za izbrano razmerje stranic ciljnega
+pravokotnika**. Pravokotnik 6:1, gledan od daleč, in pravokotnik 3:1,
+gledan pod drugim kotom, dasta praktično isto sliko. Iz samih kotov je
+torej merljivo le razmerje, ki ga vnaprej predpišemo.
 
-def poravnaj(slika, tocke, visina_mm=None, dolzina_mm=None):
-    """tocke = 4 koti ograje (levo-zgoraj, desno-zgoraj, desno-spodaj,
-    levo-spodaj). Vrne celni pogled in mm/px."""
-    (x0, y0), (x1, y1), (x2, y2), (x3, y3) = tocke
-    sirina = int(max(np.hypot(x1 - x0, y1 - y0), np.hypot(x2 - x3, y2 - y3)))
-    visina = int(max(np.hypot(x3 - x0, y3 - y0), np.hypot(x2 - x1, y2 - y1)))
-    cilj = np.float32([[0, 0], [sirina, 0], [sirina, visina], [0, visina]])
-    H = cv2.getPerspectiveTransform(np.float32(tocke), cilj)
-    poravnano = cv2.warpPerspective(slika, H, (sirina, visina))
-    mm_na_px = None
-    if visina_mm:
-        mm_na_px = visina_mm / visina
-    elif dolzina_mm:
-        mm_na_px = dolzina_mm / sirina
-    return poravnano, mm_na_px
-```
+Izmerjeno na sintetični sceni 6000 × 1000 mm (koti znani do piksla):
+`rektifikacija.iz_vogalov` vrne sliko z razmerjem **2,2 : 1** namesto
+6 : 1; ob znani višini 1000 mm iz tega nastane dolžina **2164 mm**
+(−64 %). To ni napaka kode, ampak lastnost geometrije — zato je merilo
+(marker) nujno, ne le 'lepa dodatna oprema'.
 
-### Kako bi korak 2 izgledal (osnovna perioda, brez harmonika)
+### 4.2 Kaj je v 1.5.16 dejansko narejeno
 
-```python
-def perioda_in_stevilo(pas, min_px=12, max_px=None, delni_prag=0.6):
-    g = cv2.cvtColor(pas, cv2.COLOR_BGR2GRAY).astype(np.float32)
-    e = np.abs(cv2.Sobel(g, cv2.CV_32F, 1, 0, ksize=3)).mean(axis=0)
-    e -= cv2.blur(e.reshape(1, -1), (31, 1)).ravel()   # odpravi trend
-    e -= e.mean()
-    ac = np.correlate(e, e, mode="full")[len(e) - 1:]
-    ac /= ac[0]
-    meja = min(max_px or len(ac) // 2, len(ac) - 1)
-    vrhovi = [p for p in range(max(2, min_px), meja)
-              if ac[p] >= ac[p - 1] and ac[p] >= ac[p + 1]]
-    prag = delni_prag * max(ac[p] for p in vrhovi)
-    perioda = max(p for p in vrhovi if ac[p] >= prag)  # osnovna, ne harmonik
-    return round(len(e) / perioda), perioda
-```
+| Modul | Naloga |
+|---|---|
+| `photo_fence_proposal/perioda.py` | perioda in število elementov iz svetilnostnega profila (CLAHE + odstranjen trend), avtokorelacija, izbor **najmanjšega** lokalnega maksimuma ≥ 0,6 × maksimuma z izostritvijo ±4 px; štetje z lokalno normalizacijo in kontrolo popolnosti (`pricakovano = round(širina / perioda)`) |
+| `photo_fence_proposal/marker.py` | A4 list z 150-mm ArUco markerjem (300 dpi, 100-mm kontrolna črta), zaznava s podpikselnim izostritvom kotov, meritev pravokotnika v mm prek homografije markerja |
+| `photo_fence_proposal/zazeni.py` | `--vogali "x,y;x,y;x,y;x,y"` (poravnava + štetje), `--marker-mm` (merilo), marker se išče na izvirniku, koti se preslikajo v mm; vsaka mera dobi status `IZRACUNANO`/`OCENJENO` in opozorilo |
 
-Preverjeno: na baročnem izrezu vrne **27 elementov, perioda 71 px** (ročno
-26). Brez praga bi vzel harmonik 32 px in naštel 55 elementov — zato je
-ta vrstica bistvena, ne kozmetika.
+Če markerja ni, program **ne ugiba širine**: izpiše opozorilo, da je iz
+samih kotov ni mogoče izračunati, in uporabi ročni `--dolzina`, če je podan.
+
+### 4.3 Izmerjeno (testi, ne občutek)
+
+| Preizkus | Resnica | Rezultat | Napaka |
+|---|---|---|---|
+| perioda, sintetično | 10 / 16 / 8 / 26 elementov | 10 / 16 / 8 / 26 | 0 elementov, perioda ±1 px |
+| perioda, `k1-izrez` (tuja fotografija) | 26 elementov (ročno) | 23 | −3; kontrola popolnosti javi 28 pričakovanih → status `OCENJENO` |
+| marker, čelni pogled 6000 × 1000 mm | 6000 × 1000 | 5998 × 998 | **−0,03 % / −0,2 %** |
+| marker 300 mm (68 px), poševno, 0,5 px/mm | 6000 × 1000 | 5925 × 993 | **−1,3 % / −0,7 %** |
+| marker 300 mm (68 px), poševno, 1 px/mm | 6000 × 1000 | 6177 × 1009 | +2,9 % / +0,9 % |
+| marker 150 mm (34 px), poševno | 6000 × 1000 | 6336 × 1134 | +5,6 % / +13,4 % (premajhen marker) |
+
+Zato: `MIN_STRANICA_PX = 60` (pod tem se marker zavrne) in opozorilo pod
+120 px. Meritev je torej zanesljiva, ko je marker na fotografiji dovolj
+velik — kar je fizika, ne nastavitev.
+
+Preverjanje: `python -m pytest photo_fence_proposal/testi_pfp.py -q`
+(66 testov, vsi zeleni).
 
 ## 5. Kako preveriti, da izboljšava res deluje
 

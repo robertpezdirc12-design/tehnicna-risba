@@ -4,6 +4,7 @@ Uporaba:
     python zazeni.py --fotografija stara_ograja.jpg --izhod izhod/
         [--tip wpc_vodoravne_lamele] [--barva antracit]
         [--referenca razmak_stebrov=2000] [--visina 1800] [--dolzina 6000]
+        [--vogali 'x1,y1;x2,y2;x3,y3;x4,y4']
 
 Vse se obdela LOKALNO (CPU, brez GPU in brez omrežja). Brez AI modelov.
 
@@ -31,6 +32,9 @@ import cv2
 
 from model import ParametriNove, Rezultat
 import zaznavanje
+import marker
+import perioda
+import rektifikacija
 import kalibracija
 import izracun
 import material
@@ -78,6 +82,47 @@ def izvozi_kosovnico_csv(rezultat: Rezultat, pot: str) -> str:
                         f"{rezultat.odpad_mm:.0f}" if rezultat.odpad_mm
                         is not None else "??", "mm", "ocenjeno", ""])
     return pot
+
+
+def razcleni_vogale(niz: str) -> list[tuple[float, float]]:
+    """"x1,y1;x2,y2;x3,y3;x4,y4" → [(x, y) × 4] (TL, TR, BR, BL)."""
+    if not niz or not niz.strip():
+        raise ValueError("--vogali je prazen")
+    deli = [d.strip() for d in niz.replace("\n", ";").split(";")
+            if d.strip()]
+    if len(deli) != 4:
+        raise ValueError("potrebni so natanko 4 koti v obliki "
+                         "'x,y;x,y;x,y;x,y' (prejeto "
+                         f"{len(deli)})")
+    tocke: list[tuple[float, float]] = []
+    for del_ in deli:
+        try:
+            x, y = (float(v) for v in del_.split(","))
+        except ValueError:
+            raise ValueError(f"kot {del_!r} ni v obliki 'x,y'") from None
+        tocke.append((x, y))
+    return tocke
+
+
+def _preveri_vogale(tocke: list[tuple[float, float]], sirina: int,
+                    visina: int) -> None:
+    """Koti morajo biti znotraj slike in ne smejo biti degenerirani."""
+    if len(tocke) != 4:
+        raise ValueError("za poravnavo so potrebni natanko 4 koti")
+    for x, y in tocke:
+        if not (0 <= x < sirina and 0 <= y < visina):
+            raise ValueError(
+                f"kot ({x:.0f}, {y:.0f}) je zunaj slike "
+                f"{sirina}×{visina} px — označi kote ograje na fotografiji")
+    vogali = [(float(x), float(y)) for x, y in tocke]
+    ploscina = 0.0
+    for i in range(4):
+        x1, y1 = vogali[i]
+        x2, y2 = vogali[(i + 1) % 4]
+        ploscina += x1 * y2 - x2 * y1
+    if abs(ploscina) / 2.0 < 0.01 * sirina * visina:
+        raise ValueError("označeni koti pokrivajo premajhno površino "
+                         "(manj kot 1 % slike) — označi celotno ograjo")
 
 
 MIN_RAZMAK_STEBROV_MM = 300.0   # ožje ni steber, ampak letev/prečka
@@ -131,17 +176,117 @@ def _uskladi_polja(rezultat: Rezultat, dolzina_mm: float) -> None:
             "ročna meritev.")
 
 
+def _mere_iz_markerja(rezultat: Rezultat, slika, vogali,
+                      velikost_markerja_mm: float,
+                      visina_mm: float | None,
+                      dolzina_mm: float | None) -> None:
+    """Dolžina in višina iz natisnjenega markerja v ravnini ograje."""
+    from model import Mera, IZRACUNANO
+
+    koti = marker.zaznaj_marker(slika)
+    if koti is None:
+        rezultat.opozorila.append(
+            "Na fotografiji ni najdenega markerja, zato širine iz samih "
+            "kotov NI mogoče izračunati (pravokotnik 6:1 od daleč in 3:1 "
+            "pod drugim kotom dasta isto sliko). Natisni marker "
+            "(`python marker.py --izhod marker.png`), ga prilepi v "
+            "ravnino ograje in ponovi postopek — ali pa vnesi --dolzina "
+            "ročno.")
+        return
+    stran = marker.stranica_px(koti)
+    if stran < marker.DOBRA_STRANICA_PX:
+        rezultat.opozorila.append(
+            f"Marker je v sliki velik le {stran:.0f} px (priporočeno "
+            f"{marker.DOBRA_STRANICA_PX:.0f}+); meritev je zato lahko "
+            "nenatančna (±3 % ali več).")
+    mere = marker.izmeri_kvadrilateral(vogali, koti, velikost_markerja_mm)
+    if mere is None:
+        rezultat.opozorila.append(
+            "Meritve iz markerja ni bilo mogoče izračunati (neveljavna "
+            "geometrija) — mere ostanejo neznane.")
+        return
+    sirina, visina = mere
+    if dolzina_mm and abs(sirina - dolzina_mm) > 0.05 * dolzina_mm:
+        rezultat.opozorila.append(
+            f"Marker kaže dolžino {sirina:.0f} mm, ročni vnos "
+            f"{dolzina_mm:.0f} mm — uporabljen je ROČNI vnos.")
+    elif not dolzina_mm:
+        rezultat.mere["dolzina_ograje"] = Mera(
+            sirina, IZRACUNANO,
+            f"iz markera {velikost_markerja_mm:.0f} mm "
+            f"({stran:.0f} px) v ravnini ograje")
+    if visina_mm and abs(visina - visina_mm) > 0.05 * visina_mm:
+        rezultat.opozorila.append(
+            f"Marker kaže višino {visina:.0f} mm, ročni vnos "
+            f"{visina_mm:.0f} mm — uporabljen je ROČNI vnos.")
+    elif not visina_mm:
+        rezultat.mere["visina_ograje"] = Mera(
+            visina, IZRACUNANO,
+            f"iz markera {velikost_markerja_mm:.0f} mm "
+            f"({stran:.0f} px) v ravnini ograje")
+
+
+def _prestej_elemente(rezultat: Rezultat, slika) -> None:
+    """Periodično štetje elementov na poravnani (rektificirani) sliki."""
+    from model import Mera, IZRACUNANO
+
+    per = perioda.prestej(perioda.pas_ograje(slika))
+    if per is None or per.stevilo < 2:
+        rezultat.opozorila.append(
+            "Periodičnega ritma na poravnani sliki ni bilo mogoče "
+            "zanesljivo določiti — število stebrov ostaja ocena zaznave.")
+        return
+    n = int(per.stevilo)
+    popolno = abs(n - per.pricakovano) <= max(1, int(round(
+        0.08 * per.pricakovano)))
+    from model import OCENJENO
+    status = IZRACUNANO if popolno else OCENJENO
+    rezultat.mere["stevilo_polj"] = Mera(
+        float(n - 1), status,
+        f"periodično štetje na poravnani sliki (razmak "
+        f"{per.perioda_px:.0f} px, zanesljivost {per.zanesljivost:.2f})")
+    rezultat.mere["stevilo_stebrov"] = Mera(
+        float(n), status, "periodično štetje (polja + 1)")
+    if not popolno:
+        rezultat.opozorila.append(
+            f"Periodično štetje je našlo {n} elementov, geometrija pa jih "
+            f"predvideva {per.pricakovano} — del elementov je zakritih ali "
+            "slabo viden; število je ocena, potrdi ga ročno.")
+    dol = rezultat.mere.get("dolzina_ograje")
+    if dol and dol.vrednost_mm and n > 1:
+        rezultat.mere["razmak_stebrov"] = Mera(
+            dol.vrednost_mm / (n - 1), IZRACUNANO,
+            "dolžina / število polj (poravnana slika)")
+    if popolno:
+        rezultat.opozorila.append(
+            f"Število elementov ({n}) je izračunano periodično po "
+            "celotni širini; pri močni perspektivi je lahko za ±1 "
+            "napačno — pred ponudbo preveri na objektu.")
+
 def pozeni(pot_fotografije: str, izhod: str, parametri: ParametriNove,
            referenca: tuple[str, float] | None = None,
            visina_mm: float | None = None,
            dolzina_mm: float | None = None,
            cene_pot: str | None = None, stranka: str = "",
-           podjetje: str = "", objekt: str = "") -> Rezultat:
+           podjetje: str = "", objekt: str = "",
+           vogali: list[tuple[float, float]] | None = None,
+           velikost_markerja_mm: float = marker.STRANICA_MM) -> Rezultat:
     os.makedirs(izhod, exist_ok=True)
 
-    # 1) zaznavanje (klasični OpenCV)
-    zaznava = zaznavanje.zaznaj(pot_fotografije)
-    slika, bgr = zaznavanje.nalozi_sliko(pot_fotografije)
+    # 1) poravnava v čelni pogled (4 koti, ki jih označi uporabnik)
+    _, izvirnik = zaznavanje.nalozi_sliko(pot_fotografije)
+    bgr = izvirnik
+    poravnano = False
+    if vogali:
+        _preveri_vogale(vogali, bgr.shape[1], bgr.shape[0])
+        bgr, _homografija, _meta = rektifikacija.iz_vogalov(izvirnik,
+                                                          vogali)
+        poravnano = True
+        cv2.imwrite(os.path.join(izhod, "00-poravnano.png"), bgr)
+
+    # 2) zaznavanje (klasični OpenCV)
+    zaznava = zaznavanje.zaznaj(pot_fotografije,
+                                slika_bgr=bgr if poravnano else None)
     oznacena = zaznavanje.oznaci_sliko(zaznava, bgr)
     cv2.imwrite(os.path.join(izhod, "01-zaznava.png"), oznacena)
 
@@ -169,6 +314,10 @@ def pozeni(pot_fotografije: str, izhod: str, parametri: ParametriNove,
     # v dokument — sicer uporabnik ne vidi, ZAKAJ je mera neznana
     rezultat.opozorila.extend(o for o in zaznava.opozorila
                                if o not in rezultat.opozorila)
+    if poravnano:
+        _mere_iz_markerja(rezultat, izvirnik, vogali, velikost_markerja_mm,
+                          visina_mm, dolzina_mm)
+        _prestej_elemente(rezultat, bgr)
     _preveri_razmak(rezultat)
 
     # 4) material + razrez
@@ -221,6 +370,14 @@ def main(argv=None):
                    help="ročno potrjena višina ograje v mm")
     p.add_argument("--dolzina", type=float, default=None,
                    help="ročno potrjena dolžina ograje v mm")
+    p.add_argument("--marker-mm", type=float, default=marker.STRANICA_MM,
+                   help=f"stranica natisnjenega markerja v mm "
+                        f"(privzeto {marker.STRANICA_MM:.0f}); list "
+                        "pripravi `python marker.py --izhod marker.png`")
+    p.add_argument("--vogali", default=None,
+                   help="4 koti ograje za poravnavo v čelni pogled: "
+                        "'x1,y1;x2,y2;x3,y3;x4,y4' (TL, TR, BR, BL) — "
+                        "dolžina/višina se nato izračunata iz homografije")
     p.add_argument("--cene", default=None,
                    help="cenik (cene.yaml); privzeto iz korena projekta")
     p.add_argument("--brez-predracuna", action="store_true",
@@ -265,12 +422,22 @@ def main(argv=None):
                       "izdelan (uporabi --cene ali --brez-predracuna).",
                       file=sys.stderr)
 
+    vogali = None
+    if args.vogali:
+        try:
+            vogali = razcleni_vogale(args.vogali)
+        except ValueError as e:
+            print(f"NAPAKA: --vogali: {e}", file=sys.stderr)
+            return 2
+
     parametri = ParametriNove(tip=args.tip, barva=args.barva)
     try:
         rezultat = pozeni(args.fotografija, args.izhod, parametri,
                           referenca, args.visina, args.dolzina,
                           cene_pot=cene_pot, stranka=args.stranka,
-                          podjetje=args.podjetje, objekt=args.objekt)
+                          podjetje=args.podjetje, objekt=args.objekt,
+                          vogali=vogali,
+                          velikost_markerja_mm=args.marker_mm)
     except ValueError as e:
         print(f"NAPAKA: {e}", file=sys.stderr)
         return 1

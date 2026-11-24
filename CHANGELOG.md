@@ -1,5 +1,33 @@
 # Zgodovina sprememb
 
+## v1.5.16 — 2026-11-24 (merjenje)
+
+**Merjenje z natisnjenim markerjem in periodično štetje elementov.**
+Raziskava (`docs/izboljsave-zaznave-ograje.md`) je pokazala dvoje: mere se
+lomijo zaradi perspektive in napačnega štetja, štirje koti ograje pa za
+širino **geometrijsko ne zadostujejo** — pravokotnik 6:1 od daleč in 3:1 pod
+drugim kotom dasta isto sliko. Zato:
+
+- **`marker.py` (novo):** A4 list z ArUco markerjem (300 dpi, 100-mm kontrolna
+  črta za preverjanje tiska) in meritev prek homografije markerja. Čelno
+  izmerjeno **6000 × 1000 → 5998 × 998 mm (0,03 %)**, poševno z markerjem
+  300 mm (68 px v sliki) **−1,3 % / −0,7 %**. Pod 60 px se marker zavrne,
+  pod 120 px opozori (napaka naraste na 5–13 %).
+- **`perioda.py` (novo):** perioda in število elementov iz svetilnostnega
+  profila (CLAHE, odstranjen trend), avtokorelacija z izborom najmanjšega
+  lokalnega maksimuma ≥ 0,6 × maksimuma; štetje z lokalno normalizacijo in
+  kontrolo popolnosti. Sintetično točno (10/16/8/26 elementov, perioda ±1 px);
+  na tuji fotografiji `k1-izrez` 23 od ročno preštetih 26 — ker je pričakovanih
+  28, program rezultat označi `ocenjeno` in opozori, namesto da bi se lagal.
+- **`zazeni.py`:** `--vogali "x,y;x,y;x,y;x,y"` (poravnava v čelni pogled +
+  periodično štetje) in `--marker-mm` (merilo). Brez markerja program širine
+  **ne izračuna** in to pove; ročni `--dolzina`/`--visina` ostaneta veljavna.
+- **Dokumentacija:** `docs/izboljsave-zaznave-ograje.md` popravljena — koraki
+  1–3 so označeni kot narejeni, z izmerjenimi številkami in dokazom o
+  nedoločenosti širine; `photo_fence_proposal/README.md` dobi navodilo za
+  marker.
+
+Testi: **66** (`python -m pytest photo_fence_proposal/testi_pfp.py -q`).
 ## v1.5.15 — 2026-11-24 (preverjanje)
 
 **Ročno potrjena dolžina zdaj povozi zaznavo.** Preizkus: `--dolzina 4000

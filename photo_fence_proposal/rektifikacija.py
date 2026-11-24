@@ -56,15 +56,40 @@ def rektificiraj(slika, obmocje_px, sirina_izhoda=1400):
         opozorila.append("Ravnina ograje ni zaznana — brez rektifikacije.")
         return slika, None, {"opozorila": opozorila, "rektificirano": False}
 
-    src = np.asarray(obmocje_px, dtype=np.float32)
+    try:
+        rect, H_mat, meta = iz_vogalov(slika, obmocje_px, sirina_izhoda)
+    except ValueError as napaka:
+        opozorila.append(str(napaka))
+        return slika, None, {"opozorila": opozorila, "rektificirano": False}
+    return rect, H_mat, {"opozorila": opozorila, "rektificirano": True,
+                         **meta}
+
+
+def iz_vogalov(slika, vogali, sirina_izhoda=1400):
+    """Poravnava ravnine iz 4 kotov (TL, TR, BR, BL) v čelni pogled.
+
+    Vrne (poravnana_slika, homografija, meta).
+
+    Ciljni pravokotnik obdrži razmerje POVPREČJA stranic vhodnega
+    štirikotnika. Pri poševnem posnetku to NI pravo razmerje ograje
+    (perspektiva skrajša oddaljeno stranico), zato je slika primerna za
+    štetje elementov in za risanje, NE pa za merjenje dolžine: iz samih
+    kotov širine ni mogoče izračunati. Za absolutne mere uporabi marker
+    (marker.py) ali ročno podane mere.
+
+    ValueError, kadar so koti neveljavni ali območje premajhno.
+    """
+    src = np.asarray(vogali, dtype=np.float32)
+    if src.shape != (4, 2) or not np.all(np.isfinite(src)):
+        raise ValueError("Za poravnavo so potrebni natanko 4 veljavni "
+                         "koti (x, y).")
     # cilj: pravokotnik z enakim razmerjem stranic kot povprečje vhodnih
     sirina = float(np.mean([np.linalg.norm(src[1] - src[0]),
                             np.linalg.norm(src[2] - src[3])]))
     visina = float(np.mean([np.linalg.norm(src[3] - src[0]),
                             np.linalg.norm(src[2] - src[1])]))
     if sirina < 8 or visina < 8:
-        opozorila.append("Območje ograje je premajhno za rektifikacijo.")
-        return slika, None, {"opozorila": opozorila, "rektificirano": False}
+        raise ValueError("Območje ograje je premajhno za rektifikacijo.")
 
     W = int(max(8, sirina_izhoda))
     H = int(max(8, round(W * visina / sirina)))
@@ -72,8 +97,7 @@ def rektificiraj(slika, obmocje_px, sirina_izhoda=1400):
                      dtype=np.float32)
     H_mat = cv2.getPerspectiveTransform(src, dst)
     rect = cv2.warpPerspective(slika, H_mat, (W, H))
-    return rect, H_mat, {"opozorila": opozorila, "rektificirano": True,
-                         "sirina_px": W, "visina_px": H}
+    return rect, H_mat, {"sirina_px": W, "visina_px": H}
 
 
 def _teki(maska):

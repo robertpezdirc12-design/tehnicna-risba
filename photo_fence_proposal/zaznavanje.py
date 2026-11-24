@@ -92,13 +92,20 @@ def _stebri_po_profilu(siva: np.ndarray) -> list:
     return stebri
 
 
-def zaznaj(pot: str) -> Zaznava:
+def zaznaj(pot: str, slika_bgr: np.ndarray | None = None) -> Zaznava:
     """Glavna funkcija: fotografija → zaznani elementi + opozorila.
 
     Deterministično: ista slika → isti rezultat. Kombinacija:
     kolonski temni profil (stebri) + Canny/Hough (vodoravne letvi).
+
+    slika_bgr: že naložena (in morebiti poravnana) matrika; če je podana,
+    se datoteka ne bere znova.
     """
     slika, bgr = nalozi_sliko(pot)
+    if slika_bgr is not None:
+        bgr = slika_bgr
+        slika = Slika(pot=pot, sirina_px=int(bgr.shape[1]),
+                      visina_px=int(bgr.shape[0]))
     visina, sirina = bgr.shape[:2]
     zaznava = Zaznava(slika=slika)
     siva = _predobdelava(bgr)

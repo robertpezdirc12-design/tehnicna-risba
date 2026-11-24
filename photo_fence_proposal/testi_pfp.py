@@ -915,3 +915,177 @@ def test_rocna_dolzina_povozi_zaznavo(testni_prizori, tmp_path):
     assert rez.mere["stevilo_polj"].vrednost_mm == 2
     steber = next(p for p in rez.kosovnica if p.naziv == "Steber")
     assert steber.kolicina == 3
+
+
+# ---------------------------------------------------------------------------
+# Periodično štetje + merilo z markerjem (v1.5.16)
+# ---------------------------------------------------------------------------
+
+
+def _scena_stebrov(n, razmak, sirina=1100, debelina=8, visina=220):
+    """Sintetična ograja: n temnih stebrov z znanim razmakom."""
+    import numpy as np
+    im = np.full((visina, sirina, 3), 220, np.uint8)
+    for i in range(n):
+        x = int(i * razmak) + 20
+        im[30:visina - 30, x:x + debelina] = (40, 40, 40)
+    return im
+
+
+def test_perioda_presteje_tocno():
+    import perioda
+    for n, razmak in ((10, 100), (16, 60), (8, 140)):
+        p = perioda.prestej(_scena_stebrov(n, razmak))
+        assert p is not None
+        assert p.stevilo == n
+        assert abs(p.perioda_px - razmak) <= 1
+
+
+def test_perioda_ne_vzame_harmonika():
+    """Široki elementi (32 px na 71 px razmaka) ne smejo dati 55 elementov."""
+    import perioda
+    p = perioda.prestej(_scena_stebrov(26, 71, sirina=1920, debelina=32,
+                                       visina=260))
+    assert p is not None
+    assert p.stevilo == 26
+    assert abs(p.perioda_px - 71) <= 2
+
+
+def test_perioda_na_prazni_sliki_vrne_none():
+    import numpy as np
+    import perioda
+    im = np.full((200, 900, 3), 200, np.uint8)
+    assert perioda.prestej(im) is None
+
+
+def test_marker_list_ima_natancno_velikost(tmp_path):
+    import cv2
+    import marker
+    pot = marker.shrani_list(str(tmp_path / "marker.png"), 150.0, dpi=300)
+    slika = cv2.imread(pot)
+    assert slika is not None and slika.shape[0] > 3000
+    koti = marker.zaznaj_marker(slika)
+    assert koti is not None
+    pricakovano = 150.0 / 25.4 * 300
+    assert abs(marker.stranica_px(koti) - pricakovano) <= 8
+
+
+def _scena_z_markerjem(ppmm=0.5, velikost_markerja_mm=300.0,
+                       platno=(900, 1800)):
+    """Ravnina 6000×1000 mm z markerjem, zavita v perspektivo."""
+    import numpy as np
+    import cv2
+    import marker
+    ravnina = np.full((int(1000 * ppmm), int(6000 * ppmm), 3), 235,
+                      np.uint8)
+    for x_mm in (0, 2000, 4000, 5990):
+        x = int(x_mm * ppmm)
+        ravnina[:, max(0, x - 2):min(ravnina.shape[1], x + 3)] = (40, 40, 40)
+    listek = marker.ustvari_marker(400, 60)
+    core = int(round(velikost_markerja_mm * ppmm))
+    outer = int(round(core * 520 / 400))
+    listek = cv2.resize(listek, (outer, outer),
+                        interpolation=cv2.INTER_AREA)
+    x0, y0 = int(400 * ppmm), int(600 * ppmm)
+    zamik = (outer - core) // 2
+    ravnina[y0 - zamik:y0 - zamik + outer,
+            x0 - zamik:x0 - zamik + outer] = listek
+    platno_slika = np.full((platno[0], platno[1], 3), 110, np.uint8)
+    w, h = ravnina.shape[1], ravnina.shape[0]
+    src = np.float32([[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]])
+    dst = np.float32([[150, 200], [1650, 230], [1580, 700], [220, 660]])
+    M = cv2.getPerspectiveTransform(src, dst)
+    warp = cv2.warpPerspective(ravnina, M, (platno[1], platno[0]))
+    maska = cv2.warpPerspective(np.full((h, w), 255, np.uint8), M,
+                                (platno[1], platno[0]))
+    platno_slika[maska > 0] = warp[maska > 0]
+    return platno_slika, [tuple(map(float, p)) for p in dst]
+
+
+def test_marker_izmeri_frontalno():
+    """Čelni pogled: meritev iz markerja mora biti natančna (<1 %)."""
+    import numpy as np
+    import cv2
+    import marker
+    ppmm = 0.5
+    ravnina = np.full((int(1000 * ppmm), int(6000 * ppmm), 3), 235,
+                      np.uint8)
+    listek = marker.ustvari_marker(400, 60)
+    core = int(round(300 * ppmm))
+    outer = int(round(core * 520 / 400))
+    listek = cv2.resize(listek, (outer, outer),
+                        interpolation=cv2.INTER_AREA)
+    x0, y0 = int(400 * ppmm), int(600 * ppmm)
+    zamik = (outer - core) // 2
+    ravnina[y0 - zamik:y0 - zamik + outer,
+            x0 - zamik:x0 - zamik + outer] = listek
+    koti = marker.zaznaj_marker(ravnina)
+    assert koti is not None
+    q = [(0, 0), (ravnina.shape[1] - 1, 0),
+         (ravnina.shape[1] - 1, ravnina.shape[0] - 1),
+         (0, ravnina.shape[0] - 1)]
+    mere = marker.izmeri_kvadrilateral(q, koti, 300.0)
+    assert mere is not None
+    assert abs(mere[0] / 6000 - 1) <= 0.01
+    assert abs(mere[1] / 1000 - 1) <= 0.01
+
+
+def test_marker_izmeri_v_perspektivi():
+    import marker
+    slika, vogali = _scena_z_markerjem()
+    koti = marker.zaznaj_marker(slika)
+    assert koti is not None
+    mere = marker.izmeri_kvadrilateral(vogali, koti, 300.0)
+    assert mere is not None
+    assert abs(mere[0] / 6000 - 1) <= 0.06
+    assert abs(mere[1] / 1000 - 1) <= 0.06
+
+
+def test_marker_na_prazni_sliki_ni_najden():
+    import numpy as np
+    import marker
+    assert marker.zaznaj_marker(np.full((300, 400, 3), 128, np.uint8)) is None
+
+
+def test_zazeni_z_markerjem_izmeri_mere(tmp_path):
+    """Marker + koti → dolžina/višina iz geometrije, ne iz ugibanja."""
+    import cv2
+    import zazeni
+    slika, vogali = _scena_z_markerjem()
+    pot = str(tmp_path / "scena.png")
+    cv2.imwrite(pot, slika)
+    rez = zazeni.pozeni(pot, str(tmp_path / "izhod"), ParametriNove(),
+                        vogali=vogali, velikost_markerja_mm=300.0)
+    dol = rez.mere.get("dolzina_ograje")
+    vis = rez.mere.get("visina_ograje")
+    assert dol is not None and dol.status == IZRACUNANO
+    assert vis is not None and vis.status == IZRACUNANO
+    assert abs(dol.vrednost_mm / 6000 - 1) <= 0.06
+    assert abs(vis.vrednost_mm / 1000 - 1) <= 0.06
+    stebri = rez.mere["stevilo_stebrov"]
+    assert 3 <= int(stebri.vrednost_mm) <= 5     # 4 stebri (robova ±1)
+
+
+def test_zazeni_brez_markerja_ne_izmisli_sirine(tmp_path, testni_prizori):
+    import zazeni
+    _ime, pot, _resni = testni_prizori[0]
+    rez = zazeni.pozeni(pot, str(tmp_path / "izhod"), ParametriNove(),
+                        visina_mm=1800,
+                        vogali=[(0, 0), (500, 0), (500, 400), (0, 400)])
+    assert any("markerja" in o.lower() for o in rez.opozorila)
+
+
+def test_razcleni_vogale_napacen_vnos():
+    import zazeni
+    with pytest.raises(ValueError):
+        zazeni.razcleni_vogale("1,2;3,4")
+    with pytest.raises(ValueError):
+        zazeni.razcleni_vogale("1,2;a,b;3,4;5,6")
+
+
+def test_vogali_zunaj_slike_zavrnjeni(tmp_path, testni_prizori):
+    import zazeni
+    _ime, pot, _resni = testni_prizori[0]
+    with pytest.raises(ValueError):
+        zazeni.pozeni(pot, str(tmp_path / "izhod"), ParametriNove(),
+                      vogali=[(-10, 0), (500, 0), (500, 400), (0, 400)])
