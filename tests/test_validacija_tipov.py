@@ -20,6 +20,29 @@ def _cfg(predloga, mere):
     return cfg
 
 
+@pytest.mark.parametrize("merilo", ["auto", "AUTO", "1:20", " 1:20 ", "20", 20])
+def test_merilo_veljavno(merilo):
+    cfg = osnovni_cfg("x.pdf")
+    cfg["merilo"] = merilo
+    assert jedro.preveri_cfg(cfg) == []
+
+
+@pytest.mark.parametrize("merilo", ["abc", "1:0", "1:-5", "1:2:3", 0, True,
+                                   None, "1:²", "1:1234567890"])
+def test_merilo_neveljavno(merilo):
+    cfg = osnovni_cfg("x.pdf")
+    cfg["merilo"] = merilo
+    nap = jedro.preveri_cfg(cfg)
+    assert any("merilo" in n.lower() for n in nap), nap
+
+
+def test_generiraj_zavrne_neveljavno_merilo(tmp_path):
+    cfg = osnovni_cfg(str(tmp_path / "x.pdf"))
+    cfg["merilo"] = "1:0"
+    with pytest.raises(ValueError, match="merilo"):
+        risba.generiraj(cfg)
+
+
 def test_segmenti_slaba_oblika_in_neznan_tip():
     cfg = osnovni_cfg("x.pdf")
     cfg["segmenti"] = ["x"]

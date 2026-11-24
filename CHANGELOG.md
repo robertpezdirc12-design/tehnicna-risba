@@ -1,5 +1,16 @@
 # Zgodovina sprememb
 
+## v1.5.7 — 2026-11-24 (popravek)
+
+- **Neveljavno merilo ne sesuje risanja.** `merilo: "abc"`, `merilo: "1:0"`
+  ali `merilo: null` je obšlo validacijo in padlo šele v `int()` oziroma
+  deljenju z nič med risanjem. `preveri_cfg` zdaj zahteva `auto` ali
+  `1:N` s pozitivnim celim N; `generiraj` slabo vrednost zavrne pred
+  risanjem, z jasnim sporočilom namesto sledi sklada.
+- 16 novih testov: veljavne oblike (`auto`, `1:20`, `20`), neveljavne
+  (`abc`, `1:0`, `null`, ...) in zavrnitev v `generiraj`.
+- Preverjeno: polna suite **770 passed, 2 skipped**; ruff čist; mypy 0.
+
 ## v1.5.6 — 2026-11-24 (popravek)
 
 - **Neznan ali napačno zapisan tip segmenta v DXF ni več tiho

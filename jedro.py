@@ -493,6 +493,19 @@ def preveri_cfg(cfg):
             nap.append(f"Mera '{k}' mora biti pozitivno število.")
     sirina = _poz(m.get("sirina"))
     visina = _poz(m.get("visina"))
+    # Merilo se v risbi razčleni z int(...) in deli z njim; "1:0" ali
+    # "abc" bi sicer sesul risanje namesto jasne napake.
+    if "merilo" in cfg:
+        merilo = str(cfg.get("merilo")).strip()
+        deli = merilo.split(":")
+        kos = deli[-1].strip()
+        if (merilo.lower() != "auto"
+                and (len(deli) > 2 or not kos.isascii()
+                     or not kos.isdecimal() or len(kos) > 9
+                     or int(kos) <= 0)):
+            nap.append("'merilo' mora biti 'auto' ali '1:N' s pozitivnim "
+                       "celim N.")
+
     # ISO 7200 (Plan 2): status dokumenta — dovoljeni trije statusi;
     # „IZVEDENO" se sme uporabiti šele po terenski potrditvi.
     status = str(cfg.get("status_dokumenta") or "").strip()

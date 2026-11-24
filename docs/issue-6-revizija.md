@@ -187,6 +187,7 @@ Najdbe in odziv glavnega agenta:
 | večsegmentni projekt je v PDF tiho izgledal kot en segment | P2 | odpravljeno (v1.5.4): PDF zabeleži opozorilo „več segmentov … samo glavni pogled … DXF“; test v `test_pdf_ciklus.py`; DXF ostaja polni izvoz |
 | `predloga: "POKONČNA"` je obšla validacijo pokončne (primerjava z malo začetnico) | P2 | odpravljeno (v1.5.5): `zdruzi` in `preveri_cfg` normalizirata ime; velika začetnica ne obide geometrije, neznana predloga se še vedno zavrne |
 | tip segmenta `"OGRAJA"`/tipkarska napaka je v DXF tiho postal pokončna ograja (`else` veja) | P1 | odpravljeno (v1.5.6): tip se normalizira, neznan se zavrne; `preveri_cfg` preveri obliko segmentov in `mere` |
+| `merilo: "abc"`/`"1:0"`/`null` je sesulo risanje šele v `int()`/deljenju z nič | P2 | odpravljeno (v1.5.7): `preveri_cfg` zahteva `auto` ali `1:N` s pozitivnim celim N; `generiraj` zavrne pred risanjem |
 | dve definiciji odpada na montažnem listu (PORABA „odpad“ vključuje kerf, REZ „ostanek“ ga ne) | P3 | konservativnost namerna — zapisano v docs/build.md in poročilu; predlog T10 to zaklene |
 
 - skupaj **163 testov** (74 iz #2 nespremenjenih + 61 iz #3 + 28 novih),
