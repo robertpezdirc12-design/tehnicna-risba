@@ -53,7 +53,7 @@ avtokorelacija profila roba da periodo 71 px → **27 elementov**; ročno jih
 preštejem 26 (napaka +4 %). Trenutna zaznava na istem izrezu našteje 19
 »stebrov«.
 
-Dve pasti, ki sta se pokazali in ju je treba vgraditi:
+Tri pasti, ki so se pokazale in jih je treba vgraditi:
 
 1. **Harmonik.** Najmočnejši vrh avtokorelacije je pri 32 px (širina
    balustra), ne pri 71 px (razmak). Zato ne smeš vzeti kar `argmax`, ampak
@@ -63,6 +63,14 @@ Dve pasti, ki sta se pokazali in ju je treba vgraditi:
    33 px → 30 elementov, a linije očitno ne sledijo balusterom: brez
    poravnave v čelni pogled je rezultat naključen. To je dokaz, da mora
    korak 2 vedno teči **na poravnani sliki** (korak 1), ne na izvirniku.
+3. **Deske niso stebri (v1.5.21).** Na letvasti ograji je perioda 19 px
+   (deske) in ne 2000 px (stebri); takrat periodično štetje vrne 75
+   »stebrov« in razmak 108 mm — samozavestno napačno. Zato: če je perioda
+   < 35 % višine ograje, gre za ritem **desk**; stebre se prešteje po
+   širini elementov (≥ 1,8 × mediana širine, CV razmikov ≤ 0,20), sicer
+   število stebrov ostane `neznano`. Merjeno: prej 75/108 mm `izracunano`,
+   zdaj `neznano` + opozorilo; kjer so stebri izrazito širši, 4 stebri /
+   3 polja / 2000 mm (0 %); samo stebri 4 / 1975 mm (−1,3 %).
 
 ### 2.3 Marker za merilo (ArUco)
 
@@ -166,6 +174,9 @@ samih kotov ni mogoče izračunati, in uporabi ročni `--dolzina`, če je podan.
 |---|---|---|---|
 | perioda, sintetično | 10 / 16 / 8 / 26 elementov | 10 / 16 / 8 / 26 | 0 elementov, perioda ±1 px |
 | perioda, `k1-izrez` (tuja fotografija) | 26 elementov (ročno) | 23 | −3; kontrola popolnosti javi 28 pričakovanih → status `OCENJENO` |
+| deske + stebri, sintetično (v1.5.21) | 4 stebri, 75 desk, razmak 2000 mm | prej: 75 stebrov / 108 mm `izracunano`; zdaj: `neznano` + opozorilo | prej napačno, zdaj pošteno |
+| deske + izrazito širši stebri (v1.5.21) | 4 stebri, 3 polja, razmak 2000 mm | 4 stebri, 3 polja, 2000 mm | 0 |
+| samo stebri (marker, v1.5.21) | 4 stebri, razmak 2000 mm | 4 stebri, 1975 mm | −1,3 % (rektifikacija) |
 | marker, čelni pogled 6000 × 1000 mm | 6000 × 1000 | 5998 × 998 | **−0,03 % / −0,2 %** |
 | marker 300 mm (68 px), poševno, 0,5 px/mm | 6000 × 1000 | 5925 × 993 | **−1,3 % / −0,7 %** |
 | marker 300 mm (68 px), poševno, 1 px/mm | 6000 × 1000 | 6177 × 1009 | +2,9 % / +0,9 % |

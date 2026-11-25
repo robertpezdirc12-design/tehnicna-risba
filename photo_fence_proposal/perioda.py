@@ -125,6 +125,86 @@ def iz_profila(profil: np.ndarray, min_px: float = MIN_PERIODA_PX,
                    pricakovano=int(round(n / perioda)))
 
 
+
+
+MIN_RAZMERJE_SIRINE = 1.8   # steber je vsaj toliko širši od deske
+MAX_CV_RAZMERJE = 0.20      # večja neenakomernost ni ritem stebrov
+# Perioda, manjša od tega deleža višine ograje, je ritem DESK, ne stebrov:
+# deske so ~0,1 višine narazen, stebri pa ~1 višino (polje ~2 m, višina ~1,8 m).
+# Razmerje je brez merila (piksli/piksli), zato deluje tudi brez markerja.
+MIN_RAZMERJE_STEBROV = 0.35
+
+
+@dataclass(frozen=True)
+class Stebri:
+    """Stebri, najdeni po ŠIRINI elementov (stebri so širši od desk)."""
+
+    stevilo: int
+    perioda_px: float
+    zanesljivost: float
+
+
+def _profil_za_sirino(pas: np.ndarray) -> np.ndarray:
+    """Stolpčni profil za ločevanje po širini (brez CLAHE, kratko ozadje)."""
+    siva = (cv2.cvtColor(pas, cv2.COLOR_BGR2GRAY) if pas.ndim == 3
+            else pas).astype(np.float32)
+    profil = siva.mean(axis=0)
+    n = len(profil)
+    if n < 9:
+        return profil - profil.mean()
+    k = max(9, (n // 8) | 1)      # kratko ozadje: stebri ostanejo ostri
+    trend = cv2.blur(profil.reshape(1, -1), (k, 1)).ravel()
+    return profil - trend
+
+
+def _teki_temnega(profil: np.ndarray) -> list[tuple[int, int]]:
+    """Zaporedni temni odseki profila kot (zacetek, konec), vključno."""
+    naj = float(np.abs(profil).max())
+    if naj <= 1e-6:
+        return []
+    temno = profil < -0.35 * naj
+    teki: list[tuple[int, int]] = []
+    zacetek: int | None = None
+    for i, t in enumerate(temno):
+        if t and zacetek is None:
+            zacetek = i
+        elif not t and zacetek is not None:
+            teki.append((zacetek, i - 1))
+            zacetek = None
+    if zacetek is not None:
+        teki.append((zacetek, len(temno) - 1))
+    return teki
+
+
+def poisci_stebre(pas: np.ndarray) -> Stebri | None:
+    """Poišči STEBRE (ne desk) po širini: stebri so ~2× širši od desk."""
+
+    # Deske so ozke in številne, stebri redki in široki. Če so vsi teki
+    # enako široki (ograja brez izrazitih stebrov), funkcija vrne None —
+    # bolje neznano kot napačno število.
+    if pas is None or pas.size == 0:
+        return None
+    teki = _teki_temnega(_profil_za_sirino(pas))
+    if len(teki) < 4:
+        return None
+    sirine = np.array([k - z + 1 for z, k in teki], dtype=float)
+    mediana = float(np.median(sirine))
+    if mediana <= 0:
+        return None
+    siroki = [t for t, w in zip(teki, sirine)
+              if w >= MIN_RAZMERJE_SIRINE * mediana]
+    if len(siroki) < 2:
+        return None
+    sredine = np.array([(z + k) / 2.0 for z, k in siroki])
+    razmiki = np.diff(sredine)
+    if len(razmiki) < 1 or float(razmiki.mean()) <= 0:
+        return None
+    cv = float(razmiki.std() / razmiki.mean())
+    if cv > MAX_CV_RAZMERJE:
+        return None
+    return Stebri(stevilo=len(siroki), perioda_px=float(np.median(razmiki)),
+                  zanesljivost=1.0 - cv)
+
 def prestej(pas: np.ndarray, min_px: float = MIN_PERIODA_PX,
             max_px: float | None = None) -> Perioda | None:
     """Preštej elemente v pasu slike; None, če perioda ni zanesljiva."""

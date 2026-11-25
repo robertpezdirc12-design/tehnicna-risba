@@ -1,5 +1,34 @@
 # Zgodovina sprememb
 
+## v1.5.21 — 2026-11-24 (deske niso stebri)
+
+**Letvasta ograja je doslej vrnila 75 »stebrov« in razmak 108 mm —
+samozavestno napačno. Zdaj program loči ritem desk od stebrov in raje
+pove »neznano«, kot da bi štel deske.**
+
+- **`perioda.MIN_RAZMERJE_STEBROV` (0,35):** perioda, ki je manjša od
+  dobre tretjine višine ograje, je ritem **desk** (deske so ~0,1 višine
+  narazen, stebri ~1 višino). Razmerje je brez merila, zato deluje tudi
+  brez markerja.
+- **`perioda.poisci_stebre()`:** kadar so na sliki hkrati ozke deske in
+  široki stebri, jih loči po **širini temnega teka** (steber ≥ 1,8 ×
+  mediana širine) in preveri enakomernost razmikov (CV ≤ 0,20). Brez
+  izrazitih stebrov vrne `None` — ne izmišlja števila.
+- **`zazeni._prestej_elemente()`:** če je zaznani ritem prefin, a stebrov
+  ni mogoče ločiti, `stevilo_stebrov` dobi status `neznano` z razlago,
+  `stevilo_polj` in `razmak_stebrov` pa se **ne izmišljata**; dokument
+  dobi opozorilo z številom desk in razmakom v pikslih.
+- **Izmerjeno (sintetično, `narisi_prizor`, 4 stebri + 75 desk):** prej
+  `75` stebrov / razmak `108 mm` / status `izracunano`; zdaj `neznano` +
+  opozorilo. Kjer so stebri izrazito širši: `4` stebri, `3` polja,
+  razmak `2000 mm`. Scena samo s stebri (marker): `4` stebri, razmak
+  `1975 mm` (resnica 2000, **−1,3 %** — napaka rektifikacije).
+- Novi testi: `test_stetje_ne_zamenja_desk_za_stebre`,
+  `test_stetje_najde_stebre_ob_deskah`,
+  `test_perioda_poisci_stebre_po_sirini`,
+  `test_perioda_poisci_stebre_brez_stebrov_vrne_none`.
+
+Testi: **91** (`python -m pytest photo_fence_proposal/testi_pfp.py -q`).
 ## v1.5.20 — 2026-11-24 (F2 izmerjen in zavrnjen)
 
 **Grounded SAM 2 na resničnih fotografijah ne šteje elementov in je

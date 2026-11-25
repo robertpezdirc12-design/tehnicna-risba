@@ -217,11 +217,55 @@ def _mere_iz_markerja(rezultat: Rezultat, slika, vogali,
             f"({stran:.0f} px) v ravnini ograje")
 
 
+def _razmak_iz_dolzine(rezultat: Rezultat, n: int) -> None:
+    """Razmak stebrov = dolžina / (n − 1), če je dolžina znana."""
+    from model import Mera, IZRACUNANO
+    dol = rezultat.mere.get("dolzina_ograje")
+    if dol and dol.vrednost_mm and n > 1:
+        rezultat.mere["razmak_stebrov"] = Mera(
+            dol.vrednost_mm / (n - 1), IZRACUNANO,
+            "dolžina / število polj (poravnana slika)")
+
+
 def _prestej_elemente(rezultat: Rezultat, slika) -> None:
     """Periodično štetje elementov na poravnani (rektificirani) sliki."""
-    from model import Mera, IZRACUNANO
+    from model import Mera, IZRACUNANO, NEZNANO
 
-    per = perioda.prestej(perioda.pas_ograje(slika))
+    pas = perioda.pas_ograje(slika)
+    per = perioda.prestej(pas)
+    visina_px = float(slika.shape[0]) if getattr(slika, "shape", None) else 0.0
+
+    # Ritem desk ni štetje stebrov: deske so ~10x ožje od višine, stebri pa
+    # ~1 višino narazen. Brez tega ločevanja bi poravnana slika letvic
+    # vrnila 75 "stebrov" in razmak 108 mm — samozavestno napačno.
+    prefin = (per is not None and visina_px > 0
+              and per.perioda_px / visina_px < perioda.MIN_RAZMERJE_STEBROV)
+    if prefin:
+        stebri = perioda.poisci_stebre(pas)
+        if stebri is not None and stebri.stevilo >= 2:
+            n = int(stebri.stevilo)
+            rezultat.mere["stevilo_polj"] = Mera(
+                float(n - 1), IZRACUNANO,
+                f"stebri po širini elementov (razmak "
+                f"{stebri.perioda_px:.0f} px, "
+                f"zanesljivost {stebri.zanesljivost:.2f})")
+            rezultat.mere["stevilo_stebrov"] = Mera(
+                float(n), IZRACUNANO,
+                "stebri so širši od desk — štetje po širini")
+            _razmak_iz_dolzine(rezultat, n)
+            return
+        rezultat.mere["stevilo_stebrov"] = Mera(
+            None, NEZNANO,
+            "na sliki je viden le ritem desk, stebrov ni mogoče prešteti")
+        rezultat.mere.pop("stevilo_polj", None)
+        rezultat.mere.pop("razmak_stebrov", None)
+        if per is not None:
+            rezultat.opozorila.append(
+                f"Na poravnani sliki je ritem DESK ({per.stevilo} elementov, "
+                f"razmak {per.perioda_px:.0f} px), ne stebrov — deske so "
+                "prenizke za štetje stebrov, zato število stebrov ni "
+                "izračunano. Vnesi ga ročno ali posnami širši kader s stebri.")
+        return
     if per is None or per.stevilo < 2:
         rezultat.opozorila.append(
             "Periodičnega ritma na poravnani sliki ni bilo mogoče "
@@ -243,16 +287,13 @@ def _prestej_elemente(rezultat: Rezultat, slika) -> None:
             f"Periodično štetje je našlo {n} elementov, geometrija pa jih "
             f"predvideva {per.pricakovano} — del elementov je zakritih ali "
             "slabo viden; število je ocena, potrdi ga ročno.")
-    dol = rezultat.mere.get("dolzina_ograje")
-    if dol and dol.vrednost_mm and n > 1:
-        rezultat.mere["razmak_stebrov"] = Mera(
-            dol.vrednost_mm / (n - 1), IZRACUNANO,
-            "dolžina / število polj (poravnana slika)")
+    _razmak_iz_dolzine(rezultat, n)
     if popolno:
         rezultat.opozorila.append(
             f"Število elementov ({n}) je izračunano periodično po "
             "celotni širini; pri močni perspektivi je lahko za ±1 "
             "napačno — pred ponudbo preveri na objektu.")
+
 
 def _soglasje_posnetkov(rezultat: Rezultat, pot_fotografije: str, vogali,
                         dodatni, velikost_markerja_mm: float,

@@ -137,6 +137,13 @@ python -m pytest testi_pfp.py -q
 - **Merjenje**: brez markerja v ravnini ograje program širine ne izračuna
   (geometrijsko nedoločeno) in tega ne skriva; število stebrov iz
   periodičnega štetja je `ocenjeno`, kadar se ne ujema s širino/periodo.
+- **Deske niso stebri (v1.5.21)**: če je perioda manjša od 35 % višine
+  ograje, je to ritem **desk** — število stebrov takrat ostane `neznano`
+  (z razlago in številom desk), `razmak_stebrov` se ne izmišlja. Stebre
+  program prešteje po širini elementov, kadar so očitno širši od desk
+  (≥ 1,8 × mediana) in enakomerno razmaknjeni (CV ≤ 0,20). Prej je
+  letvasta ograja vrnila 75 »stebrov« in razmak 108 mm — `izracunano`;
+  zdaj `neznano` + opozorilo.
 - **Faza 4 — realne fotografije** (`testni_primeri_realni/`, 5 fotografij starih
   ograj z Wikimedie, viri in licence v `VIRA.txt`): **prekomerna zaznava**
   (12–22 "stebrov" namesto dejanskih — deske, drevesa, robovi), opozorilo

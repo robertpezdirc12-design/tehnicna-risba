@@ -956,6 +956,65 @@ def test_perioda_ne_vzame_harmonika():
     assert abs(p.perioda_px - 71) <= 2
 
 
+def _scena_desk_in_stebrov(n_stebrov, razmak=300, sirina=1200, visina=300):
+    """Sintetična ograja z ozkimi deskami IN širokimi stebri (kot izdelek)."""
+    import numpy as np
+    im = np.full((visina, sirina, 3), 220, np.uint8)
+    for x in range(0, sirina - 3, 12):
+        im[20:visina - 20, x:x + 3] = (95, 95, 95)
+    for i in range(n_stebrov):
+        x = 20 + i * razmak
+        im[10:visina - 10, x:x + 18] = (35, 35, 35)
+    return im
+
+
+def test_perioda_poisci_stebre_po_sirini():
+    """Stebri so ~2x širši od desk — najdi jih po širini, ne po ritmu desk."""
+    import perioda
+    st = perioda.poisci_stebre(_scena_desk_in_stebrov(4))
+    assert st is not None
+    assert st.stevilo == 4
+    assert abs(st.perioda_px - 300) <= 2
+
+
+def test_perioda_poisci_stebre_brez_stebrov_vrne_none():
+    """Same deske niso stebri — raje None kot izmišljeno število."""
+    import numpy as np
+    import perioda
+    im = np.full((300, 900, 3), 220, np.uint8)
+    for x in range(0, 897, 12):
+        im[20:280, x:x + 3] = (95, 95, 95)
+    assert perioda.poisci_stebre(im) is None
+
+
+def test_stetje_ne_zamenja_desk_za_stebre():
+    """Letvasta ograja: 75 desk ni 75 stebrov — število stebrov ostane neznano."""
+    import numpy as np
+    import zazeni
+    im = np.full((300, 1200, 3), 220, np.uint8)
+    for x in range(0, 1197, 16):
+        im[20:280, x:x + 4] = (95, 95, 95)
+    rez = Rezultat(zaznava=None, parametri=ParametriNove())
+    rez.mere = {"dolzina_ograje": Mera(6000.0, IZMERJENO, "ročno")}
+    zazeni._prestej_elemente(rez, im)
+    assert rez.mere["stevilo_stebrov"].vrednost_mm is None
+    assert rez.mere["stevilo_stebrov"].status == NEZNANO
+    assert "stevilo_polj" not in rez.mere
+    assert "razmak_stebrov" not in rez.mere
+    assert any("DESK" in o for o in rez.opozorila)
+
+
+def test_stetje_najde_stebre_ob_deskah():
+    """Deske + široki stebri: šteje stebre (4), ne desk (100)."""
+    import zazeni
+    rez = Rezultat(zaznava=None, parametri=ParametriNove())
+    rez.mere = {"dolzina_ograje": Mera(6000.0, IZMERJENO, "ročno")}
+    zazeni._prestej_elemente(rez, _scena_desk_in_stebrov(4))
+    assert rez.mere["stevilo_stebrov"].vrednost_mm == 4
+    assert rez.mere["stevilo_polj"].vrednost_mm == 3
+    assert abs(rez.mere["razmak_stebrov"].vrednost_mm - 2000.0) < 1.0
+
+
 def test_perioda_na_prazni_sliki_vrne_none():
     import numpy as np
     import perioda
