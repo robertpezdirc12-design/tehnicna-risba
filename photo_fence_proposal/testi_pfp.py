@@ -999,6 +999,34 @@ def test_perioda_poisci_stebre_brez_stebrov_vrne_none():
     assert perioda.poisci_stebre(im) is None
 
 
+def test_perioda_poisci_stebre_perspektivne_vrzeli_niso_stebri():
+    """Perspektiva zožuje VRZELI čez sliko — široke vrzeli na levi niso
+    stebri (resnična fotografija u03: 3 lažni stebri iz globalne mediane)."""
+    import numpy as np
+    import perioda
+    im = np.full((300, 1200, 3), 60, np.uint8)      # temno ozadje = vrzeli
+    x = 20
+    for i in range(11):
+        im[10:290, x:x + 40] = (200, 200, 200)       # svetla deska
+        x += 40 + max(5, 64 - 5 * i)                 # vrzel se zožuje
+    assert perioda.poisci_stebre(im) is None
+
+
+def test_stetje_ritem_desk_ocena_z_zanesljivostjo():
+    """Sporočilo „ritem DESK" mora štetje označiti kot grobo oceno
+    (merjeno na pravih ploščah Roksal: +1 proti resnici) in povedati
+    zanesljivost, da so slabi koti vidni (u03: 0,19 proti 0,28)."""
+    import numpy as np
+    import zazeni
+    im = np.full((300, 1200, 3), 220, np.uint8)
+    for x in range(0, 1197, 16):
+        im[20:280, x:x + 4] = (95, 95, 95)
+    rez = Rezultat(zaznava=None, parametri=ParametriNove())
+    zazeni._prestej_elemente(rez, im)
+    op = next(o for o in rez.opozorila if "DESK" in o)
+    assert "približno" in op and "zanesljivost" in op
+
+
 def test_stetje_ne_zamenja_desk_za_stebre():
     """Letvasta ograja: 75 desk ni 75 stebrov — število stebrov ostane neznano."""
     import numpy as np

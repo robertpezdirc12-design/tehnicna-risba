@@ -261,10 +261,13 @@ def _prestej_elemente(rezultat: Rezultat, slika) -> None:
         rezultat.mere.pop("razmak_stebrov", None)
         if per is not None:
             rezultat.opozorila.append(
-                f"Na poravnani sliki je ritem DESK ({per.stevilo} elementov, "
-                f"razmak {per.perioda_px:.0f} px), ne stebrov — deske so "
-                "prenizke za štetje stebrov, zato število stebrov ni "
-                "izračunano. Vnesi ga ročno ali posnami širši kader s stebri.")
+                f"Na poravnani sliki je ritem DESK (približno {per.stevilo} "
+                f"elementov, razmak {per.perioda_px:.0f} px, zanesljivost "
+                f"{per.zanesljivost:.2f}), ne stebrov — štetje je groba "
+                "ocena in je lahko za kakšen element zgreši (delni elementi "
+                "ob robovih štejejo kot celi), deske pa so prenizke za "
+                "štetje stebrov, zato število stebrov ni izračunano. Vnesi "
+                "ga ročno ali posnami širši kader s stebri.")
         return
     if per is None or per.stevilo < 2:
         rezultat.opozorila.append(

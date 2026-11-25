@@ -190,11 +190,20 @@ def poisci_stebre(pas: np.ndarray) -> Stebri | None:
     if len(teki) < 4:
         return None
     sirine = np.array([k - z + 1 for z, k in teki], dtype=float)
-    mediana = float(np.median(sirine))
-    if mediana <= 0:
+    # Perspektiva zožuje elemente čez sliko: globalna mediana bi bile
+    # široke VRZELI na levi (64, 59, 51 px) primerjala z zoženimi na desni
+    # (7, 2 px) in jih razglasila za stebre — to se je zgodilo na resnični
+    # fotografiji u03 (3 lažni stebri). Zato vsak tek primerjamo z LOKALNO
+    # osnovo sosednjih širin; pravi stebri so širši od obeh sosed.
+    if float(np.median(sirine)) <= 0:
         return None
-    siroki = [(t, w) for t, w in zip(teki, sirine)
-              if w >= MIN_RAZMERJE_SIRINE * mediana]
+    pol = 3
+    siroki = []
+    for i, (tek, w) in enumerate(zip(teki, sirine)):
+        okno = sirine[max(0, i - pol): i + pol + 1]
+        osnova = float(np.median(okno))
+        if osnova > 0 and w >= MIN_RAZMERJE_SIRINE * osnova:
+            siroki.append((tek, w))
     # Z dvema elementoma je CV razmika vedno 0 (ni s čim primerjati), zato
     # je bil vsak par širokih temnih stolpcev razglašen za "stebre".
     # To se je na resnični fotografiji (Roksal, pokončna balustrada)

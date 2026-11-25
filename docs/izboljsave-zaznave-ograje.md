@@ -214,6 +214,48 @@ stebrov; štetje stebrov na resničnih fotografijah ostaja odprto. Za
 zaprtje te vrzeli sta potrebna **ročna potrditev števila** ali marker z
 znano geometrijo — ne nova heuristika.
 
+### 4.5 Meritev na fotografijah montaže naročnika (v1.5.23)
+
+Naročnik je poslal **lastne fotografije montaže** (7 slik; shranjene samo
+lokalno v `.test/tuje/uporabnik/`, **niso** v repozitoriju). Dve delavniški
+plošči sta imeli znano resnico, ugotovljeno z **tremi neodvisnimi prehodi**
+(Otsu profili po vrsticah, štetje vijakov po kosih pri 2× povečavi, izpis
+sivih vrednosti po vrsticah — zadnji je razkril desko v senci, ki jo je
+Otsu spregledal):
+
+| Slika | Resnica | Pred popravkom | Po popravku |
+|---|---|---|---|
+| `u03` (siva plošča, delavnica) | **11 desk + 2 stebra** | 3 stebra `izracunano` (lažni!), ritem 16/42 px | stebri `neznano` ✓, ritem »približno 12 / 106 px (0,28)« |
+| `u04` (rjava plošča, delavnica) | **11 desk + 2 stebra** | ritem 12/120 px | stebri `neznano` ✓, ritem »približno 12 / 120 px (0,53)« |
+
+Dve pravi napaki, ki ju sintetika ni mogla pokazati:
+
+1. **Perspektivne vrzeli niso stebri.** `poisci_stebre` je primerjal širine
+   tekov z globalno mediano; ker perspektiva zožuje vrzeli čez sliko (u03:
+   64 → 2 px), so bile prve tri vrzeli ≥ 1,8 × mediana in razglašene za
+   stebre. Popravek: primerjava z **lokalno** osnovo sosednjih širin.
+2. **Koti odločajo o ritmu.** Z grobi koti je bila avtokorelacija u03
+   razpršena (0,19, napačno obdobje 42 px); z izmerjenimi koti stebrov je
+   0,28 in obdobje 106 px. Zato je v sporočilu zdaj **zanesljivost** —
+   slabi koti so vidni, ne skriti.
+
+Izmerjen sistematični odmik štetja desk: **+1** na obeh ploščah (12
+namesto 11), enako kot `r09` (14 namesto 13) — štetje zajame tudi delne
+enote ob robovih. Zato je štetje označeno kot **groba ocena (»približno«)**,
+ne kot meritev.
+
+Ostalih pet slik nima merljive resnice za štetje: `u01` je detajl deske od
+blizu, `u02` (balkoni z vodoravnimi lamelami) in `u06` (balkonska ograja s
+tankimi letvicami) imajo stebre skrite, `u05` in `u07` pa prikazujeta
+podkonstrukcijo terase (ni ograja) — za te slike štetje ni merjeno in se
+ne uporablja kot dokaz.
+
+**Sprejeta odločitev (kot v 4.4):** brez markerja ali ročne potrditve
+program števila stebrov ne izmišlja; štetje desk je okvirno. Nobena nova
+hevristika se ni izkazala (poskus korekcije podobdobja je bil preizkušen
+in odstranjen, ker se ni sprožil niti na realnih niti na sintetičnih
+primerih).
+
 ## 5. Kako preveriti, da izboljšava res deluje
 
 Brez merjene resnice ni dokaza. Zato pred vsako izboljšavo:

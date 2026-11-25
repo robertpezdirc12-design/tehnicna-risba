@@ -1,5 +1,27 @@
 # Zgodovina sprememb
 
+## v1.5.23 — 2026-11-25 (fotografije montaže naročnika: perspektivne vrzeli niso stebri)
+
+**Naročnikove lastne fotografije montaže (delavniški plošči z znano
+resnico: 11 desk + 2 stebra) so odkrili dve napaki, ki ju sintetika ni
+mogla pokazati.**
+
+- **`poisci_stebre` ne zamenja več perspektivnih vrzeli za stebre.**
+  Primerjava širin z globalno mediano je na sliki u03 (vrzeli se
+  perspektivno zožijo 64 → 2 px) prve tri vrzeli razglasila za „stebre“
+  (rezultat: 3 stebri `izracunano` namesto `neznano`). Zdaj se vsak tek
+  primerja z lokalno osnovo sosednjih širin.
+- **Zanesljivost ritma je vidna.** S grobi koti je bila avtokorelacija u03
+  razpršena (0,19, napačno obdobje 42 px) — sporočilo „ritem DESK“ zdaj
+  vključuje zanesljivost in štetje označi kot grobo oceno (»približno«;
+  izmerjen odmik +1 na obeh ploščah in r09).
+- Poskus korekcije podobdobja je bil preizkušen in **odstranjen** — ni se
+  sprožil niti na realnih niti na sintetičnih primerih.
+- 2 nova regresijska testa (perspektivne vrzeli, pošteno sporočilo).
+- Dokumentirano: `docs/izboljsave-zaznave-ograje.md` (4.5) z resnico,
+  tremi neodvisnimi prehodi štetja in merjenim odmikom.
+- Preverjeno: PFP **94 testov**; ruff čist; mypy brez novih.
+
 ## v1.5.22 — 2026-11-25 (resnične fotografije izdelka: dve samozavestni napaki manj)
 
 **Fotografije iz galerije Roksal (WPC ograje) so pokazale, da je nova
