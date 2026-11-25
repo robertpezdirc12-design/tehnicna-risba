@@ -977,6 +977,18 @@ def test_perioda_poisci_stebre_po_sirini():
     assert abs(st.perioda_px - 300) <= 2
 
 
+def test_perioda_poisci_stebre_dve_siroka_elementa_nista_dokaz():
+    """Dva široka temna stolpca nista ritem stebrov (CV razmika je tedaj 0)."""
+    import numpy as np
+    import perioda
+    im = np.full((300, 900, 3), 220, np.uint8)
+    for x in range(0, 897, 12):
+        im[20:280, x:x + 3] = (95, 95, 95)
+    for x in (60, 700):
+        im[10:290, x:x + 18] = (35, 35, 35)
+    assert perioda.poisci_stebre(im) is None
+
+
 def test_perioda_poisci_stebre_brez_stebrov_vrne_none():
     """Same deske niso stebri — raje None kot izmišljeno število."""
     import numpy as np

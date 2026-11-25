@@ -141,9 +141,14 @@ python -m pytest testi_pfp.py -q
   ograje, je to ritem **desk** — število stebrov takrat ostane `neznano`
   (z razlago in številom desk), `razmak_stebrov` se ne izmišlja. Stebre
   program prešteje po širini elementov, kadar so očitno širši od desk
-  (≥ 1,8 × mediana) in enakomerno razmaknjeni (CV ≤ 0,20). Prej je
-  letvasta ograja vrnila 75 »stebrov« in razmak 108 mm — `izracunano`;
-  zdaj `neznano` + opozorilo.
+  (≥ 1,8 × mediana), vsaj **trije** in enakomerno razmaknjeni (CV ≤ 0,20,
+  širine CV ≤ 0,50). Prej je letvasta ograja vrnila 75 »stebrov« in razmak
+  108 mm — `izracunano`; zdaj `neznano` + opozorilo.
+- **Dve deski nista mreža (v1.5.22)**: na resnični fotografiji izdelka
+  (Roksal, pokončna balustrada) je staro iskanje po širini vrnilo 2
+  »stebra« s statusom `izracunano` iz dveh desk, ker je bil CV enega
+  samega razmika 0. Zdaj je za potrditev potrebnih vsaj 3 širokih tekov;
+  pri dveh (npr. enojno polje) program zahteva ročni vnos.
 - **Faza 4 — realne fotografije** (`testni_primeri_realni/`, 5 fotografij starih
   ograj z Wikimedie, viri in licence v `VIRA.txt`): **prekomerna zaznava**
   (12–22 "stebrov" namesto dejanskih — deske, drevesa, robovi), opozorilo

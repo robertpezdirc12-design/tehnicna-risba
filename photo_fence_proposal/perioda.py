@@ -129,6 +129,8 @@ def iz_profila(profil: np.ndarray, min_px: float = MIN_PERIODA_PX,
 
 MIN_RAZMERJE_SIRINE = 1.8   # steber je vsaj toliko širši od deske
 MAX_CV_RAZMERJE = 0.20      # večja neenakomernost ni ritem stebrov
+MIN_STEBROV_MREZA = 3       # z 2 elementoma pravilnosti ni mogoče preveriti
+MAX_CV_SIRINE = 0.50        # zelo različne širine = niso isti stebri
 # Perioda, manjša od tega deleža višine ograje, je ritem DESK, ne stebrov:
 # deske so ~0,1 višine narazen, stebri pa ~1 višino (polje ~2 m, višina ~1,8 m).
 # Razmerje je brez merila (piksli/piksli), zato deluje tudi brez markerja.
@@ -191,16 +193,26 @@ def poisci_stebre(pas: np.ndarray) -> Stebri | None:
     mediana = float(np.median(sirine))
     if mediana <= 0:
         return None
-    siroki = [t for t, w in zip(teki, sirine)
+    siroki = [(t, w) for t, w in zip(teki, sirine)
               if w >= MIN_RAZMERJE_SIRINE * mediana]
-    if len(siroki) < 2:
+    # Z dvema elementoma je CV razmika vedno 0 (ni s čim primerjati), zato
+    # je bil vsak par širokih temnih stolpcev razglašen za "stebre".
+    # To se je na resnični fotografiji (Roksal, pokončna balustrada)
+    # zgodilo: 2 "stebra" iz dveh naključnih desk, status izracunano.
+    if len(siroki) < MIN_STEBROV_MREZA:
         return None
-    sredine = np.array([(z + k) / 2.0 for z, k in siroki])
+    sredine = np.array([(t[0] + t[1]) / 2.0 for t, _w in siroki])
     razmiki = np.diff(sredine)
-    if len(razmiki) < 1 or float(razmiki.mean()) <= 0:
+    if len(razmiki) < 2 or float(razmiki.mean()) <= 0:
         return None
     cv = float(razmiki.std() / razmiki.mean())
     if cv > MAX_CV_RAZMERJE:
+        return None
+    # Širine stebrov morajo biti podobne; zelo različne širine pomenijo,
+    # da smo ujeli različne tipe elementov (deske, podboje, robove).
+    sirine_sirokih = np.array([w for _t, w in siroki], dtype=float)
+    cv_sirine = float(sirine_sirokih.std() / sirine_sirokih.mean())
+    if cv_sirine > MAX_CV_SIRINE:
         return None
     return Stebri(stevilo=len(siroki), perioda_px=float(np.median(razmiki)),
                   zanesljivost=1.0 - cv)

@@ -1,5 +1,26 @@
 # Zgodovina sprememb
 
+## v1.5.22 — 2026-11-25 (resnične fotografije izdelka: dve samozavestni napaki manj)
+
+**Fotografije iz galerije Roksal (WPC ograje) so pokazale, da je nova
+meja 35 % prava, a da je iskanje stebrov po širini še preveč pogumno.**
+
+- **`perioda.poisci_stebre()` strožje:** vsaj **3** široki temni teki
+  (z dvema je CV razmika vedno 0, zato je bil vsak par razglašen za
+  "stebre"), vsaj dva razmika in CV razmikov ≤ 0,20, širine stebrov pa
+  podobne (CV ≤ 0,50).
+- **Napaka, najdena na resnični fotografiji:** pokončna balustrada
+  (`r06.jpg`) je vrnila **2 stebra, status `izracunano`** — iz dveh
+  naključnih desk, ker je bil CV enega samega razmika 0. Zdaj: `neznano`
+  + opozorilo *ritem DESK (53 elementov, 24 px)*.
+- **Druga resnična fotografija** (`r09.jpg`, 13 desk med dvema stebroma):
+  število desk **14** (resnica 13, **+7,7 %**), stebri `neznano` — z
+  dvema stebroma jih program ne potrjuje (raje neznano kot ugibanje).
+- **Sklep:** za horizontalne lamele (glavni izdelek) program ne izmišlja
+  več stebrov; štetje stebrov na resničnih fotografijah ostaja odprto
+  (potrebna sta ročna potrditev ali marker + znana geometrija).
+
+Testi: **92** (`python -m pytest photo_fence_proposal/testi_pfp.py -q`).
 ## v1.5.21 — 2026-11-24 (deske niso stebri)
 
 **Letvasta ograja je doslej vrnila 75 »stebrov« in razmak 108 mm —

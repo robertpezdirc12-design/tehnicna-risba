@@ -71,6 +71,13 @@ Tri pasti, ki so se pokazale in jih je treba vgraditi:
    število stebrov ostane `neznano`. Merjeno: prej 75/108 mm `izracunano`,
    zdaj `neznano` + opozorilo; kjer so stebri izrazito širši, 4 stebri /
    3 polja / 2000 mm (0 %); samo stebri 4 / 1975 mm (−1,3 %).
+4. **Dva elementa nista mreža (v1.5.22).** Na resnični fotografiji izdelka
+   (Roksal, pokončna balustrada) je iskanje po širini vrnilo **2 stebra s
+   statusom `izracunano`** — iz dveh naključnih desk. Vzrok: pri dveh
+   elementih je CV razmika vedno 0, torej "pravilnost" ni preverjena.
+   Zdaj: vsaj **3** široki teki, vsaj dva razmika (CV ≤ 0,20) in podobne
+   širine (CV ≤ 0,50); sicer `neznano`. Enako velja za enojno polje z
+   dvema stebroma — program ga ne potrjuje sam, ampak zahteva ročni vnos.
 
 ### 2.3 Marker za merilo (ArUco)
 
@@ -188,6 +195,24 @@ velik — kar je fizika, ne nastavitev.
 
 Preverjanje: `python -m pytest photo_fence_proposal/testi_pfp.py -q`
 (66 testov, vsi zeleni).
+
+### 4.4 Preizkus na resničnih fotografijah izdelka (Roksal, v1.5.22)
+
+Fotografije iz galerije izdelka (`roksal.com`, WPC ograje; shranjene samo
+lokalno v `.test/tuje/roksal/`, **niso** v repozitoriju) so bile prvi
+preizkus na resničnem izdelku. Koti ograje so bili ročno označeni, resnica
+pa prešteta na posamezni vrstici slike (ne z istim algoritmom).
+
+| Fotografija | Resnica | Rezultat programa | Omejitev |
+|---|---|---|---|
+| `r09.jpg` (13 desk med 2 stebroma) | 13 desk, 2 stebra | 14 desk (**+7,7 %**), stebri `neznano` | 2 stebra se ne potrjujeta sama |
+| `r06.jpg` (pokončna balustrada, ~50 desk) | stebrov ni (samo deske) | **prej 2 stebra `izracunano`**, zdaj `neznano` + »ritem DESK (53)« | štetje desk na odsevih niha ±10 % |
+| `r04.jpg`, `r05.jpg` (vodoravne lamele) | stebri za lamelami | `neznano` + opozorilo o ritmu desk | stebri niso vidni, ker so skriti |
+
+**Sklep:** za vodoravne lamele (glavni izdelek) program ne izmišlja več
+stebrov; štetje stebrov na resničnih fotografijah ostaja odprto. Za
+zaprtje te vrzeli sta potrebna **ročna potrditev števila** ali marker z
+znano geometrijo — ne nova heuristika.
 
 ## 5. Kako preveriti, da izboljšava res deluje
 
