@@ -55,9 +55,10 @@ python zazeni.py --fotografija foto.jpg --izhod izhod/ --marker-mm 150 \
     --vogali "300,520;1500,300;1500,830;300,950" --maske maske.json
 ```
 
-Štetje iz mask je deterministično (projekcija intervalov + združevanje
-fragmentov), zato je ponovljivo in testirano; kakovost AI mask pa v tem
-okolju **ni izmerjena** (uteži niso nameščene) — zato je potrditev
+Štetje iz mask je deterministično: maske, ki se **močno prekrivajo**
+(polovica ožje), so isti element, sosednje deske pa ostanejo ločene.
+Kakovost AI mask je bila **izmerjena in je slaba** (napaka −20 … −98 %,
+41–45 s/sliko): `docs/meritev-f2-maske.md`. Zato je potrditev le
 navedena v opisu mere (`… — potrjeno z AI maskami (4)`), ob nesoglasju pa
 ostane `ocenjeno` z razlago.
 

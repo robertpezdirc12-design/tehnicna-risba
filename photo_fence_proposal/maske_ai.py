@@ -26,11 +26,10 @@ from __future__ import annotations
 
 import json
 import pathlib
-import statistics
 from dataclasses import dataclass
 
 OZNAKE = ("steber", "lamela")
-PRAG_ZDRIZEVANJA = 0.3     # del mediane širine: manjši razmik = isti element
+PRAG_PREKRIVANJA = 0.5     # del ožje maske: toliko prekrivanja = isti element
 
 
 @dataclass(frozen=True)
@@ -162,21 +161,24 @@ def _intervali(maske: Maske, oznaka: str, os: str = "x"):
 
 
 def _zdruzi(intervali) -> int:
-    """Preštej skupine prekrivajočih se intervalov (fragmenti = en element)."""
+    """Preštej elemente: močno prekrivajoča se intervala sta Isti element."""
+
+    # Prekrivanje, ne razmik: pri gosti ograji so deske tesno druga ob
+    # drugi (razmik ~0), zato bi združevanje po razmiku vse zlepilo v en
+    # element. Dve maski istega stebra se prekrivata; sosednji deski se ne.
     if not intervali:
         return 0
-    sirine = [b - a for a, b in intervali]
-    mediana = statistics.median(sirine)
-    prag = PRAG_ZDRIZEVANJA * mediana if mediana > 0 else 0.0
     urejeni = sorted(intervali)
+    z0, z1 = urejeni[0]
     skupin = 1
-    konec = urejeni[0][1]
-    for zacetek, konec_nov in urejeni[1:]:
-        if zacetek <= konec + prag:
-            konec = max(konec, konec_nov)
+    for a, b in urejeni[1:]:
+        prekrivanje = min(z1, b) - max(z0, a)
+        ozja = min(z1 - z0, b - a)
+        if ozja > 0 and prekrivanje > PRAG_PREKRIVANJA * ozja:
+            z0, z1 = min(z0, a), max(z1, b)
         else:
             skupin += 1
-            konec = konec_nov
+            z0, z1 = a, b
     return skupin
 
 

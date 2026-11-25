@@ -65,7 +65,7 @@ Odtisi skladov so že izmerjeni v `docs/analiza-paketov.md`: open3d
 |---|---|---|---|
 | **F0 — narejeno** | marker + koti + soglasje več posnetkov | 0,03 % čelno; 1–3 % poševno; soglasje 2 posnetkov | — |
 | **F0/F1 — narejeno (1.5.18)** | marker + koti + soglasje več posnetkov | 0,03 % čelno; 1–3 % poševno; soglasje 2 posnetkov 0,9 % | — |
-| **F2 — vmesnik narejen (1.5.19), vrata odprta** | `maske_ai.py` bere maske v JSON in šteje deterministično; `scripts/grounded_sam2_maske.py` je zunanji most; `--maske` potrdi ali ovrže naše štetje | napaka štetja ±10 % na 5 tujih fotografijah, ≤ 30 s/sliko na CPU — **NI izmerjeno**: uteži (~1 GB) v tem okolju niso nameščene, tujih fotografij ni | AI pot se ne vgradi; ostane branje mask + naše štetje |
+| **F2 — izmerjeno in PADLO (1.5.20)** | GroundedDINO Swin-B + SAM 2.1 hiera-small, 5 fotografij z Wikimedia Commons, prompt `fence post. fence slat. picket.` | napaka **−20 … −98 %** (povprečje −54 %), **41–45 s**/sliko; ploščice in nižji prag ne pomagajo; podrobno v `docs/meritev-f2-maske.md` | AI se NE vgradi; ostane bralnik mask + naše štetje (`--maske`) |
 | **F3** | COLMAP + Open3D kot zunanje orodje za orto-foto | dolžina z markerjem ±2 % | orodje ostane eksperimentalno |
 | **F4** | FreeCAD/CadQuery kot ločen CAD strežnik (FreeCADCmd) | ujemanje z našo risbo ±0,1 mm na 5 projektih | ostane `tridim/step.py` most |
 

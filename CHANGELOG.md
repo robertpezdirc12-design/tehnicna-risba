@@ -1,5 +1,29 @@
 # Zgodovina sprememb
 
+## v1.5.20 — 2026-11-24 (F2 izmerjen in zavrnjen)
+
+**Grounded SAM 2 na resničnih fotografijah ne šteje elementov in je
+prepočasen — AI pot je zaprta z meritvijo, ne z mnenjem.**
+
+- **`docs/meritev-f2-maske.md` (novo):** 5 fotografij z Wikimedia Commons
+  (CC BY-SA), GroundingDINO Swin-B + SAM 2.1 hiera-small na CPU. Napaka
+  štetja **−20 % … −98 %** (povprečje −54 %), čas **41–45 s/sliko** proti
+  vratom ±10 % in ≤ 30 s. Poskusi s pragom 0,15 in 2×2 ploščicami
+  natančnosti niso izboljšali (149 s/sliko).
+- **Popravek štetja mask (`maske_ai._zdruzi`):** intervali se združujejo
+  le ob **močnem prekrivanju** (polovica ožje maske), ne po razmiku — pri
+  gosti ograji so deske tesno druga ob drugi, zato je staro pravilo vse
+  zlepilo v en element. Test fragmentov posodobljen.
+- **pytest:** `norecursedirs` dobi `.test` — klonirano tuje skladišče
+  (Grounded-SAM-2) ima svoje `test_*.py`, ki bi jih pytest sicer pobral
+  in javil kot napake zbirke (šum, ne napaka izdelka).
+- **Sklep:** torch/GroundingDINO/SAM 2 ne pridejo v `requirements.txt`
+  ali EXE; ostane `maske_ai.py` + `--maske` kot dokaz/opozorilo, EXE
+  ostane 52,7 MB in brez AI.
+- F2 v `docs/nacrt-draftwright-pro.md` je zdaj *izmerjeno in padlo*,
+  v `docs/izboljsave-zaznave-ograje.md` pa zaprto z negativnim izidom.
+
+Testi: **87** (`python -m pytest photo_fence_proposal/testi_pfp.py -q`).
 ## v1.5.19 — 2026-11-24 (AI kot dokaz, ne kot mera)
 
 **Maske iz zunanjega AI orodja lahko potrdijo štetje — ne morejo ga nadomestiti.**

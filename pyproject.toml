@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tehnicna-risba"
-version = "1.5.19"
+version = "1.5.20"
 description = "Generator tehnicnih risb, razreza in 3D modelov za WPC ograje"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -80,7 +80,10 @@ timeout = 600
 # požene benchmark/ocenjevanje.py v svojem delovnem prostoru z lastnim
 # pytest.ini. Brez te izločitve se ob "pytest" v korenu zberejo trije
 # testi, ki padejo z ModuleNotFoundError — to je šum, ne napaka izdelka.
-norecursedirs = ["benchmark"]
+# .test je lokalni prostor za meritve (uteži AI, tuje fotografije); vanj
+# se klonirajo tuja skladišča, ki imajo svoje test_*.py — ti niso naši
+# testi in bi jih pytest sicer pobral (ImportError, ne napaka izdelka).
+norecursedirs = ["benchmark", ".test"]
 markers = [
     "pocasi: počasnejši testi (večstransko generiranje PDF) — hitra zanka: -m 'not pocasi'",
 ]

@@ -1333,8 +1333,8 @@ def test_prestej_stebre_zdruzi_fragmente():
     m = maske_ai.Maske("a.jpg", 1000, 500, (
         maske_ai.Maska("steber", ((100.0, 50.0), (140.0, 50.0),
                                  (140.0, 450.0), (100.0, 450.0))),
-        maske_ai.Maska("steber", ((138.0, 60.0), (150.0, 60.0),
-                                 (150.0, 440.0), (138.0, 440.0))),
+        maske_ai.Maska("steber", ((120.0, 60.0), (150.0, 60.0),
+                                 (150.0, 440.0), (120.0, 440.0))),
         maske_ai.Maska("steber", ((400.0, 50.0), (440.0, 50.0),
                                  (440.0, 450.0), (400.0, 450.0))),))
     assert maske_ai.prestej_stebre(m) == 2
