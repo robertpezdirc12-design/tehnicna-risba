@@ -96,10 +96,557 @@ def barva_hex(vrednost):
     return WPC_BARVE.get(vrednost, BARVA_LAMEL)
 
 
+# ── Montaža WPC profilov (navodila proizvajalca) — EN vir resnice ──────────
+# Vir: navodila proizvajalca za montažo (ROMB DESKA-67, DESKA-150, DESKA-128).
+# Uporabljajo: preveri_cfg (razmiki stebričkov), proizvodnja (naročilo) in
+# risba (montažni koraki, opombe, DETAJL 2 — LAMELE).
+# OPOZORILO (romb): BREZ alu cevi v sredini NI mogoče montirati — nevidno
+# pritrjevanje gre skozi to cev, zato nakup desk brez alu cevi NI možen!
+MONTAZE_PROFILAV = {
+    "ROMB 67": {
+        "ime": "ROMB 67",
+        "tip": "romb",
+        "sirina_profila_mm": 67,        # širina profila romb
+        "dimenzija_mm": (67, 26),
+        "uporaba": ("pokončna", "prečna"),
+        "st_barv": 7,                   # barvni odtenki romba
+        "barve": ("Amazon wood", "Ash wood", "Golden teak", "Burma teak",
+                  "Oak wood", "Rustic oak", "Rustic walnut"),   # Klasik + Rustik
+        "nakupne_dolzine_mm": (5800,),  # reže se po meri
+        "alu_cev_obvezna": True,        # pogoj montaže (nevidno pritrjevanje)
+        "kotniki_na_stebriku": 2,       # L-kotnik LEVO in DESNO na stebričku
+        "razmak_max_stebriki_mm": 1450.0,  # z L-kotnikoma levo in desno
+        "razmak_max_vmesna_povezava_mm": 1800.0,  # več → dodatni stebriček
+        "vmesna_povezava_v_tla": False,  # povezava IZ ZGORNJE cevi, ne v tla
+        # Prečna montaža desk (prečne ograje/pregradne stene): 145 cm
+        # z L-kotnikoma levo in desno (vir: prečne strani).
+        "razmak_max_stebriki_precna_mm": 1450.0,
+        # Pokončna montaža desk: stebrički do 150 cm; vertikalni
+        # nosilci do 100 cm (samo s kotnikom ali ploščatim aluminijem
+        # na vsakem nosilcu) — vir: pokončne pregradne stene.
+        "razmak_max_stebriki_pokoncna_mm": 1500.0,
+        "razmak_max_vertikalni_nosilci_mm": 1000.0,
+        "vijak": "kniping RF vijak 3,9",
+        "vrtina_vijak_mm": 3.9,
+        "vrtina_predrta_mm": 3.2,       # skozi romb + alu cev (eno vrtanje)
+        "vrtina_romb_od_mm": 4.2,       # luknja v rombu se poveča na …
+        "vrtina_romb_do_mm": 4.5,       # … (kompozit se razteza > vijak)
+        # Zaključek ograje (konec ograje) — dve dovoljeni izvedbi:
+        #   "cepi"    — čepi zaprejo odprte konce romb desk in stebričkov;
+        #   "letvica" — zaključna letvica se PRIVIJA IZ STRANI v romb profile
+        #               (vidni vijaki, 1 na lamelo) in skrije odprte konce.
+        "zakljucki": ("cepi", "letvica"),
+        "zaklucek_letvica_vijakov_na_lamelo": 1,
+        # Čepi so LEVI in DESNI — za vsak konec lamele potrebujemo par
+        # (levi + desni čep). Letvica je opcija za zaključevanje PREČNE
+        # romb ograje.
+        "zaklucek_cepi_levi_in_desni": True,
+        # Čepe sicer imamo, vendar so dražji in NE garantirajo, da voda
+        # kljub temu ne bo prišla v profil — priporočen je zaključek,
+        # ki zakrije odprtine (deske niso polne in imajo odprtine).
+        "zaklucek_cepi_opomba": (
+            "Čepi so dražji in ne garantirajo, da voda kljub temu ne bo "
+            "prišla v profil — priporočamo zaključek, ki zakrije odprtine."),
+        # Pokončna postavitev z razmaki med deskami: alu cev v sredini
+        # profila je vidna — vsako desko zapri s čepi ali reši v detajlu.
+        "opomba_alu_vidna_pokoncno": (
+            "Pri pokončni postavitvi z razmaki med deskami je vidna "
+            "aluminijasta cev v sredini profila — za estetski zaključek "
+            "vsako desko zapri s čepi ali to reši v detajlu konstrukcije."),
+        # Votel profil s prekati — potrebne drenažne luknje (WOODCORE).
+        "drenazne_luknje": True,
+        # Pokončna ograja (navodila): razmak med vodoravnima cevema največ
+        # 110 cm; na vodoravne cevi se zmontira kotnik, skozi katerega se
+        # pritrjuje romb (skrito vijačenje).
+        "pokoncna": {
+            "razmak_max_vodoravne_cevi_mm": 1100.0,
+            "skrito_vijacenje": True,
+            "kotnik_na_vodoravne_cevi": True,
+        },
+    },
+    "DESKA-150": {
+        "ime": "DESKA-150",
+        "tip": "deska",
+        "sirina_profila_mm": 150,          # terasna deska
+        "dimenzija_mm": (150, 25),
+        "st_barv": 7,                   # barvni odtenki
+        "st_povrsin": 3,                # 3 površine (Klasik, Rustik …)
+        "barve": ("Amazon wood", "Ash wood", "Golden teak", "Burma teak",
+                  "Oak wood", "Rustic oak", "Rustic walnut"),
+        # Dvostranska: ena stran rebra bolj na gosto, druga na široko;
+        # Rustic: ena stran gladka, druga gosto rebričena.
+        "dvostranska_rebra": True,
+        # Votel terasni profil s prekati — drenažne luknje (WOODCORE);
+        # konce zapira zaključni pokrovček.
+        "drenazne_luknje": True,
+        "zakljucki": ("zaključni pokrovček",),
+        "nakupne_dolzine_mm": (4000, 2200),  # odžaga se po meri
+        "pritrditev_od_spredaj": True,     # skozi desko — vijaki VIDNI na licu
+        "vrtina_odmik_mm": 1.0,            # predvrtje: luknja = vijak + 1 mm
+        "lega_vijaka": "v sredino deske, kjer je rebro v profilu",
+        "razmak_max_stebriki_mm": 1400.0,
+        "razmak_opomba": "133–140 cm",     # navodila: „maksimalna razdalja“
+        # Prečna montaža desk: 133–140 cm (povzetek strani navaja
+        # 130 cm — ohranjeno 133–140 cm).
+        "razmak_max_stebriki_precna_mm": 1400.0,
+    },
+    "DESKA-128": {
+        "ime": "DESKA-128",
+        "tip": "deska",
+        "sirina_profila_mm": 128,          # polna deska
+        # 16,5 mm (stran Pregradne stene); drug vir navaja 16 mm.
+        "dimenzija_mm": (128, 16.5),
+        "uporaba": ("pokončna", "prečna"),  # pokončno ALI prečno
+        "st_barv": 6,                   # barvni odtenki (slika: 6; besedilo strani: 5)
+        "barve": ("Amazon wood", "Ash wood", "Burma teak", "Oak wood",
+                  "Rustic oak", "Rustic walnut"),
+        # POLNA deska — BREZ prekatov (potrjeno s fotografijo profila),
+        # zato drenažne luknje NE veljajo.
+        "nakupne_dolzine_mm": (2200,),     # odžaga se po meri
+        "pritrditev_od_spredaj": True,     # skozi desko — vijaki VIDNI na licu
+        "vrtina_odmik_mm": 1.0,            # predvrtje: luknja = vijak + 1 mm
+        "lega_vijaka": "v sredino deske",
+        # Vodoravna ograja: razmak stebričkov 180 cm do 150 cm višine
+        # ograje; pri višjih ograjah največ 150 cm.
+        "razmak_max_stebriki_mm": 1800.0,
+        "razmak_max_stebriki_visoke_mm": 1500.0,
+        "visina_meja_stebriki_mm": 1500.0,
+        "razmak_opomba": "180 cm do 150 cm višine / 150 cm višje",
+        # Prečna montaža desk: 110 cm (vir: prečne ograje + prečne
+        # pregrade) — POKONČNA montaža uporablja 180/150 zgoraj.
+        "razmak_max_stebriki_precna_mm": 1100.0,
+        # Pokončna ograja: razmak med vodoravnima cevema največ 100 cm.
+        "pokoncna": {"razmak_max_vodoravne_cevi_mm": 1000.0},
+    },
+    "POLNA DESKA 57/32": {
+        "ime": "POLNA DESKA 57/32",
+        "tip": "deska",
+        "sirina_profila_mm": 57,           # montira se na širino 57 ALI 32
+        "montazne_sirine_mm": (57, 32),
+        "nakupne_dolzine_mm": (5800,),     # dolžina 5,8 m
+        "skrito_vijacenje": True,          # obe širini — skrito vijačenje
+        "dimenzija_mm": (57, 32),
+        "uporaba": ("pokončna",),          # deske za POKONČNO ograjo
+        "st_barv": 4,                   # barvni odtenki (slika: 4; besedilo strani: 3)
+        "barve": ("Amazon wood", "Oak wood", "Rustic oak", "Rustic walnut"),
+        "vijak": "RF vijak skozi cev iz zadnje strani",
+        "vijak_dolzina_opis": "približno 2/3 globine profila",
+        # POSEBNOST vrtanja (obratno kot pri DESKA-100/128!):
+        #   v KOMPOZIT luknja MANJŠA od vijaka (vijak se zareže v material),
+        #   v KONSTRUKCIJO luknja VEČJA od vijaka (raztezanje materiala).
+        "vrtina_kompozit_manjsa": True,
+        "vrtina_konstrukcija_vecja": True,
+        # Vodoravna ograja: razmak stebričkov največ 150 cm NE GLEDE na
+        # višino ograje; nosilci (vodoravne cevi) največ 100 cm (pokončna).
+        "razmak_max_stebriki_mm": 1500.0,
+        "razmak_opomba": "150 cm (ne glede na višino)",
+        # Pokončna ograja: razmak med vodoravnima cevema največ 100 cm.
+        "pokoncna": {
+            "razmak_max_vodoravne_cevi_mm": 1000.0,
+            "skrito_vijacenje": True,
+        },
+    },
+    "POLNA DESKA 100": {
+        "ime": "POLNA DESKA 100",
+        "tip": "deska",
+        "sirina_profila_mm": 100,          # polna deska
+        "dimenzija_mm": (100, 12),
+        "uporaba": ("pokončna",),          # SAMO za pokončno ograjo!
+        "st_barv": 8,                   # barvni odtenki
+        "barve": ("Amazon wood", "Ash wood", "Golden teak", "Burma teak",
+                  "Oak wood", "White", "Rustic oak", "Rustic walnut"),
+        "nakupne_dolzine_mm": (5800,),     # dolžina 5,8 m
+        "pritrditev_od_spredaj": True,     # skozi desko — vijaki VIDNI na licu
+        "vrtina_odmik_mm": 1.0,            # predvrtje: luknja = vijak + 1 mm
+        "lega_vijaka": "v sredino deske",
+        # Vodoravna ograja: razmak stebričkov 180 cm do 150 cm višine
+        # ograje; pri višjih ograjah največ 150 cm.
+        "razmak_max_stebriki_mm": 1800.0,
+        "razmak_max_stebriki_visoke_mm": 1500.0,
+        "visina_meja_stebriki_mm": 1500.0,
+        "razmak_opomba": "180 cm do 150 cm višine / 150 cm višje",
+        # Pokončna ograja: razmak med vodoravnima cevema največ 80 cm.
+        "pokoncna": {"razmak_max_vodoravne_cevi_mm": 800.0},
+    },
+    "KUBO 80/42": {
+        "ime": "KUBO 80/42",
+        "tip": "kubo",
+        "sirina_profila_mm": 80,
+        "dimenzija_mm": (80, 42),
+        "uporaba": ("pokončna",),          # pokončne pregradne stene
+        "st_barv": 4,
+        "barve": ("Amazon wood", "Oak wood", "Rustic oak", "Rustic walnut"),
+        "nakupne_dolzine_mm": (5800, 5000),  # 5000 samo Amazon Wood /
+                                          # Rustic Walnut
+        "skrito_vijacenje": True,          # pritrditev z zadnje strani
+        # Montaža na vidno širino 80 mm ali 42 mm.
+        "montazne_sirine_mm": (80, 42),
+        # V kubo profil se vstavi surova ali ELOKSIRANA alu cev; za
+        # montažo na prostem je obvezna eloksirana (zgornji pokrovček
+        # sam ne zaščiti pred vdorom vlage). Izbira vpliva na ceno in
+        # razpon konstrukcije.
+        "alu_cevi_mm": ((20, 60, 2), (25, 25, 2), (20, 20, 2)),
+        "alu_opomba": (
+            "Za montažo na prostem obvezno ELOKSIRANA alu cev — zgornji "
+            "pokrovček sam ne zagotovi zaščite pred vdorom vlage."),
+        # Konstrukcija je lahko vpetja samo zgoraj in spodaj (brez
+        # sredinske horizontalne povezave) ob pravilni izbiri ojačitve:
+        "razpon_brez_ojacitve_mm": 1200,   # do 120 cm brez ojačitve
+        "razpon_ojacitev_20x60x2_mm": 2600.0,  # 120–260 cm → 20×60×2
+        "razpon_opomba": (
+            "Nad 260 cm močnejša aluminijasta ali rostfrei cev — izbira "
+            "glede na razpon in izvedbo konstrukcije."),
+        # Razmak med kubo letvicami je poljuben (po želenem videzu);
+        # razmak med vodoravnima cevema je odvisen od vrste alu cevi.
+        "razmak_letvic": "poljuben (po želenem videzu pregrade)",
+    },
+}
+MONTAZA_ROMB = MONTAZE_PROFILAV["ROMB 67"]  # združljivost — isti vir podatkov
+
+# Značilnosti pritrjevanja desk na konstrukcijo (navodila proizvajalca):
+# odmik vijaka od ROBA REZA. Velja za vse profile.
+Pritrditev_DESK = {
+    "odmik_vijak_min_mm": 30.0,             # minimalen odmik od roba reza
+    "odmik_vijak_max_na_plosco_mm": 150.0,  # konstrukcija montirana NA
+    # ploščo (balkon, dvoriščna ograja)
+    "odmik_vijak_max_bocno_mm": 100.0,      # konstrukcija montirana BOČNO
+    # na ploščo (balkon)
+}
+
+# Ročaji za WoodCore ograje (elementi). Samostojna prodaja ročajev NI
+# možna — ročaj gre vedno skupaj z ograjo.
+ROCAJI: dict = {
+    "standardni": {
+        "ime": "Ročaj za ograjo",
+        "dimenzija_mm": (95, 45, 5800),
+        "opomba": "na zalogi samo še v WHITE odtenku; ostali odtenki so "
+                  "na voljo v polnem profilu",
+    },
+    "polni": {
+        "ime": "Ročaj za ograjo – poln profil (WPC)",
+        "dimenzija_mm": (92, 45, 5800),
+        "notranja_dimenzija_mm": (55, 30),
+    },
+    "samostojna_prodaja": False,
+    # Vijaki: skozi ročaj v nosilno cev/konstrukcijo od zgoraj navzdol,
+    # v razmaku 50 cm; vijak je viden. V ročaj predvrtaj 1 mm večjo
+    # luknjo od vijaka (material se razteza).
+    "vijak_razmak_mm": 500.0,
+    "vrtina_odmik_mm": 1.0,
+    "vijak_lega": "od zgoraj navzdol skozi ročaj v konstrukcijo " 
+                  "(vijak viden)",
+}
+
+# Skladiščenje WPC desk (navodila proizvajalca + FAQ) — pred montažo.
+SKLADISCENJE_OPOMBA = (
+    "Deske pred montažo hranite v suhem in zračnem prostoru; podlaga naj "
+    "bo ravna in čista, deske na odlagalni podlagi po celotni dolžini in "
+    "širini, podprte na največ 50 cm. Začasno skladiščenje zunaj mora biti "
+    "obvezno pokrito (tveganje zastajanja vlage in plesni). V primeru "
+    "neustreznega skladiščenja se reklamacija ne upošteva.")
+
+# WoodCore navodila za montažo (Roksal — WOODCORE_navodila_za_montazo-sl.pdf,
+# 9 strani): splošna pravila za VSE WPC elemente (en vir resnice).
+WOODCORE: dict = {
+    "vir": ("WOODCORE navodila za montažo (Roksal), 9 strani; O materialu; "
+            "FAQ"),
+    "material": "60 % bambusovih vlaken, 30 % polietilena (HDPE), 10 % aditivov",
+    "garancija_let": 15,
+    "garancija_izjeme": (
+        "težke obremenitve in udarci niso kriti; posvetlitev 5–10 % in "
+        "barvne variacije niso krite; neupoštevanje navodil montaže izniči "
+        "garancijo"),
+    "posvetlitev_prvo_leto": "5–10 % (nato barva ostane enaka)",
+    "barve_opomba_dobave": (
+        "Zaradi dodajanja naravnega materiala med barvanjem barvni odtenek "
+        "med posameznimi dobavami malenkost varira in se lahko razlikuje "
+        "od vzorca."),
+    "montazna_temp_min_c": 5.0,     # montaža pod 5 °C ni primerna (O materialu)
+    "barve_opomba_rustic": (
+        "Pri odtenkih Rustic Oak in Rustic Walnut, ki imata večbarvni "
+        "videz, lahko odtenek in razpored lis med deskami in serijami "
+        "opazneje variirata."),
+    "nosilnost_opozorilo": (
+        "WoodCore desk se ne sme uporabljati za nosilce, tramove, "
+        "podporne stebre ali druge gradbene elemente — neupoštevanje "
+        "lahko izniči garancijo."),
+    # Drenažne luknje v votlih deskah (voda ne sme zastajati — zmrzne
+    # in desko poči).
+    "drenazne_luknje": {
+        "fi_mm": 4.2,
+        "odmik_od_roba_mm": 50,        # cca 5 cm od roba
+        "polozaj": "s spodnje strani, v vsak prekat",
+        "namen": "voda ne sme zastajati (zmrzne in desko poči)",
+    },
+    "orodja": (
+        "Baterijski vrtalnik (ročni izvijač ne pride v poštev — WPC je "
+        "pretrd); rezila Widia (HM); brusni papir granulacija 40 za "
+        "praske in poškodovane robove; glavo vijaka ugreznite z grezilom."),
+    "vijaki": (
+        "Priporočeni so nerjaveči vijaki; dovoljeni tudi drugi standardni "
+        "RF vijaki, odporni na rjo in korozijo."),
+    "odmik_od_sten_mm": 6,             # min. odmik deske od vseh sten
+    "raztezek_na_4m_mm": 12,           # FAQ: 12 mm (-30…+40 °C); PDF: cca 10
+    # Razmak med deskami [mm] po temperaturi montaže in dolžini deske.
+    # Vir: tabela »Zahteva za zahodno in Vzhodno Evropo« (stran 6).
+    # OPOMBA: pri -25 °C je v viru za 1 m tiskano »2,27« — očitna
+    # tipkarska napaka za 2,75 (5,5 = 2×2,75; 8,25 = 3×2,75; 11 = 4×2,75).
+    # Vrstici 40 °C in 45 °C sta v viru prazni — podatkov ni.
+    "tabela_razmakov_mm": (
+        (-25, (2.75, 5.5, 8.25, 11.0, 11.0)),
+        (-20, (2.5, 5.0, 7.5, 10.0, 10.0)),
+        (-15, (2.5, 5.0, 7.5, 10.0, 10.0)),
+        (-10, (2.25, 4.5, 6.75, 9.0, 9.0)),
+        (-5, (2.0, 4.0, 6.0, 8.0, 8.0)),
+        (0, (1.75, 3.5, 5.25, 7.0, 7.0)),
+        (5, (1.75, 3.5, 5.25, 7.0, 7.0)),
+        (10, (1.5, 3.0, 4.5, 6.0, 6.0)),
+        (15, (1.25, 2.5, 3.75, 5.0, 5.0)),
+        (20, (1.25, 2.5, 3.75, 5.0, 5.0)),
+        (25, (1.0, 2.0, 3.0, 4.0, 4.0)),
+        (30, (1.0, 1.5, 2.25, 3.0, 3.0)),
+        (35, (1.0, 1.5, 1.8, 2.0, 2.0)),
+    ),
+}
+
+
+def razmak_desk_mm(temp_c, dolzina_m):
+    """Razmak med WPC deskami [mm] po tabeli WoodCore.
+
+    ``temp_c`` = temperatura montaže (°C) — najbližja vrstica tabele
+    (korak 5 °C); ``dolzina_m`` = dolžina deske (m) — linearna
+    interpolacija med stolpci 1–5 m, nad 5 m vrednost za 5 m.
+    Za temperature zunaj tabele (< -25 °C ali > 35 °C) vrne vrednost
+    najbližje vrstice (vir za 40/45 °C nima podatkov).
+    """
+    tabela = WOODCORE["tabela_razmakov_mm"]
+    _temp, vrstica = min(tabela, key=lambda t: abs(t[0] - temp_c))
+    if dolzina_m <= 1:
+        return float(vrstica[0])
+    if dolzina_m >= 5:
+        return float(vrstica[4])
+    for i in range(4):
+        d0, d1 = float(i + 1), float(i + 2)
+        if dolzina_m <= d1:
+            del_ = (dolzina_m - d0) / (d1 - d0)
+            return round(vrstica[i] + del_ * (vrstica[i + 1] - vrstica[i]), 2)
+    return float(vrstica[4])
+
+
+def odmik_vijak_max(pritrditev):
+    """Največji odmik vijaka od roba reza za tip konstrukcije (mm).
+
+    'vrh' = konstrukcija montirana NA ploščo (balkon, dvoriščna ograja);
+    'bočno' = konstrukcija montirana BOČNO na ploščo (balkon).
+    None, če tip konstrukcije ni znan (dokumenti navedejo obe možnosti).
+    """
+    p = str(pritrditev or "").strip().lower()
+    if "bo" in p:                      # bočno
+        return Pritrditev_DESK["odmik_vijak_max_bocno_mm"]
+    if "vr" in p or "plo" in p:        # vrh / na ploščo
+        return Pritrditev_DESK["odmik_vijak_max_na_plosco_mm"]
+    return None
+
+
+def opomba_kratkih_kosov(kosi):
+    """Opozorila za kose, v katere ne prideta 2 vijaka (min odmik od roba).
+
+    kosi: iterable terk (oznaka, dolzina_mm, ...); vrne seznam vrstic.
+    """
+    min_dol = 2 * Pritrditev_DESK["odmik_vijak_min_mm"]
+    nap = []
+    for k in kosi:
+        try:
+            ozn, dol = k[0], float(k[1])
+        except (IndexError, TypeError, ValueError):
+            continue
+        if dol < min_dol - 1e-9:
+            nap.append(
+                f"- OPOZORILO: kos {ozn} ({fmt(dol)} mm) je krajši od "
+                f"{fmt(min_dol)} mm — minimalen odmik vijaka od roba reza "
+                f"{fmt(Pritrditev_DESK['odmik_vijak_min_mm'])} mm, zato 2 "
+                "vijaka ne prideta v kos.")
+    return nap
+
+
+def montaza_profila(profil):
+    """Spec montaže iz MONTAZE_PROFILAV za profil; None, če ni v katalogu."""
+    p = str(profil or "").upper().replace("-", " ").replace("/", " ")
+    if "ROMB" in p:
+        return MONTAZE_PROFILAV["ROMB 67"]
+    if "KUBO" in p:
+        return MONTAZE_PROFILAV["KUBO 80/42"]
+    if "57" in p and "32" in p:
+        return MONTAZE_PROFILAV["POLNA DESKA 57/32"]
+    if "DES" in p or "POLN" in p:          # WoodCore deske
+        if "DESKA" in p and "150" in p:
+            return MONTAZE_PROFILAV["DESKA-150"]
+        if "128" in p:
+            return MONTAZE_PROFILAV["DESKA-128"]
+        if "100" in p:
+            return MONTAZE_PROFILAV["POLNA DESKA 100"]
+    return None
+
+
+def romb_montaza(profil):
+    """Spec montaže SAMO za romb (specifična pravila); None za ostale profile."""
+    spec = montaza_profila(profil)
+    return spec if spec and spec.get("tip") == "romb" else None
+
+
+def deska_montaza(profil):
+    """Spec montaže SAMO za deske (DESKA-150/128, POLNA DESKA …)."""
+    spec = montaza_profila(profil)
+    return spec if spec and spec.get("tip") == "deska" else None
+
+
+def pokoncna_pravila(profil):
+    """Pravila pokončne ograje iz MONTAZE_PROFILAV; None, če jih ni."""
+    spec = montaza_profila(profil)
+    return (spec or {}).get("pokoncna") or None
+
+
+def st_vodoravnih_cevi(deska_h_mm, profil):
+    """Najmanjše število vodoravnih cevi (montažnih letev) na polje.
+
+    Navodila (MONTAZE_PROFILAV): razmak med vodoravnima cevema največ
+    `razmak_max_vodoravne_cevi_mm`. Cevi so enakomerno razporejene po
+    višini desk, tako da so VSE nepodprte razdalje (tudi robovi desk) ≤
+    ta razmak: n cevi deli višino na n + 1 razmakov. Brez pravila za
+    profil ostane najmanj 2 cevi na polje (doslejšnja izvedba).
+    """
+    pr = pokoncna_pravila(profil)
+    if not pr or not deska_h_mm or deska_h_mm <= 0:
+        return 2
+    s = float(pr["razmak_max_vodoravne_cevi_mm"])
+    return max(2, math.ceil(deska_h_mm / s) - 1)
+
+
+def romb_zaklucek(vrednost):
+    """Normalizira izbiro zaključka ograje: 'cepi', 'letvica' ali '' (ni izbrano)."""
+    v = str(vrednost or "").strip().lower()
+    if v in ("čepi", "cepi", "s čepi", "s cepi"):
+        return "cepi"
+    if v in ("letvica", "z letvico", "z letvica"):
+        return "letvica"
+    return ""
+
+
+def preveri_razmak_stebriki(razmak_mm, vmesna_povezava=False, profil=None,
+                            visina_mm=None, pokoncna=False):
+    """Pravila razmika stebričkov iz MONTAZE_PROFILAV; [] če je vse OK.
+
+    Usmerjenost montaže desk je ODLOČILNA — domnevni spor 110 cm proti
+    180/150 cm je usmerjenostni (oba podatka sta uradna):
+      * prečna ('razmak_max_stebriki_precna_mm'): romb ≤ 1450 mm z
+        L-kotnikom LEVO in DESNO; 1450–1800 mm z vmesno povezavo IZ
+        ZGORNJE cevi (NI privijačena v tla — 'vmesna_povezava: true');
+        ≥ 1800 mm dodatni stebriček. DESKA-128 ≤ 1100 mm; DESKA-150
+        ≤ 1400 mm (133–140 cm).
+      * pokončna ('razmak_max_stebriki_pokoncna_mm' oziroma
+        'razmak_max_stebriki_mm'): 57/32 1500 mm ne glede na višino;
+        100/128 1800 mm do 150 cm višine, 1500 mm višje; romb 1500 mm.
+    Vmesna povezava je predvidena samo za romb pri prečni montaži.
+    """
+    spec = montaza_profila(profil)
+    if spec is None or razmak_mm is None:
+        return []
+    if pokoncna:
+        limit = spec.get("razmak_max_stebriki_pokoncna_mm",
+                         spec.get("razmak_max_stebriki_mm"))
+    else:
+        limit = spec.get("razmak_max_stebriki_precna_mm",
+                         spec.get("razmak_max_stebriki_mm"))
+    if limit is None:
+        return []  # profil nima pravila za razmak stebričkov
+    visoke = (spec.get("razmak_max_stebriki_visoke_mm")
+              if pokoncna else None)
+    meja = spec.get("visina_meja_stebriki_mm")
+    if (visoke is not None and meja is not None
+            and visina_mm is not None and visina_mm > meja):
+        limit = visoke
+    nap = []
+    max_vmesna = (spec.get("razmak_max_vmesna_povezava_mm")
+                  if not pokoncna else None)
+    if max_vmesna is not None:
+        if razmak_mm >= max_vmesna:
+            nap.append(
+                f"Razmak stebričkov {razmak_mm:.0f} mm ≥ "
+                f"{max_vmesna:.0f} mm: vmesna povezava ne zadošča — "
+                "dodajte še en stebriček.")
+        elif razmak_mm > limit and not vmesna_povezava:
+            nap.append(
+                f"Razmak stebričkov {razmak_mm:.0f} mm presega "
+                f"{limit:.0f} mm (dovoljeno z "
+                "L-kotnikom levo in desno na stebričku): zmanjšajte razmak "
+                "ali vklopite 'vmesna_povezava: true' (vmesna povezava IZ "
+                "ZGORNJE cevi, ni privijačena v tla — dovoljeno do "
+                f"{max_vmesna:.0f} mm).")
+    elif razmak_mm > limit:
+        if visina_mm is not None:
+            nap.append(
+                f"Razmak stebričkov {razmak_mm:.0f} mm presega največji "
+                f"dovoljeni {fmt(limit)} mm za {spec['ime']} "
+                f"({spec.get('razmak_opomba') or ''}) pri višini ograje "
+                f"{fmt(visina_mm)} mm — zmanjšajte razmak (vmesna povezava "
+                "za ta profil ni predvidena).")
+        else:
+            nap.append(
+                f"Razmak stebričkov {razmak_mm:.0f} mm presega največji "
+                f"dovoljeni za {spec['ime']} "
+                f"({spec.get('razmak_opomba') or fmt(limit) + ' mm'}) "
+                "— zmanjšajte razmak (vmesna povezava za ta profil ni "
+                "predvidena).")
+    return nap
+
+
 
 def fmt(v):
     """Število brez odvečnih decimalk (2500.0 -> 2500, 47.5 -> 47.5)."""
     return f"{v:g}"
+
+
+def fmt_vejica(v):
+    """Število z decimalko Z VEJICO (slovenski zapis: 4,2 mm)."""
+    return f"{v:g}".replace(".", ",")
+
+
+#: Domača (neuradna) poimenovanja odtenkov, ki jih preverjanje konfiguracije
+#: prepozna in preslika na kataloško ime iz ``barve``.
+BARVE_ALIAS = {
+    "antracit": "Amazon wood",
+    "amazon": "Amazon wood",
+    "bel": "White",
+    "bela": "White",
+    "bela barva": "White",
+    "hrast": "Oak wood",
+    "oak": "Oak wood",
+    "jesen": "Ash wood",
+    "ash": "Ash wood",
+    "oreh": "Rustic walnut",
+    "rustik oreh": "Rustic walnut",
+    "rustik walnut": "Rustic walnut",   # stran uporablja tudi zapis "Rustik"
+    "rustik hrast": "Rustic oak",
+}
+
+
+def ujemanje_barve(barva, spec):
+    """Vrne kanonsko ime odtenka iz kataloga za vpisano barvo (ali ``None``).
+
+    Primerjava ne upošteva velikosti črk; prepoznana so tudi domača
+    poimenovanja iz :data:`BARVE_ALIAS` (npr. ``"Antracit"`` → ``"Amazon wood"``).
+    Odtenek mora biti na voljo za ta profil (npr. ``White`` samo pri POLNI DESKI 100).
+    """
+    if not barva or not spec or not spec.get("barve"):
+        return None
+    norm = " ".join(str(barva).split()).casefold()
+    for ime in spec["barve"]:
+        if ime.casefold() == norm:
+            return ime
+    zadetek = BARVE_ALIAS.get(norm)
+    if zadetek and zadetek in spec["barve"]:
+        return zadetek
+    return None
 
 
 def traki_nabava(traki):
@@ -530,6 +1077,17 @@ def preveri_cfg(cfg):
         nap.append("Mera 'odcep' mora biti nenegativno število.")
         odcep = None
     pokoncna = normaliziraj_predlogo(cfg.get("predloga")) == "pokončna"
+    # uporaba profila po navodilih (npr. POLNA DESKA 100 je SAMO za
+    # pokončno ograjo, DESKA-128 za pokončno ali prečno)
+    spec_up = montaza_profila(cfg.get("profil"))
+    if spec_up and spec_up.get("uporaba"):
+        if pokoncna and "pokončna" not in spec_up["uporaba"]:
+            nap.append(f"Profil {spec_up['ime']} ni namenjen pokončni "
+                       "ograji.")
+        elif not pokoncna and "prečna" not in spec_up["uporaba"]:
+            nap.append(
+                f"Profil {spec_up['ime']} je po navodilih proizvajalca samo "
+                "za POKONČNO ograjo — uporabite predlogo 'pokončna'.")
     raz = ds = None
     if pokoncna:
         raz = _poz(m.get("razmak_stebrov", 1500))
@@ -538,6 +1096,15 @@ def preveri_cfg(cfg):
         ds = _poz(m.get("deska_sirina", 0))
         if ds is None:
             nap.append("Širina deske mora biti pozitivno število.")
+        # navodila: POLNA DESKA 57/32 se montira na širino 57 ALI 32 mm
+        spec = montaza_profila(cfg.get("profil"))
+        if spec and spec.get("montazne_sirine_mm") and ds is not None:
+            dovoljene = spec["montazne_sirine_mm"]
+            if not any(abs(ds - float(d)) < 1e-6 for d in dovoljene):
+                nap.append(
+                    f"Profil {spec['ime']} se montira na širino "
+                    + " ali ".join(f"{fmt(d)} mm" for d in dovoljene)
+                    + f" — nastavite 'deska_sirina' (trenutno {fmt(ds)} mm).")
     else:
         for klj, napis in (("lamela_v", "Višina lamel"),
                            ("debelina", "Debelina lamel")):
@@ -545,6 +1112,58 @@ def preveri_cfg(cfg):
                 nap.append(f"Mera '{napis}' mora biti pozitivno število.")
         if _poz(m.get("razmak_nosilcev", 1000)) is None:
             nap.append("Razmak nosilcev mora biti pozitiven.")
+        # romb: razmiki stebričkov po navodilih proizvajalca (MONTAZA_ROMB) —
+        # preverja se DEJANSKI razmak med nosilci (razmak_nosilcev je le
+        # zgornja meja, kotira se dejanski — enako kot na risbi).
+        vmesna = cfg.get("vmesna_povezava")
+        if vmesna is not None and not isinstance(vmesna, bool):
+            nap.append("'vmesna_povezava' mora biti true ali false.")
+            vmesna = bool(vmesna)
+        razmak_nos = _poz(m.get("razmak_nosilcev", 1000))
+        if razmak_nos is not None and sirina is not None:
+            try:
+                _xs, dejanski = pozicije_nosilcev(sirina, razmak_nos)
+            except (ValueError, TypeError, ZeroDivisionError, OverflowError):
+                dejanski = razmak_nos
+            nap += preveri_razmak_stebriki(dejanski, bool(vmesna),
+                                          cfg.get("profil"), visina)
+        # zaključek ograje (MONTAZA_ROMB): 'cepi' ali 'letvica'
+        if romb_montaza(cfg.get("profil")) and cfg.get("zaklucek") \
+                and not romb_zaklucek(cfg.get("zaklucek")):
+            nap.append("'zaklucek' mora biti 'cepi' ali 'letvica' "
+                       "(zaključek ograje romb).")
+    # letvica je opcija za zaključevanje PREČNE romb ograje
+    if (pokoncna and romb_montaza(cfg.get("profil"))
+            and romb_zaklucek(cfg.get("zaklucek")) == "letvica"):
+        nap.append("Zaključna letvica je opcija za prečno romb ograjo — "
+                   "za pokončno uporabite 'zaklucek: cepi'.")
+    # Odtenek in barvna paleta (imena so kataloška z barvne lestvice).
+    # Dovoljeni so tudi risalne barve iz WPC_BARVE in #hex zapis —
+    # zavrnjeni so le neznani vnosi (tipkarske napake).
+    barva = cfg.get("barva")
+    spec_b = montaza_profila(cfg.get("profil"))
+    if barva and spec_b and spec_b.get("barve"):
+        norm_b = " ".join(str(barva).split()).casefold()
+        risalne = {k.casefold() for k in WPC_BARVE}
+        if (ujemanje_barve(barva, spec_b) is None
+                and norm_b not in risalne
+                and not str(barva).lstrip().startswith("#")):
+            nap.append(
+                f"'barva' {barva!r} ni med odtenki za {spec_b['ime']} "
+                f"({', '.join(spec_b['barve'])}) niti med risalnimi "
+                "barvami WPC_BARVE.")
+
+    # tabela razmakov WoodCore velja za -25 … 35 °C (40/45 sta prazni)
+    if cfg.get("montazna_temp_c") is not None:
+        try:
+            t_mont = float(cfg["montazna_temp_c"])
+        except (TypeError, ValueError):
+            nap.append("'montazna_temp_c' mora biti število (°C).")
+        else:
+            if not -25 <= t_mont <= 35:
+                nap.append("'montazna_temp_c' mora biti med -25 in 35 °C "
+                           "(tabela WoodCore nima podatkov zunaj tega "
+                           "območja).")
     rv = profil_v = steber = None
     if pokoncna:
         rv = _poz(m.get("rocaj_v", 40))
@@ -615,8 +1234,15 @@ def preveri_cfg(cfg):
              if _num(x) is not None and kos_dol is not None
              and kos_iz_vira(x, kos_dol, kerf) >= 1]
     if kos_dol is not None and kos_dol > 0 and not dl_ok:
-        nap.append(f"Nobena nabavna dolžina desk ni dovolj velika za kos "
-                   f"{kos_dol:.0f} mm (kerf {kerf:g} mm).")
+        sporocilo = (f"Nobena nabavna dolžina desk ni dovolj velika za kos "
+                     f"{kos_dol:.0f} mm (kerf {kerf:g} mm).")
+        spec = montaza_profila(cfg.get("profil"))
+        if spec and spec.get("nakupne_dolzine_mm"):
+            sporocilo += (f" Nakupne dolžine za {spec['ime']}: "
+                          + ", ".join(f"{fmt(d)} mm"
+                                      for d in spec["nakupne_dolzine_mm"])
+                          + " — nastavite 'dolzine_deske'.")
+        nap.append(sporocilo)
 
     # alu palice: ročaj/stebri/U-profili ne smejo presegati tovarniške dolžine
     dl_palice = _num(cfg.get("dolzina_palice", 6000))
@@ -645,6 +1271,20 @@ def preveri_cfg(cfg):
             nap.append(str(e))
         except (KeyError, TypeError, ZeroDivisionError, OverflowError):
             pass  # manjkajoče/nejasne mere že javijo zgornje preverbe
+    # razmak stebričkov (stebrov) po navodilih (MONTAZE_PROFILAV) za
+    # POKONČNO montažo desk: romb 150 cm (vmesna povezava ni predvidena),
+    # 57/32: 150 cm ne glede na višino; 100/128: 180 cm do 150 cm višine,
+    # 150 cm višje.
+    if (pokoncna and raz is not None and sirina is not None
+            and steber is not None):
+        try:
+            n_st = max(2, math.ceil((sirina - steber) / raz) + 1)
+            dejanski_s = (sirina - steber) / (n_st - 1)
+        except (ZeroDivisionError, TypeError, ValueError, OverflowError):
+            dejanski_s = raz
+        nap += preveri_razmak_stebriki(dejanski_s, False,
+                                      cfg.get("profil"), visina,
+                                      pokoncna=True)
     foto = cfg.get("foto")
     if foto and not isinstance(foto, (str, os.PathLike)):
         nap.append("'foto' mora biti pot do datoteke.")

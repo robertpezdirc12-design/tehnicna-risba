@@ -7,8 +7,11 @@ Vse količine štejejo iz ENEGA proizvodni_model (issue #6, §3).
 import vrata as vrat
 import jedro
 
-from jedro import (fmt, razpored, razpored_pokoncna, razdeli_po_odprtinah,
-                   pozicije_nosilcev, vrata_podatki)
+from jedro import (fmt, fmt_vejica, razpored, razpored_pokoncna,
+                   razdeli_po_odprtinah,
+                   pozicije_nosilcev, vrata_podatki,
+                   pokoncna_pravila, st_vodoravnih_cevi,
+                   odmik_vijak_max, opomba_kratkih_kosov)
 
 def _dokazilo_vrstica(v):
     """Vrstica z merami in virom za rešeno katalogsko vrstico (brez ugibanja)."""
@@ -158,9 +161,13 @@ def proizvodni_model(c):
                 "n_stikov": n_stikov,
                 "vijaki_element": n_stikov * 2,
                 "pritrdila_nosilec": n_s * 2,
-                # F1 (O3): montažne letve za deskami (2 na polje) — prej
+                # F1 (O3): montažne letve za deskami (vodoravne cevi) — prej
                 # sploh niso bile v modelu/BOM, čeprav so fizični nosilec.
-                "montazne_letve": 2 * len(p["polja"]),
+                # Število na polje iz navodil proizvajalca (MONTAZE_PROFILAV):
+                # vse nepodprte razdalje (tudi robovi desk) ≤ razmak med
+                # vodoravnima cevema; brez pravila ostane najmanj 2 na polje.
+                "montazne_letve": st_vodoravnih_cevi(
+                    p["deske_h"], c.get("profil")) * len(p["polja"]),
                 "dolzina_elementa": p["deske_h"], "opis_elementa": "deska"}
     zg, sp, lamele, vrzel, n = razpored(m)
     xs_nos, razmak_dejanski = pozicije_nosilcev(
@@ -181,6 +188,126 @@ def proizvodni_model(c):
             "dolzina_elementa": m.get("sirina", 0) or 0,
             "opis_elementa": "lamela", "razmak_dejanski": razmak_dejanski}
 # =================== UI/UX Plan A: čisti izračun (brez risanja) ===================
+def _opomba_kataloske_dolzine(c, spec):
+    """Opozorilo, če nabavne dolžine niso kataloške za profil DESKA.
+
+    Za deske so dolžine izrecno naštete (DESKA-150: 4000/2200 mm,
+    DESKA-128: 2200 mm); za romb so dovoljene tudi druge tovarniške
+    dolžine (razrez čez več dolžin — glej README), zato se ne opozarja.
+    """
+    if not spec or spec.get("tip") != "deska":
+        return None
+    dl = c.get("dolzine_deske") or [c.get("dolzina_deske", 5800)]
+    kataloske = {float(d) for d in spec.get("nakupne_dolzine_mm") or ()}
+    tuje = [d for d in dl if float(d) not in kataloske]
+    if not tuje:
+        return None
+    return ("- POZOR: nastavljene nabavne dolžine ("
+            + ", ".join(f"{fmt(float(d))}" for d in tuje) + " mm) niso "
+            f"kataloške za {spec['ime']} ("
+            + ", ".join(f"{fmt(d)}" for d in spec["nakupne_dolzine_mm"])
+            + " mm) — preveri pri dobavitelju.")
+
+
+def _nar_posebnosti(spec, pritrditev, temp_c=None, dolzina_deske_mm=None,
+                    barva=None):
+    """Vrstice naročila: elementi, odmiki vijaka, posebnosti vrtanja."""
+    v = []
+    if spec and spec.get("dimenzija_mm"):
+        dim = "×".join(fmt_vejica(x) for x in spec["dimenzija_mm"])
+        dol = spec.get("nakupne_dolzine_mm") or ()
+        v.append(
+            "- Dimenzija profila: " + dim
+            + (("×" + " / ".join(fmt_vejica(x) for x in dol)) if dol else "")
+            + " mm"
+            + (" (naleganje na "
+               + " ali ".join(fmt(x) for x in spec["montazne_sirine_mm"])
+               + ")" if spec.get("montazne_sirine_mm") else "")
+            + (" (samo za pokončno ograjo)"
+               if spec.get("uporaba") == ("pokončna",) else "") + ".")
+    r1, r2 = jedro.ROCAJI["standardni"], jedro.ROCAJI["polni"]
+    d1, d2 = r1["dimenzija_mm"], r2["dimenzija_mm"]
+    dn = r2["notranja_dimenzija_mm"]
+    v.append(
+        f"- Ročaj: {fmt(d1[0])}×{fmt(d1[1])}×{fmt(d1[2])} mm "
+        f"({r1['opomba']}) ali {fmt(d2[0])}×{fmt(d2[1])}×{fmt(d2[2])} mm "
+        f"(notranja dimenzija {fmt(dn[0])}×{fmt(dn[1])} mm). Samostojna "
+        "prodaja ročajev ni možna. Vijači se v razmaku 50 cm "
+        f"({fmt(jedro.ROCAJI['vijak_razmak_mm'])} mm) skozi ročaj v "
+        "konstrukcijo (od zgoraj navzdol, vijak viden); predvrtje "
+        f"{fmt_vejica(jedro.ROCAJI['vrtina_odmik_mm'])} mm večje od "
+        "vijaka.")
+    min_o = fmt(jedro.Pritrditev_DESK["odmik_vijak_min_mm"])
+    max_o = odmik_vijak_max(pritrditev)
+    if max_o is not None:
+        v.append(
+            f"- Odmik vijaka od roba reza: najmanj {min_o} mm, največ "
+            f"{fmt(max_o)} mm (konstrukcija "
+            + ("bočno na ploščo"
+               if max_o == jedro.Pritrditev_DESK["odmik_vijak_max_bocno_mm"]
+               else "na ploščo") + ").")
+    else:
+        v.append(
+            f"- Odmik vijaka od roba reza: najmanj {min_o} mm; največ "
+            f"{fmt(jedro.Pritrditev_DESK['odmik_vijak_max_na_plosco_mm'])} "
+            "mm (konstrukcija na ploščo) oziroma "
+            f"{fmt(jedro.Pritrditev_DESK['odmik_vijak_max_bocno_mm'])} mm "
+            "(bočno na ploščo).")
+    if barva and spec:
+        v.append(f"- Barvni odtenek: "
+                 f"{jedro.ujemanje_barve(barva, spec) or barva}.")
+    if spec and spec.get("barve"):
+        v.append("- Barvna paleta ("
+                 + f"{len(spec['barve'])} barv"
+                 + (f", {spec['st_povrsin']} površine"
+                    if spec.get("st_povrsin") else "")
+                 + "): " + ", ".join(spec["barve"]) + ".")
+        v.append("- " + jedro.WOODCORE["barve_opomba_dobave"]
+                 + " Posvetlitev prvo leto: "
+                 + jedro.WOODCORE["posvetlitev_prvo_leto"] + ".")
+    elif spec and spec.get("st_barv"):
+        v.append(f"- Barvna paleta: na voljo {spec['st_barv']} barvnih "
+                 "različic"
+                 + (f" in {spec['st_povrsin']} površine"
+                    if spec.get("st_povrsin") else "")
+                 + " za ta profil — preveri izbrani odtenek.")
+    v.append("- Skladiščenje: " + jedro.SKLADISCENJE_OPOMBA)
+    if spec and spec.get("vrtina_kompozit_manjsa"):
+        v.append(
+            "- Vrtanje (posebnost profila): v kompozitni material luknja "
+            "MANJŠA od vijaka, v konstrukcijo VEČJA — omogoči se "
+            "raztezanje materiala."
+            + (f" Vijak: {spec['vijak_dolzina_opis']}."
+               if spec.get("vijak_dolzina_opis") else ""))
+    # WoodCore splošna navodila (en vir resnice v jedro.py)
+    w = jedro.WOODCORE
+    v.append("- OPOZORILO: " + w["nosilnost_opozorilo"])
+    v.append(f"- Garancija {w['garancija_let']} let: ne cepijo, ne razpadajo, "
+             "ne gnijejo; izjeme: " + w["garancija_izjeme"] + ".")
+    if spec and spec.get("drenazne_luknje"):
+        d = w["drenazne_luknje"]
+        v.append(f"- Drenažne luknje: fi {fmt_vejica(d['fi_mm'])} mm s "
+                 f"spodnje strani, cca {fmt(d['odmik_od_roba_mm'])} mm od "
+                 f"roba, v vsak prekat — {d['namen']}.")
+    v.append("- Vijaki: " + w["vijaki"])
+    if temp_c is not None and dolzina_deske_mm:
+        gap = jedro.razmak_desk_mm(float(temp_c), dolzina_deske_mm / 1000)
+        v.append(f"- Razmak med deskami: {fmt_vejica(gap)} mm (dolžina deske "
+                 f"{fmt(dolzina_deske_mm)} mm, montaža pri "
+                 f"{fmt_vejica(float(temp_c))} °C — tabela WoodCore); min. "
+                 f"{fmt(w['odmik_od_sten_mm'])} mm odmik deske od vseh "
+                 "sten.")
+        if float(temp_c) < w["montazna_temp_min_c"]:
+            v[-1] += (f" POZOR: montaža pod "
+                      f"{fmt_vejica(w['montazna_temp_min_c'])} °C po "
+                      "navodilih proizvajalca ni primerna.")
+    v.append("- Orodja: " + w["orodja"])
+    if barva and ("rustic" in str(barva).lower()
+                  or "rustik" in str(barva).lower()):
+        v.append("- " + w["barve_opomba_rustic"])
+    return v
+
+
 def izracunaj_kolicine(c, rp=None):
     """Količine/naročilo/kosovnica BREZ risanja (UI/UX Plan A).
 
@@ -193,7 +320,8 @@ def izracunaj_kolicine(c, rp=None):
     "skupine_reza" (kosi po profilih za CNC), "kerf"}.
     """
     import datetime
-    from jedro import traki_nabava
+    from jedro import (traki_nabava, romb_montaza, romb_zaklucek,
+                       deska_montaza, montaza_profila)
     from razrez import (razrez_podatki, razrez_kosov_podatki, stevilo_palic)
 
     predloga = c.get("predloga") or "ograja"
@@ -273,6 +401,43 @@ def izracunaj_kolicine(c, rp=None):
             f"- {vijak_lamela_naziv} — {vijaki} kos",
             f"- {vijak_nosilec_naziv} — {n_s * 2} kos",
         ]
+        # navodila za pokončno ograjo (MONTAZE_PROFILAV / jedro.py)
+        spec_p = montaza_profila(profil)
+        pr_p = pokoncna_pravila(profil)
+        if pr_p:
+            n_cevi = st_vodoravnih_cevi(deska_h, profil)
+            nar += [
+                "",
+                f"MONTAŽA POKONČNO ({spec_p['ime']}):",
+                f"- Vodoravne cevi (montažne letve): {n_cevi} na polje = "
+                f"{model['montazne_letve']} kos — razmak med vodoravnima "
+                f"cevema največ {fmt(pr_p['razmak_max_vodoravne_cevi_mm'])} "
+                "mm.",
+            ]
+            if pr_p.get("kotnik_na_vodoravne_cevi"):
+                nar += [f"- L-kotniki na vodoravnih ceveh — "
+                        f"{n_d * n_cevi} kos (skozi kotnik se pritrjuje romb "
+                        "— skrito vijačenje)."]
+            if spec_p.get("opomba_alu_vidna_pokoncno"):
+                nar += ["- " + spec_p["opomba_alu_vidna_pokoncno"]]
+            if pr_p.get("skrito_vijacenje"):
+                nar += ["- Skrito vijačenje — vijaki niso vidni na licu."]
+            if spec_p.get("montazne_sirine_mm"):
+                nar += ["- Montaža na širino "
+                        + " ali ".join(f"{fmt(d)} mm"
+                                       for d in spec_p["montazne_sirine_mm"])
+                        + "."]
+            if spec_p.get("pritrditev_od_spredaj"):
+                nar += [f"- Pritrditev od spredaj skozi desko — vijaki VIDNI "
+                        f"na licu; predvrtje — luknja "
+                        f"{fmt_vejica(spec_p['vrtina_odmik_mm'])} mm večja od "
+                        f"vijaka; vijak {spec_p['lega_vijaka']}."]
+        nar += _nar_posebnosti(montaza_profila(profil),
+                              c.get("pritrditev"), c.get("montazna_temp_c"),
+                              max((B for B, _ in traki), default=0), barva)
+        opomba_dl = _opomba_kataloske_dolzine(c, montaza_profila(profil))
+        if opomba_dl:
+            nar += [opomba_dl]
         nar += _kataloska_blok(c)
         por_s = sum(B for B, _ in traki) / 1000
         por_st = palice_s * dl_palice / 1000
@@ -286,6 +451,7 @@ def izracunaj_kolicine(c, rp=None):
                 for _ in range(int(kol)):
                     kosovnica.append((f"{enota['oznaka']}-{ozn_k}", dol,
                                       "vrata", barva))
+        nar += opomba_kratkih_kosov(kosovnica)
         skupine_reza = [{"oznaka": "DESKE", "kosi": list(kosi_d)},
                         {"oznaka": "VRATA", "kosi": list(kos_v)}]
         return {"postavke": [
@@ -380,6 +546,61 @@ def izracunaj_kolicine(c, rp=None):
         f"- {vijak_nosilec_naziv} — {n_nos * 2} kos",
         f"- Nosilni nosilec {dim_nos} — {n_nos} kos",
     ]
+    romb = romb_montaza(profil)
+    if romb:
+        # MONTAZA_ROMB (en vir resnice v jedro.py): L-kotnik LEVO in DESNO
+        # na vsakem stebričku; romb brez alu cevi NI mogoče montirati.
+        nar += [
+            f"- L-kotnik za pritrditev romba — {2 * n_nos} kos "
+            f"({romb['kotniki_na_stebriku']} na stebriček: levo in desno)",
+        ]
+        if (c.get("vmesna_povezava")
+                and _razmak > romb["razmak_max_stebriki_mm"]):
+            nar += [f"- Vmesna povezava (iz zgornje cevi) — "
+                    f"{max(1, n_nos - 1)} kos "
+                    f"(razmak {fmt(round(_razmak))} mm > "
+                    f"{fmt(romb['razmak_max_stebriki_mm'])} mm — NI "
+                    "privijačena v tla)"]
+        zak = romb_zaklucek(c.get("zaklucek"))
+        if zak == "letvica":
+            nar += [f"- Zaključna letvica (WPC) — 2 kos × "
+                    f"{fmt(m['visina'])} mm",
+                    f"- Vijaki za zaključno letvico — {2 * n} kos "
+                    "(1 na lamelo, vsaka stran)",
+                    "- (Letvica je opcija za zaključevanje prečne romb "
+                    "ograje.)"]
+        elif zak == "cepi":
+            nar += [f"- Čepi za romb profile (levi + desni) — {2 * n} parov "
+                    f"(1 par na vsak konec lamele)",
+                    f"- Čepi za stebričke — {n_nos} kos",
+                    "- " + romb["zaklucek_cepi_opomba"]]
+        nar += ["", "OPOZORILO: montaža romba BREZ alu cevi v sredini NI "
+                "mogoča — deske brez alu cevi se NE kupujejo! Romb profil "
+                "se kupi SAMO skupaj z alu cevjo — ta je vključena v ceno "
+                "romb deske."]
+    deska = deska_montaza(profil)
+    if deska:
+        # MONTAZE_PROFILAV (en vir resnice v jedro.py)
+        if deska.get("pritrditev_od_spredaj"):
+            nar += [f"- Montaža ({deska['ime']}): pritrditev od spredaj skozi "
+                    "desko v konstrukcijo — vijaki VIDNI na licu; predvrtje — "
+                    f"luknja {fmt_vejica(deska['vrtina_odmik_mm'])} mm večja od "
+                    f"vijaka; vijak {deska['lega_vijaka']}."]
+        elif deska.get("skrito_vijacenje"):
+            nar += [f"- Montaža ({deska['ime']}): skrito vijačenje — vijaki "
+                    "niso vidni na licu"
+                    + ("; montaža na širino "
+                       + " ali ".join(f"{fmt(d)} mm"
+                                      for d in deska["montazne_sirine_mm"])
+                       if deska.get("montazne_sirine_mm") else "") + "."]
+    nar += _nar_posebnosti(montaza_profila(profil),
+                          c.get("pritrditev"), c.get("montazna_temp_c"),
+                          max((B for B, _ in traki), default=0), barva)
+    nar += ["- Spoji desk na dolžino: obvezno na stebričku! Pritrdilni "
+            "vijak na vsaki deski 3 cm od roba reza deske."]
+    opomba_dl = _opomba_kataloske_dolzine(c, montaza_profila(profil))
+    if opomba_dl:
+        nar += [opomba_dl]
     nar += _kataloska_blok(c)
     kosovnica = rp["kosovnica"]
     for enota in vp["vrata"] + vp["prehodi"]:
@@ -389,6 +610,7 @@ def izracunaj_kolicine(c, rp=None):
                                   barva))
     wpc_postavke = [f"{B / 1000:.1f} m ({t} kos)"
                     for B, t in traki_nabava(traki)]
+    nar += opomba_kratkih_kosov(kosovnica)
     skupine_reza = [{"oznaka": "LAMELE", "kosi": list(kosi_l)},
                     {"oznaka": "VRATA", "kosi": list(kos_v)}]
     kolicine = {"postavke": [
@@ -413,6 +635,34 @@ def izracunaj_kolicine(c, rp=None):
             f"- {vr[0]}: {vr[1]} {vr[2]}"
             for vr in vrata_vrstice_potrebscine(vp)) \
             + "\n".join(vrata_dokazila_vrstice(vp))
+    if romb:
+        kotniki = 2 * n_nos
+        kolicine["postavke"].append(
+            ("L-kotnik za pritrditev romba", f"{kotniki}", "kos",
+             "kotnik_kos", kotniki))
+        if (c.get("vmesna_povezava")
+                and _razmak > romb["razmak_max_stebriki_mm"]):
+            vmesne = max(1, n_nos - 1)
+            # vmesna povezava je izdelana po meri — brez cenovnega ključa
+            # (Plan G: cene si ne izmišljamo)
+            kolicine["postavke"].append(
+                ("Vmesna povezava (iz zgornje cevi)", f"{vmesne}", "kos",
+                 None, vmesne))
+        if zak == "letvica":
+            # letvica je izdelana po meri — brez cenovnega ključa (Plan G)
+            kolicine["postavke"].append(
+                ("Zaključna letvica (WPC)",
+                 f"2 kos × {fmt(m['visina'])} mm", "m", None,
+                 2 * m["visina"] / 1000))
+            kolicine["postavke"].append(
+                ("Vijaki za zaključno letvico", f"{2 * n}", "kos",
+                 "vijak_kos", 2 * n))
+        elif zak == "cepi":
+            kolicine["postavke"].append(
+                ("Čepi za romb profile (levi in desni)",
+                 f"{4 * n}", "kos", None, 4 * n))
+            kolicine["postavke"].append(
+                ("Čepi za stebričke", f"{n_nos}", "kos", None, n_nos))
     return {"postavke": kolicine["postavke"], "narocilo": kolicine["narocilo"],
             "ostanki_posodobitev": kolicine["ostanki_posodobitev"],
             "kosovnica": kolicine["kosovnica"],

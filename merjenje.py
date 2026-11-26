@@ -345,7 +345,7 @@ class App(tk.Tk):
         ttk.Label(f1, text="Znana dolžina (mm):").pack(anchor="w")
         self.v_ref = tk.StringVar(value="67")   # širina WoodCore deske
         ttk.Entry(f1, width=12, textvariable=self.v_ref).pack(anchor="w")
-        ttk.Label(f1, text="WoodCore deska: ROMB 67 → 67 mm; POLNA 128 → 128 mm",
+        ttk.Label(f1, text="WoodCore deska: ROMB 67 → 67 mm; DESKA-150 → 150 mm; POLNA 128 → 128 mm",
                   foreground="#888888", wraplength=210, font=("Segoe UI", 7)
                   ).pack(anchor="w")
         self.btn_ref = ttk.Button(f1, text="KALIBRIRAJ (2 klika)",

@@ -112,6 +112,214 @@ celovita statična potrditev ostaja pri pooblaščenem inženirju.
 
 ![montažni list](slike/TEREN-01-montazni-list.png)
 
+## Montaža WPC profilov (navodila proizvajalca)
+
+Program pozna navodila za montažo treh profilov (`jedro.MONTAZE_PROFILAV`
+— en vir resnice) in jih upošteva v validaciji, risbi, montažnem listu in
+naročilu.
+
+### ROMB DESKA-67 (širina 6,7 cm, dolžina 5,8 m)
+
+Profil romb se reže na poljubne dolžine:
+
+- **Alu cev v sredini romba je POGOJ montaže** — nevidno pritrjevanje gre
+  skozi to cev. Romba brez alu cevi NI mogoče montirati, zato nakup
+  desk brez alu cevi ni mogoč.
+- **L-kotnik LEVO in DESNO na vsakem stebričku**; rf vijak gre skozi
+  L-kotnik v alu cev sredine romba z **zadnje strani** — vijak ni viden
+  s sprednje strani.
+- **Vrtanje** (za vijak 3,9): izvrtina 3,2 skozi romb in aluminij, nato
+  se luknja v rombu poveča na 4,2–4,5 — v kompozit je luknja vedno
+  večja od vijaka zaradi raztezanja materiala.
+- **Razmiki stebričkov**: največ **145 cm** (z L-kotnikoma levo in
+  desno). Nad 145 cm je potrebna **vmesna povezava iz zgornje cevi** (NI
+  privijačena v tla) — dovoljena do **180 cm** in se vklopi z
+  `vmesna_povezava: true` v konfiguraciji. Pri razmaku **≥ 180 cm** je
+  potreben dodatni stebriček.
+- **Zaključek ograje** — dve izvedbi: s **čepi** (zaprtje odprtih koncev
+  romb desk in stebričkov) ali z **zaključno letvico**, ki se privije
+  **iz strani v romb profile** (1 vidni vijak na lamelo) in skrije
+  odprte konce desk. Izbira v konfiguraciji: `zaklucek: cepi` ali
+  `zaklucek: letvica`; brez izbire dokumenti ponudijo obe izvedbi.
+
+### DESKA-150 (terasna deska, širina 15 cm, dolžini 4 m in 2,2 m)
+
+- deska se odžaga na poljubno dolžino;
+- **pritrditev od spredaj** — vijaki gredo skozi desko v konstrukcijo, na
+  licu so **vidni** (del zasnove);
+- **predvrtje**: luknja mora biti **1 mm večja** od dimenzije vijaka;
+- vijak se privije **v sredino deske, kjer je rebro v profilu**;
+- stebrički za vodoravno postavitev desk: največ **133–140 cm**.
+
+### DESKA-128 (polna deska, širina 12,8 cm, dolžina 2,2 m)
+
+- enako kot DESKA-150: odžaga po meri, pritrditev **od spredaj z vidnimi
+  vijaki**, predvrtje — **luknja 1 mm večja** od vijaka, vijak **v sredino
+  deske**;
+- stebrički za vodoravno postavitev desk: največ **180 cm** pri ograjah do
+  150 cm višine, pri višjih največ **150 cm** (enako za POLNA DESKA 100).
+
+### POLNA DESKA 57/32 (pokončna in vodoravna)
+
+- montaža na širino **57 ali 32 mm**; pritrditev z RF vijaki skozi cev
+  **iz zadnje strani** — vijaki niso vidni (skrito vijačenje);
+- vijak je dolg **približno 2/3 globine profila**;
+- **obrnjeno vrtanje**: v kompozit se vrta luknja **manjša** od vijaka, v
+  konstrukcijo **večja** (raztezanje materiala);
+- stebrički: največ **150 cm ne glede na višino ograje**; nosilci
+  (vodoravne cevi) največ **100 cm**.
+
+### Pokončna ograja (4 profili)
+
+Za pokončne ograje veljajo profili **POLNA DESKA 57/32**, **POLNA DESKA
+100**, **POLNA DESKA 128** in **ROMB DESKA 67**; merilo je **razmak med
+vodoravnima cevema** (montažnima letvama za deskami):
+
+| profil | razmak ≤ | posebnosti |
+|---|---|---|
+| POLNA DESKA 57/32 | 100 cm | montaža na širino **57 ali 32 mm**, skrito vijačenje; vrtanje obratno (kompozit manjša luknja, konstrukcija večja) |
+| POLNA DESKA 100 | 80 cm | — |
+| POLNA DESKA 128 | 100 cm | — |
+| ROMB DESKA 67 | 110 cm | na vodoravne cevi zmontiraj **kotnik**, skozi katerega se pritrjuje romb — skrito vijačenje |
+
+Program izračuna število vodoravnih cevi na polje (`jedro.st_vodoravnih_cevi`)
+tako, da so vse nepodprte razdalje (tudi robovi desk) ≤ ta razmak; doslejšnji
+„2 na polje“ ostane minimum.
+
+## Pritrditev desk (odmiki vijaka od roba reza)
+
+- minimalen odmik vijaka od roba reza: **30 mm**;
+- konstrukcija montirana **na ploščo** (balkon, dvoriščna ograja): največ
+  **150 mm**;
+- konstrukcija montirana **bočno na ploščo** (balkon): največ **100 mm**.
+
+Program vključi pravilo v naročilo in opombe glede na nastavitev
+`pritrditev` (`vrh` = na ploščo, `bočno` = bočno na ploščo). Kosi, krajši
+od 60 mm, dobijo opozorilo (2 vijaka ne prideta v kos). Priporočen razmak
+med deskami je 5–30 mm; možno je tudi prekrivanje desk (montaža iz obeh
+strani); deske se obdelujejo kot les (zaokrožitev, poljubne oblike).
+
+## Elementi (dimenzije izdelkov)
+
+| element | dimenzija | uporaba / opomba |
+|---|---|---|
+| POLNA DESKA 57/32 | 57×32×5800 mm | naleganje na 57 ali 32; **samo za pokončno ograjo**; 4 barve |
+| POLNA DESKA 100 | 100×12×5800 mm | **samo za pokončno ograjo**; 8 barv |
+| POLNA DESKA 128 | 128×16,5×2200 mm | polna deska (brez prekatov); pokončno **ali prečno**; 6 barv |
+| DESKA-150 | 150×25×4000 / 2200 mm | terasni profil (votel); vidni vijaki na rebro; 7 barv, 3 površine (Klasik, Rustik …); zaključni pokrovček |
+| KUBO 80/42 | 80×42×5800 / 5000 mm | pokončne pregrade; skrito vijačenje; montaža na širino 80 ali 42 mm; alu cev 20×60×2 / 25×25×2 / 20×20×2 — za zunaj ELOKSIRANA; 4 barve |
+| ROMB DESKA 67 | 67×26×5800 mm | z ALU CEVJO v sredini; pokončno ali prečno; 7 barv |
+| Ročaj (standardni) | 95×45×5800 mm | na zalogi samo še v WHITE odtenku; ostali odtenki v polnem profilu |
+| Ročaj (poln profil, WPC) | 92×45×5800 mm | notranja dimenzija 55×30 mm |
+
+**Samostojna prodaja ročajev ni možna** — ročaj gre vedno skupaj z ograjo.
+Program validira uporabo profila (POLNA DESKA 100/57/32 zavrne prečno
+predlogo) in v naročilo vključi dimenzije elementov.
+
+**Barvni odtenki** (imena z barvne lestvice WoodCore; `jedro.BARVE_ALIAS`
+prepozna tudi domača imena, npr. „Antracit“ → „Amazon wood“;
+preverjanje konfiguracije zavrne odtenek, ki ni na voljo za izbrani
+profil):
+
+| Profil | Odtenki |
+|---|---|
+| ROMB DESKA 67, DESKA-150 | Amazon wood, Ash wood, Golden teak, Burma teak, Oak wood + Rustik: Rustic oak, Rustic walnut (7) |
+| POLNA DESKA 100 | kot zgoraj + White (8) |
+| POLNA DESKA 128 | Amazon wood, Ash wood, Burma teak, Oak wood + Rustik (6) — brez Golden teak/White |
+| POLNA DESKA 57/32, KUBO 80/42 | Amazon wood, Oak wood + Rustik (4) |
+
+Rustic odtenka sta večbarvna — odtenek in razpored lis med deskami in
+serijami opazneje variirata; pri vseh odtenkih barvni odtenek med
+dobavami malenkost varira in se lahko razlikuje od vzorca. **Barva prvo
+leto posvetli za 5–10 %**, nato ostane enaka.
+
+**Čepi za romb**: čepi so **levi in desni** — za vsak konec lamele je
+potreben par (levi + desni čep). Opcija za zaključevanje **prečne** romb
+ograje je tudi zaključna letvica (pri pokončni predlogi veljajo čepi).
+
+**Skladiščenje**: deske je pred montažo potrebno hraniti v suhem in
+zračnem prostoru; podlaga naj bo ravna in čista, deske na odlagalni
+podlagi po celotni dolžini in širini, podprte na največ 50 cm.
+Začasno skladiščenje zunaj mora biti obvezno pokrito (tveganje
+zastajanja vlage in plesni). V primeru neustreznega skladiščenja se
+reklamacija ne upošteva.
+
+### Splošna WoodCore navodila (PDF + O materialu + FAQ — `jedro.WOODCORE`)
+
+- **Material**: 60 % bambusovih vlaken, 30 % polietilena (HDPE),
+  10 % aditivov. Garancija 15 let: ne cepijo, ne razpadajo, ne gnijejo;
+  izjeme: težke obremenitve in udarci niso kriti, posvetlitev 5–10 % in
+  barvne variacije niso krite; neupoštevanje navodil montaže izniči
+  garancijo.
+- **Temperatura montaže**: montaža pri zunanji temperaturi pod **5 °C
+  ni primerna** (program pri `montazna_temp_c` < 5 doda opozorilo).
+
+- **Orodja**: baterijski vrtalnik (ročni izvijač ne pride v poštev —
+  WPC je pretrd), rezila Widia (HM), brusni papir granulacija 40 za
+  praske in poškodovane robove; glavo vijaka ugreznite z grezilom.
+- **Vijaki**: priporočeni so nerjaveči; dovoljeni tudi standardni RF
+  vijaki, odporni na rjo in korozijo.
+- **Nosilnost**: WoodCore desk se ne sme uporabljati za nosilce, tramove,
+  podporne stebre ali druge gradbene elemente — neupoštevanje lahko
+  izniči garancijo.
+- **Drenažne luknje** (voti profili — romb, DESKA-150): fi 4,2 mm s
+  spodnje strani, cca 5 cm od roba, v vsak prekat — voda ne sme
+  zastajati (zmrzne in desko poči). Polne deske (57/32, 100, 128) jih
+  ne potrebujejo.
+- **Odmik od sten**: najmanj 6 mm; raztezek deske 12 mm na 4 m
+  (−30…+40 °C; PDF navaja „cca 10 mm“).
+- **Razmak med deskami po temperaturi montaže** (`jedro.razmak_desk_mm`;
+  izbirno polje `montazna_temp_c` ga izpiše v naročilu):
+
+| temp. °C | 1 m | 2 m | 3 m | 4 m | 5 m |
+|---|---|---|---|---|---|
+| −25 | 2,75 | 5,5 | 8,25 | 11 | 11 |
+| −20 / −15 | 2,5 | 5 | 7,5 | 10 | 10 |
+| −10 | 2,25 | 4,5 | 6,75 | 9 | 9 |
+| −5 | 2 | 4 | 6 | 8 | 8 |
+| 0 / 5 | 1,75 | 3,5 | 5,25 | 7 | 7 |
+| 10 | 1,5 | 3 | 4,5 | 6 | 6 |
+| 15 / 20 | 1,25 | 2,5 | 3,75 | 5 | 5 |
+| 25 | 1 | 2 | 3 | 4 | 4 |
+| 30 | 1 | 1,5 | 2,25 | 3 | 3 |
+| 35 | 1 | 1,5 | 1,8 | 2 | 2 |
+
+  Vir: tabela „Zahteva za zahodno in Vzhodno Evropo“ (stran 6);
+  pri −25 °C/1 m je v viru tiskano „2,27“ — očitna tipkarska napaka za
+  2,75 (5,5 = 2×2,75). Vrstici 40/45 °C sta v viru prazni — zato
+  `montazna_temp_c` velja za −25…35 °C.
+
+### Montaža desk: usmerjenost je ODLOČILNA (rešitev spora 110 ↔ 180/150)
+
+Obe vrednosti sta **uradni** — nanašata se na različni usmerjenosti
+montaže desk (potrjeno na straneh prečnih/pokončnih ograj in pregrad;
+jedro to loči prek `razmak_max_stebriki_precna_mm` /
+`razmak_max_stebriki_pokoncna_mm`):
+
+| profil | prečna montaža — stebrički | pokončna montaža — stebrički | vodoravne cevi (pokončno) |
+|---|---|---|---|
+| ROMB 67 | 145 cm (L-kotnika levo+desno; 145–180 cm z vmesno povezavo iz zgornje cevi) | 150 cm (vertikalni nosilci ≤ 100 cm, s kotnikom/ploščatim alu) | 110 cm |
+| DESKA-128 | **110 cm** | **180 cm do 150 cm višine / 150 cm višje** | 100 cm |
+| DESKA-150 | 133–140 cm (povzetek strani: 130 cm) | — | — |
+| POLNA DESKA 100 | — | 180 cm do 150 cm višine / 150 cm višje | 80 cm |
+| POLNA DESKA 57/32 | — | 150 cm (ne glede na višino) | 100 cm |
+
+- Prečna: **spoji desk na dolžino obvezno na stebričku** (pritrdilni
+  vijak 3 cm od roba reza deske).
+- Pokončna romb: z razmaki med deskami je **vidna alu cev** v sredini
+  profila — vsako desko zapri s čepi ali reši v detajlu konstrukcije.
+- Priporočen razmak med deskami: 0,5–3 cm (FAQ pokončnih ograj navaja
+  0,2–3 cm); možno prekrivanje desk iz obeh strani.
+- Ročaj: vijači se v razmaku **50 cm** skozi ročaj v konstrukcijo (od
+  zgoraj navzdol, vijak viden); predvrtje 1 mm večje od vijaka.
+- Čepi za romb so dražji in **ne garantirajo**, da voda ne bo prišla v
+  profil — priporočen je zaključek, ki zakrije odprtine.
+
+Validacija (`preveri_cfg`) preverja **dejanski** razmak med nosilci (kot
+je kotiran na risbi — `razmak_nosilcev` je le zgornja meja) in pri
+preseganju zavrne izvoz z jasnim navodilom. L-kotniki (2 na stebriček)
+so samodejno v potrebščinah, kosovnici in naročilu.
+
 ## Stanje projekta
 
 | Issue | Vsebina | Stanje |
@@ -182,7 +390,7 @@ mere:
   debelina: 20                   # debelina lamel (mm)
   lamele: 10                     # število lamel
   razmak_nosilcev: 900           # največji razmak nosilcev (mm)
-barva: "Antracit"                # ime barve ali #hex
+barva: "Antracit"                # odtenek (validira se po katalogu barv)
 profil: ROMB 67                  # model deske (WoodCore)
 dolzina_deske: 5800              # tovarniška dolžina deske (mm)
 kerf: 3                          # širina rezila (mm)
