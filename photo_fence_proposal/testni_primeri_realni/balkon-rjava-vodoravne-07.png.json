@@ -1,0 +1,25 @@
+{
+  "vogali": [
+    [
+      312,
+      232
+    ],
+    [
+      558,
+      222
+    ],
+    [
+      558,
+      352
+    ],
+    [
+      315,
+      358
+    ]
+  ],
+  "velikost_slike": [
+    960,
+    558
+  ],
+  "opomba": "balkon levo; desni hodnik je ločen element — vogali ročno ocenjeni iz posnetka (±25 px)"
+}

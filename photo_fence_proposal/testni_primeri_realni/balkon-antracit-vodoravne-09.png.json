@@ -1,0 +1,25 @@
+{
+  "vogali": [
+    [
+      150,
+      370
+    ],
+    [
+      660,
+      352
+    ],
+    [
+      660,
+      520
+    ],
+    [
+      150,
+      532
+    ]
+  ],
+  "velikost_slike": [
+    1260,
+    945
+  ],
+  "opomba": "spodnji balkon; zgornji je enak — vogali ročno ocenjeni iz posnetka (±25 px)"
+}

@@ -1,0 +1,25 @@
+{
+  "vogali": [
+    [
+      150,
+      275
+    ],
+    [
+      688,
+      180
+    ],
+    [
+      688,
+      352
+    ],
+    [
+      150,
+      455
+    ]
+  ],
+  "velikost_slike": [
+    960,
+    720
+  ],
+  "opomba": "panel ograje od blizu — vogali ročno ocenjeni iz posnetka (±25 px)"
+}

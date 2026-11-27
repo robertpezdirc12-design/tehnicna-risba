@@ -1,0 +1,25 @@
+{
+  "vogali": [
+    [
+      255,
+      90
+    ],
+    [
+      1250,
+      215
+    ],
+    [
+      1250,
+      645
+    ],
+    [
+      255,
+      470
+    ]
+  ],
+  "velikost_slike": [
+    1260,
+    945
+  ],
+  "opomba": "črne pokončne deske, močna perspektiva — vogali ročno ocenjeni iz posnetka (±25 px)"
+}

@@ -1,0 +1,25 @@
+{
+  "vogali": [
+    [
+      315,
+      382
+    ],
+    [
+      1735,
+      378
+    ],
+    [
+      1735,
+      712
+    ],
+    [
+      315,
+      718
+    ]
+  ],
+  "velikost_slike": [
+    2000,
+    1125
+  ],
+  "opomba": "bela ograja s palami, čeln pogled — vogali ročno ocenjeni iz posnetka (±25 px)"
+}

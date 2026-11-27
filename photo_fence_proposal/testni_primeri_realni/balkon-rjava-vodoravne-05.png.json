@@ -1,0 +1,25 @@
+{
+  "vogali": [
+    [
+      255,
+      228
+    ],
+    [
+      658,
+      183
+    ],
+    [
+      658,
+      332
+    ],
+    [
+      255,
+      378
+    ]
+  ],
+  "velikost_slike": [
+    960,
+    677
+  ],
+  "opomba": "balkon s stranskim povratkom — vogali ročno ocenjeni iz posnetka (±25 px)"
+}

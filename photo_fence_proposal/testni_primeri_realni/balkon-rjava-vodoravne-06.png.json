@@ -1,0 +1,25 @@
+{
+  "vogali": [
+    [
+      215,
+      350
+    ],
+    [
+      520,
+      312
+    ],
+    [
+      600,
+      432
+    ],
+    [
+      225,
+      478
+    ]
+  ],
+  "velikost_slike": [
+    960,
+    720
+  ],
+  "opomba": "vogalni balkon, dve lici — vogali ročno ocenjeni iz posnetka (±25 px)"
+}

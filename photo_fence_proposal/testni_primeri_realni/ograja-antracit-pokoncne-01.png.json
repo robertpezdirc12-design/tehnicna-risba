@@ -1,0 +1,25 @@
+{
+  "vogali": [
+    [
+      152,
+      45
+    ],
+    [
+      528,
+      338
+    ],
+    [
+      492,
+      548
+    ],
+    [
+      165,
+      275
+    ]
+  ],
+  "velikost_slike": [
+    960,
+    720
+  ],
+  "opomba": "ograja ob stopnicah, pokončne deske — vogali ročno ocenjeni iz posnetka (±25 px)"
+}

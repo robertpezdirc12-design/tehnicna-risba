@@ -1,0 +1,25 @@
+{
+  "vogali": [
+    [
+      185,
+      296
+    ],
+    [
+      630,
+      280
+    ],
+    [
+      630,
+      352
+    ],
+    [
+      185,
+      368
+    ]
+  ],
+  "velikost_slike": [
+    960,
+    720
+  ],
+  "opomba": "srednja ograja z lesenimi deskami — vogali ročno ocenjeni iz posnetka (±25 px)"
+}

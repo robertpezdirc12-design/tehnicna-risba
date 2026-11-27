@@ -8,3 +8,37 @@ Testne fotografije starih ograj — viri (Wikimedia Commons, proste licence):
    avtor Cristian Bortes, CC BY 2.0
 Vse preneseno prek commons.wikimedia.org (Special:FilePath, width=1024/1600).
 Namen: testiranje dodatka photo_fence_proposal (issue #8, Faza 4).
+
+Dodatni testni primeri (28 PNG + 28 .png.json z ročno označenimi vogali) — dodano 2026-11-25:
+Vir/provenienca: ni dokumentiran v repozitoriju; zbrani za regresijsko testiranje
+photo_fence_proposal (issue #8). Pred javno distribucijo preveri licenco/pravice.
+Vogali so ročno ocenjeni iz posnetka (±25 px) in zapisani v spremljajočih .json datotekah.
+
+- balkon-antracit-pokoncne-01.png (960x720): spodnji balkon, pokončne lamele (zgoraj še en balkon) — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-antracit-pokoncne-02.png (960x720): spodnji balkon, pokončne lamele — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-antracit-pokoncne-03.png (960x720): spodnji balkon, pokončne lamele (zgoraj še en balkon z markizo) — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-antracit-vodoravne-02.png (960x720): balkon z markizo, poševen pogled — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-antracit-vodoravne-03.png (960x720): balkon s cvetličnimi koriti — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-antracit-vodoravne-04.png (960x720): levi balkon; desni je enak, hiša gledana čez zid — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-antracit-vodoravne-05.png (960x720): balkon od blizu, močna perspektiva — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-antracit-vodoravne-07.png (960x720): balkon nad garažo (hiša 90) — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-antracit-vodoravne-08.png (960x720): levi panel ograje na parapetu; desni je enak — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-antracit-vodoravne-09.png (1260x945): spodnji balkon; zgornji je enak — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-crna-vodoravne-01.png (960x763): balkon nad garažo — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-crna-vodoravne-02.png (1260x945): balkon nad garažnimi vrati — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-les-vodoravne-01.png (960x720): daljša ograja v prvem planu; zgoraj so še trije balkoni — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-les-vodoravne-02.png (960x720): srednja ograja z lesenimi deskami — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-les-vodoravne-03.png (960x720): ograja v prvem planu; zgoraj še balkon — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-rjava-pokoncne-01.png (960x720): spodnji balkon, pokončne lamele — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-rjava-vodoravne-01.png (960x720): zgornji balkon; spodnja ograja je ločen element — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-rjava-vodoravne-02.png (960x720): zgornji balkon; spodaj je še ograja — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-rjava-vodoravne-03.png (960x720): balkon od spodaj, močna perspektiva — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-rjava-vodoravne-04.png (960x720): panel ograje od blizu — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-rjava-vodoravne-05.png (960x677): balkon s stranskim povratkom — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-rjava-vodoravne-06.png (960x720): vogalni balkon, dve lici — vogali ročno ocenjeni iz posnetka (±25 px)
+- balkon-rjava-vodoravne-07.png (960x558): balkon levo; desni hodnik je ločen element — vogali ročno ocenjeni iz posnetka (±25 px)
+- ograja-antracit-pokoncne-01.png (960x720): ograja ob stopnicah, pokončne deske — vogali ročno ocenjeni iz posnetka (±25 px)
+- ograja-antracit-pokoncne-02.png (1260x945): črne pokončne deske, močna perspektiva — vogali ročno ocenjeni iz posnetka (±25 px)
+- ograja-antracit-vodoravne-01.png (960x720): ograja pred zastekljeno teraso, čez celotno širino — vogali ročno ocenjeni iz posnetka (±25 px)
+- stebri-pale-bela-01.png (2000x1125): bela ograja s palami, čeln pogled — vogali ročno ocenjeni iz posnetka (±25 px)
+- stebri-pale-rjava-01.png (1334x750): ograjica s palami ob stopnicah — vogali ročno ocenjeni iz posnetka (±25 px)

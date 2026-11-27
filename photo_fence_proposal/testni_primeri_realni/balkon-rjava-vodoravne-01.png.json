@@ -1,0 +1,25 @@
+{
+  "vogali": [
+    [
+      208,
+      182
+    ],
+    [
+      718,
+      172
+    ],
+    [
+      718,
+      262
+    ],
+    [
+      208,
+      272
+    ]
+  ],
+  "velikost_slike": [
+    960,
+    720
+  ],
+  "opomba": "zgornji balkon; spodnja ograja je ločen element — vogali ročno ocenjeni iz posnetka (±25 px)"
+}

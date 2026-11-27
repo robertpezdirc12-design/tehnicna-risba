@@ -1,0 +1,25 @@
+{
+  "vogali": [
+    [
+      110,
+      255
+    ],
+    [
+      890,
+      258
+    ],
+    [
+      890,
+      332
+    ],
+    [
+      110,
+      330
+    ]
+  ],
+  "velikost_slike": [
+    960,
+    720
+  ],
+  "opomba": "ograja pred zastekljeno teraso, čez celotno širino — vogali ročno ocenjeni iz posnetka (±25 px)"
+}
