@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head><meta name="viewport" content="width=device-width, initial-scale=1"><style id="t3-theme">:root{color-scheme:dark;--background:#141414;--foreground:#f2f2f2;--muted:#333333;--muted-foreground:#b0b0b0;--card:#232323;--card-foreground:#f2f2f2;--popover:#232323;--popover-foreground:#f2f2f2;--secondary:#333333;--secondary-foreground:#f2f2f2;--border:#454545;--input:#454545;--ring:#8f37ff;--primary:#8f37ff;--primary-foreground:#ffffff;--accent:#8f37ff;--accent-foreground:#ffffff;--accent-surface:#333333;--accent-surface-foreground:#f2f2f2;--destructive:#fb414a;--destructive-foreground:#ff6467;--destructive-surface:#301214;--warning:#fe9a00;--warning-foreground:#ff8a4c;--warning-surface:#3b2c25;--success:#10b981;--success-foreground:#34d399;--info:#3b82f6;--info-foreground:#60a5fa;--code-background:#232323;--code-foreground:#f2f2f2;--chart-1:#8f37ff;--chart-2:#2dd4bf;--chart-3:#fbbf24;--chart-4:#c084fc;--chart-5:#fb7185;--chart-6:#a3e635;--radius:0.625rem;--font-sans:-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;--font-mono:"SF Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;}@media (prefers-color-scheme: light){:root{color-scheme:light;--background:#ffffff;--foreground:#242424;--muted:#f5f5f5;--muted-foreground:#626262;--card:#fafafa;--card-foreground:#242424;--popover:#fafafa;--popover-foreground:#242424;--secondary:#f5f5f5;--secondary-foreground:#242424;--border:#dedede;--input:#dedede;--ring:#6a20d0;--primary:#6a20d0;--primary-foreground:#ffffff;--accent:#6a20d0;--accent-foreground:#ffffff;--accent-surface:#f5f5f5;--accent-surface-foreground:#242424;--destructive:#fb2c36;--destructive-foreground:#c10007;--destructive-surface:#fcebec;--warning:#fe9a00;--warning-foreground:#bb4d00;--warning-surface:#fcf4e8;--success:#10b981;--success-foreground:#047857;--info:#3b82f6;--info-foreground:#1d4ed8;--code-background:#fafafa;--code-foreground:#242424;--chart-1:#6a20d0;--chart-2:#0d9488;--chart-3:#d97706;--chart-4:#9333ea;--chart-5:#e11d48;--chart-6:#65a30d;--radius:0.625rem;--font-sans:-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;--font-mono:"SF Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;}}html{background:var(--background);color:var(--foreground);font-family:var(--font-sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;scrollbar-width:none}html::-webkit-scrollbar{display:none}body{margin:0}code,kbd,pre,samp{font-family:var(--font-mono)}</style><script>(function(){var s=document.getElementById("t3-theme"),n=0;if(!s)return;var b="html{background:var(--background);color:var(--foreground);font-family:var(--font-sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;scrollbar-width:none}html::-webkit-scrollbar{display:none}body{margin:0}code,kbd,pre,samp{font-family:var(--font-mono)}";function a(t){if(!t||typeof t!=="object"||!t.variables||typeof t.variables!=="object")return;var c=":root{color-scheme:"+(t.appearance==="light"?"light":"dark")+";";for(var k in t.variables){if(/^--[a-z0-9-]+$/.test(k))c+=k+":"+String(t.variables[k]).replace(/[;{}<>]/g,"")+";";}s.textContent=c+"}"+b;}try{var m=/[#&]t3-theme=([^&]*)/.exec(location.hash);if(m){a(JSON.parse(decodeURIComponent(m[1])));history.replaceState(history.state,"",location.pathname+location.search);}}catch(e){}window.addEventListener("message",function(e){var d=e.data,p=d&&d.params;if(d&&d.jsonrpc==="2.0"&&d.method==="ui/notifications/host-context-changed"&&p&&p.styles)a({appearance:p.theme,variables:p.styles.variables});});document.addEventListener("click",function(e){var l=e.isTrusted?e.composedPath().find(function(t){return t&&t.matches&&t.matches("a[href]");}):null,u;if(!l)return;try{u=new URL(l.getAttribute("href"),document.baseURI);}catch(x){return;}if(!/^https?:$/.test(u.protocol)||u.href.split("#")[0]===location.href.split("#")[0])return;if(window.parent!==window){e.preventDefault();window.parent.postMessage({jsonrpc:"2.0",id:"t3-link-"+(++n),method:"ui/open-link",params:{url:u.href}},"*");}else{l.setAttribute("target","_blank");l.setAttribute("rel","noopener");}},true);if(window.parent!==window){var h,o,z=function(){var r=document.documentElement,v=Math.ceil(r.scrollHeight>r.clientHeight?r.scrollHeight:r.getBoundingClientRect().height);if(v===h)return;h=v;window.parent.postMessage({jsonrpc:"2.0",method:"ui/notifications/size-changed",params:{height:v}},"*");};if(window.ResizeObserver){o=new ResizeObserver(z);o.observe(document.documentElement);}document.addEventListener("DOMContentLoaded",function(){if(o&&document.body)o.observe(document.body);z();});window.addEventListener("load",z);}})();</script>
+<meta charset="UTF-8">
+<title>Tehnična risba – Ograja s koriti za rože 5000×1200</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: transparent; }
+  .sheet {
+    background: #ffffff; color: #111; border: 2px solid #111;
+    padding: 22px 26px 26px; max-width: 1400px; margin: 14px auto;
+    box-shadow: 0 6px 24px rgba(0,0,0,.18);
+  }
+  .hdr { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #111; padding-bottom: 10px; gap: 20px; }
+  .hdr h1 { font-size: 21px; margin: 0 0 4px; letter-spacing: .02em; text-transform: uppercase; }
+  .hdr .sub { font-size: 12.5px; color: #333; line-height: 1.5; }
+  .hdr .stamp { text-align: right; font-size: 11px; line-height: 1.6; white-space: nowrap; }
+  .hdr .stamp .brand { font-size: 14px; font-weight: bold; letter-spacing: .12em; background: #2f3437; color: #fff; padding: 4px 10px; display: inline-block; margin-bottom: 4px; }
+  .caption { font-size: 11.5px; font-weight: bold; letter-spacing: .12em; text-transform: uppercase;
+             border-bottom: 1.5px solid #111; padding-bottom: 3px; margin: 20px 0 8px; display: flex; justify-content: space-between; }
+  .caption .sc { font-weight: normal; letter-spacing: .04em; color: #444; }
+  svg { width: 100%; height: auto; display: block; background: #fff; }
+  .grid2  { display: grid; grid-template-columns: 1fr 1.45fr; gap: 20px; align-items: start; }
+  .grid2e { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { border: 1px solid #111; padding: 4px 7px; text-align: left; vertical-align: top; }
+  th { background: #edf0f2; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; }
+  td.num, th.num { text-align: center; white-space: nowrap; }
+  ol.notes { margin: 4px 0 0; padding-left: 20px; font-size: 12.2px; line-height: 1.55; columns: 2; column-gap: 34px; }
+  ol.notes li { margin-bottom: 5px; break-inside: avoid; }
+  .tb td { font-size: 11.5px; }
+  .tb .lbl { background: #edf0f2; font-weight: bold; text-transform: uppercase; font-size: 10px; letter-spacing: .06em; }
+  .foot { margin-top: 16px; font-size: 10.5px; color: #555; display: flex; justify-content: space-between; border-top: 1.5px solid #111; padding-top: 6px; }
+
+  /* ---- drawing styles ---- */
+  .dwg text { font-family: Arial, Helvetica, sans-serif; fill: #111; }
+  .dimline { stroke: #111; stroke-width: 3.5; fill: none; }
+  .ext { stroke: #111; stroke-width: 1.8; }
+  .obj { stroke: #111; stroke-width: 5; fill: #fff; }
+  .slat { fill: #e6eaec; stroke: #111; stroke-width: 4; }
+  .planter { fill: #d4d9dc; stroke: #111; stroke-width: 5; }
+  .hidden { stroke: #111; stroke-width: 2.4; stroke-dasharray: 18 14; fill: none; }
+  .leader { stroke: #111; stroke-width: 2.4; fill: none; }
+  .cut { stroke: #111; stroke-width: 6; stroke-dasharray: 90 25 18 25; fill: none; }
+  .view-front text.dimt { font-size: 62px; }
+  .view-front text.note { font-size: 54px; }
+  .view-sec  text.dimt { font-size: 58px; }
+  .view-sec  text.note { font-size: 50px; }
+  .view-plan text.dimt { font-size: 95px; }
+  .view-plan text.note { font-size: 82px; }
+  .view-det  text.dimt { font-size: 26px; }
+  .view-det  text.note { font-size: 25px; }
+  .view-det  text.lbl  { font-size: 24px; font-weight: bold; letter-spacing: .04em; }
+</style>
+</head>
+<body>
+
+<!-- shared SVG defs -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <marker id="arr" markerWidth="12" markerHeight="8" refX="11" refY="4" orient="auto-start-reverse" markerUnits="strokeWidth">
+      <path d="M0,0 L12,4 L0,8 z" fill="#111"/>
+    </marker>
+    <pattern id="hatch" width="42" height="42" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="42" stroke="#9aa1a5" stroke-width="4"/>
+    </pattern>
+    <pattern id="soil" width="34" height="34" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="34" stroke="#8b9296" stroke-width="4"/>
+    </pattern>
+  </defs>
+</svg>
+
+<div class="sheet">
+
+  <!-- ============ TITLE ============ -->
+  <div class="hdr">
+    <div>
+      <h1>Ograja s koriti za rože – tehnična risba</h1>
+      <div class="sub">
+        WPC lamelna ograja po sistemu <b>Roksal d.o.o., Kranj – WoodCore, profil ROMB DESKA-67</b><br>
+        Skupna dolžina <b>5000 mm</b> · višina <b>1200 mm</b> · 2× korito za rože <b>1200×300×350 mm</b> · barva <b>antracit (RAL 7016)</b>
+      </div>
+    </div>
+    <div class="stamp">
+      <div class="brand">TEHNIČNA DOKUMENTACIJA</div><br>
+      RISBA ŠT.: <b>OGR-5000/1200-01</b><br>
+      DATUM: 22. 6. 2026<br>
+      LIST: 1/1 &nbsp;·&nbsp; VSE MERE V mm
+    </div>
+  </div>
+
+  <!-- ============ VIEW A ============ -->
+  <div class="caption"><span>01 &nbsp; Pogled A – ograja od spredaj</span><span class="sc">merilo 1:20 &nbsp;|&nbsp; vse mere v mm</span></div>
+  <svg id="v-front" class="dwg view-front" viewBox="0 0 5500 1810"></svg>
+
+  <!-- ============ SECTION + PLAN ============ -->
+  <div class="grid2">
+    <div>
+      <div class="caption"><span>02 &nbsp; Prerez B-B</span><span class="sc">1:20</span></div>
+      <svg id="v-sec" class="dwg view-sec" viewBox="0 0 1450 1810"></svg>
+    </div>
+    <div>
+      <div class="caption"><span>03 &nbsp; Tloris C</span><span class="sc">1:25</span></div>
+      <svg id="v-plan" class="dwg view-plan" viewBox="0 0 5500 940"></svg>
+    </div>
+  </div>
+
+  <!-- ============ DETAILS ============ -->
+  <div class="caption"><span>04 &nbsp; Detajla D1 in D2</span><span class="sc">shematski prikaz</span></div>
+  <div class="grid2e">
+    <div>
+      <svg id="v-d1" class="dwg view-det" viewBox="0 0 820 620"></svg>
+    </div>
+    <div>
+      <svg id="v-d2" class="dwg view-det" viewBox="0 0 820 600"></svg>
+    </div>
+  </div>
+
+  <!-- ============ NOTES ============ -->
+  <div class="caption"><span>05 &nbsp; Tehnične opombe (po navodilih Roksal d.o.o.)</span><span class="sc">obvezno upoštevati pri izdelavi in montaži</span></div>
+  <ol class="notes">
+    <li>Sistem: <b>Roksal d.o.o., Kranj – WoodCore WPC</b>, profil <b>ROMB DESKA-67</b> (67×20 mm, surova dolžina desk 5800 mm) z <b>vgrajeno alu cevjo v sredini profila</b>. Montaža romba brez alu cevi ni mogoča!</li>
+    <li>Barva vseh lamel, stebričkov in konstrukcije korit: <b>antracit RAL 7016</b>.</li>
+    <li>Horizontalna postavitev lamel; <b>razmak 3 mm</b> med lamelami (toplota raztezanje + odtok vode). Pokrivna višina: 17 × 67 + 16 × 3 = <b>1187 mm</b>.</li>
+    <li>Stebrički: ALU cev <b>60×60×2</b>, višina 1200 mm, <b>osa–osa 1250 mm</b> – največji dovoljeni razmak po navodilih Roksal je <b>1450 mm</b> (L-kotnik na stebričku levo in desno).</li>
+    <li>Pritrditev: <b>L-kotnik 40×40×4</b> na vsaki lamele pri stebričku (levo/desno); <b>RF vijaki 3,9</b> skozi stebriček/kotnik v <b>aluminijasto jedro</b> lamele iz zadnje strani – vijaki iz lica niso vidni.</li>
+    <li>Predvrtanje: <b>Ø3,2 mm</b> skozi WPC in alu; nato luknjo v WPC povečamo na <b>Ø4,2–4,5 mm</b> (toleranca za raztezanje kompozitnega materiala).</li>
+    <li>Minimalni odmik vijaka od roba reza: <b>30 mm</b>; pri pritrditvi na ploščo največji odmik <b>150 mm</b>.</li>
+    <li>Če bi razmak med stebrički presegel 1450 mm, je potrebna vmesna povezava iz zgornje cevi (ni privita v tla); pri razmaku ≥ 1800 mm je potreben dodaten stebriček.</li>
+    <li>Korita: okvir <b>ALU 30×30×2</b>, obloga iz profila ROMB 67, notranji <b>PE vložek 2 mm</b> z drenažo – dno iz desk z <b>razmakom 3 mm</b>. Nosilnost konstrukcije (teža zemlje, vode, vetra) preveri projektant/statik.</li>
+    <li>Rezanje: žaga z drobnimi zobmi; kosi se režejo iz desk 5800 mm (1250 mm kosi). Spoji lamel so vedno na stebričkih. Zaščitne folije odstraniti po montaži.</li>
+    <li>Sidranje stebričkov je odvisno od podlage (betonska plošča, zid, terasna peta 100×100×5 + sidro M8). Sidra niso predmet te risbe.</li>
+    <li>Odstopanja in morebitne spremembe uskladiti z dobaviteljem sistema (Roksal d.o.o., Savska Loka 21, 4000 Kranj) pred začetkom izdelave.</li>
+  </ol>
+
+  <!-- ============ DATA + BOM ============ -->
+  <div class="grid2" style="margin-top:22px">
+    <div>
+      <div class="caption"><span>06 &nbsp; Vhodni podatki</span><span class="sc">povzetek specifikacije</span></div>
+      <table>
+        <tr><th style="width:44%">Parameter</th><th>Vrednost / opomba</th></tr>
+        <tr><td>Naziv</td><td>Ograja s koriti za rože</td></tr>
+        <tr><td>Risba št.</td><td>OGR-5000/1200-01</td></tr>
+        <tr><td>Sistem / profil</td><td>Roksal WoodCore – ROMB DESKA-67</td></tr>
+        <tr><td>Dolžina (osa–osa stebričkov)</td><td><b>5000 mm</b> (čez stebričke 5060 mm)</td></tr>
+        <tr><td>Višina</td><td><b>1200 mm</b></td></tr>
+        <tr><td>Lamela (širina × debelina)</td><td>67 × 20 mm, alu jedro</td></tr>
+        <tr><td>Število lamel</td><td>17 (pokrivna višina 1187 mm)</td></tr>
+        <tr><td>Razmak med lamelami (kerf)</td><td>3 mm</td></tr>
+        <tr><td>Razmak nosilcev (stebrički)</td><td>1250 mm (maks. 1450 mm)</td></tr>
+        <tr><td>Stebriček</td><td>ALU 60×60×2, L = 1200 mm (5 kos)</td></tr>
+        <tr><td>Dolžina surove deske</td><td>5800 mm</td></tr>
+        <tr><td>Barva</td><td>Antracit RAL 7016</td></tr>
+        <tr><td>Korita</td><td>2× 1200 × 300 × 350 mm (montaža na ograjo)</td></tr>
+      </table>
+    </div>
+    <div>
+      <div class="caption"><span>07 &nbsp; Seznam materiala (BOM)</span><span class="sc">okvirne količine za izdelavo</span></div>
+      <table>
+        <tr><th class="num">Oz.</th><th>Naziv</th><th>Mere (mm)</th><th class="num">Kol.</th><th>Material / opomba</th></tr>
+        <tr><td class="num">1</td><td>Stebriček</td><td>60×60×2, L=1200</td><td class="num">5</td><td>Alu, RAL 7016; peta/sidro po podlagi</td></tr>
+        <tr><td class="num">2</td><td>Lamela ROMB DESKA-67</td><td>67×20, L=1250</td><td class="num">68</td><td>WoodCore WPC z alu jedrom; 17 vrstic × 4 polja + 10 % rezerva</td></tr>
+        <tr><td class="num">2a</td><td>Surova deska</td><td>67×20, L=5800</td><td class="num">19</td><td>razrez 4 × 1250 iz deske (odpad ≈ 800 mm)</td></tr>
+        <tr><td class="num">3</td><td>L-kotnik</td><td>40×40×4</td><td class="num">170</td><td>Alu; levo/desno na stebričku pri vsaki lameli</td></tr>
+        <tr><td class="num">4</td><td>Vijak RF / kniping</td><td>3,9×16, A2</td><td class="num">600</td><td>skrito vijačenje v alu jedro; +20 % rezerva</td></tr>
+        <tr><td class="num">5</td><td>Konzola za korito</td><td>L 60×60×5</td><td class="num">8</td><td>Alu, 4 kos / korito</td></tr>
+        <tr><td class="num">6</td><td>Korito – okvir</td><td>ALU 30×30×2</td><td class="num">2 kpl</td><td>varjeno / vijačeno, RAL 7016</td></tr>
+        <tr><td class="num">7</td><td>Korito – obloga ROMB 67</td><td>67×20, razrez po risbi</td><td class="num">2 kpl</td><td>WPC antracit, enaka lamela kot ograja</td></tr>
+        <tr><td class="num">8</td><td>PE vložek s drenažo</td><td>1160×260×330</td><td class="num">2</td><td>PE folija 2 mm, dno z razmaki 3 mm</td></tr>
+        <tr><td class="num">9</td><td>Vijak M6×16 (konzola/korito)</td><td>A2</td><td class="num">40</td><td>montaža korit na konzole</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ TITLE BLOCK ============ -->
+  <div class="caption" style="margin-top:22px"><span>08 &nbsp; Naslovna polja</span><span class="sc">potrditev / izvedba</span></div>
+  <table class="tb">
+    <tr>
+      <td class="lbl" style="width:12%">Naročnik</td><td style="width:22%">&nbsp;</td>
+      <td class="lbl" style="width:12%">Objekt / lokacija</td><td style="width:22%">&nbsp;</td>
+      <td class="lbl" style="width:12%">Merilo</td><td>1:20 (detajli shematsko)</td>
+    </tr>
+    <tr>
+      <td class="lbl">Naziv risbe</td><td>Ograja s koriti za rože 5000×1200</td>
+      <td class="lbl">Risba št.</td><td>OGR-5000/1200-01</td>
+      <td class="lbl">Datum</td><td>22. 6. 2026</td>
+    </tr>
+    <tr>
+      <td class="lbl">Izdelal</td><td>&nbsp;</td>
+      <td class="lbl">Preveril</td><td>&nbsp;</td>
+      <td class="lbl">List</td><td>1 / 1</td>
+    </tr>
+  </table>
+
+  <div class="foot">
+    <span>Vir sistema in montažnih navodil: Roksal d.o.o., Savska Loka 21, 4000 Kranj – WoodCore WPC (roksal.com), profil ROMB DESKA-67.</span>
+    <span>OGR-5000/1200-01</span>
+  </div>
+</div>
+
+<script>
+/* ---------- shared helpers ---------- */
+function dimH(x1, x2, y, label) {
+  return `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" class="dimline" marker-start="url(#arr)" marker-end="url(#arr)"/>` +
+         `<text x="${(x1+x2)/2}" y="${y-20}" class="dimt" text-anchor="middle">${label}</text>`;
+}
+function dimV(x, y1, y2, label) {
+  const cy = (y1+y2)/2;
+  return `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" class="dimline" marker-start="url(#arr)" marker-end="url(#arr)"/>` +
+         `<text x="${x-22}" y="${cy}" class="dimt" text-anchor="middle" transform="rotate(-90 ${x-22} ${cy})">${label}</text>`;
+}
+function ext(x1, y1, x2, y2) { return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="ext"/>`; }
+function leader(x1, y1, x2, y2) { return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="leader"/>`; }
+function txt(x, y, s, anchor = "start", cls = "note") { return `<text x="${x}" y="${y}" class="${cls}" text-anchor="${anchor}">${s}</text>`; }
+
+/* =====================================================================
+   VIEW A – FRONT ELEVATION  (fence origin x=200 top y=150, ground y=1350)
+   ===================================================================== */
+(function () {
+  const AX = [200, 1450, 2700, 3950, 5200];        // post axes
+  const SLAT_TOP = 156.5, PITCH = 70, SH = 67;
+  let s = '';
+
+  // ground
+  s += `<rect x="60" y="1350" width="5380" height="80" fill="url(#hatch)"/>`;
+  s += `<line x1="60" y1="1350" x2="5440" y2="1350" stroke="#111" stroke-width="7"/>`;
+
+  // posts (behind slats)
+  AX.forEach(x => { s += `<rect x="${x-30}" y="150" width="60" height="1200" class="obj"/>`; });
+
+  // slats
+  for (let i = 0; i < 17; i++) {
+    s += `<rect x="200" y="${SLAT_TOP + i*PITCH}" width="5000" height="${SH}" class="slat"/>`;
+  }
+
+  // planters (2× 1200×350, top flush with fence top)
+  [[820, 2020], [3120, 4320]].forEach(([x1, x2]) => {
+    s += `<rect x="${x1}" y="150" width="${x2-x1}" height="350" class="planter"/>`;
+    for (let k = 1; k <= 4; k++) {
+      s += `<line x1="${x1}" y1="${151.5 + k*PITCH}" x2="${x2}" y2="${151.5 + k*PITCH}" stroke="#111" stroke-width="3.5"/>`;
+    }
+    s += `<rect x="${x1+6}" y="150" width="${x2-x1-12}" height="18" fill="#2f3437"/>`;
+    s += `<line x1="${x1+25}" y1="205" x2="${x2-25}" y2="205" class="hidden"/>`; // soil line
+  });
+
+  // section mark B-B through post axis 1450
+  s += `<line x1="1450" y1="60" x2="1450" y2="1440" class="cut"/>`;
+  s += `<line x1="1450" y1="60" x2="1650" y2="60" class="dimline" marker-end="url(#arr)"/>`;
+  s += `<line x1="1450" y1="1440" x2="1650" y2="1440" class="dimline" marker-end="url(#arr)"/>`;
+  s += txt(1370, 130, "B", "end", "lbl") + txt(1370, 1465, "B", "end", "lbl");
+
+  // ---- dimensions ----
+  // overall 5000
+  s += ext(200, 1360, 200, 1720) + ext(5200, 1360, 5200, 1720);
+  s += dimH(200, 5200, 1680, "5000");
+  // planter position chain
+  const CH = [200, 820, 2020, 3120, 4320, 5200];
+  const CL = ["620", "1200", "1100", "1200", "880"];
+  CH.forEach(x => s += ext(x, 1360, x, 1570));
+  for (let i = 0; i < CL.length; i++) s += dimH(CH[i], CH[i+1], 1530, CL[i]);
+  // height 1200
+  s += ext(120, 150, 215, 150) + ext(120, 1350, 215, 1350);
+  s += dimV(120, 150, 1350, "1200");
+  // planter height 350
+  s += ext(4320, 150, 4470, 150) + ext(4320, 500, 4470, 500);
+  s += dimV(4430, 150, 500, "350");
+
+  // ---- notes / labels ----
+  s += txt(2260, 95, "KORITO ZA ROŽE 1200×300×350 (2×)");
+  s += leader(2250, 80, 1700, 165);
+  s += txt(3400, 1300, "17 × LAMELA ROMB 67 (67+3)");
+  s += leader(3550, 1285, 3650, 1180);
+  s += txt(60, 1758, "STEBRIČEK ALU 60×60 – 5×, OSA–OSA 1250", "start");
+  s += txt(2650, 1758, "SKUPNA DOLŽINA ČEZ STEBRIČKE 5060");
+
+  document.getElementById('v-front').innerHTML = s;
+})();
+
+/* =====================================================================
+   SECTION B-B  (through post axis 1450 and planter A)
+   post x 250..310, slat face x 312..332, planter front x 632, ground y 1350
+   ===================================================================== */
+(function () {
+  let s = '';
+  s += `<rect x="80" y="1350" width="1290" height="80" fill="url(#hatch)"/>`;
+  s += `<line x1="80" y1="1350" x2="1380" y2="1350" stroke="#111" stroke-width="7"/>`;
+
+  // post
+  s += `<rect x="250" y="150" width="60" height="1200" class="obj"/>`;
+
+  // slat sections (17)
+  for (let i = 0; i < 17; i++) {
+    s += `<rect x="312" y="${156.5 + i*70}" width="20" height="67" class="slat"/>`;
+  }
+
+  // hidden fixing detail on one slat (top) + note
+  const y0 = 156.5 + 3*70;
+  s += `<rect x="296" y="${y0+8}" width="30" height="51" class="hidden"/>`;
+  s += `<line x1="260" y1="${y0+33.5}" x2="392" y2="${y0+33.5}" class="hidden"/>`;
+  s += `<circle cx="322" cy="${y0+33.5}" r="12" class="hidden"/>`;
+  s += leader(400, y0+33.5, 700, 640) + txt(715, 655, "L-KOTNIK + RF VIJAK (GLEJ D1)");
+
+  // planter: bottom board, front cladding, liner, soil
+  s += `<rect x="332" y="478" width="300" height="20" class="slat"/>`;
+  s += `<rect x="612" y="151.5" width="20" height="67" class="slat"/>`;
+  s += `<rect x="612" y="221.5" width="20" height="67" class="slat"/>`;
+  s += `<rect x="612" y="291.5" width="20" height="67" class="slat"/>`;
+  s += `<rect x="612" y="361.5" width="20" height="67" class="slat"/>`;
+  s += `<rect x="612" y="431.5" width="20" height="67" class="slat"/>`;
+  s += `<rect x="352" y="172" width="256" height="306" class="hidden"/>`;
+  s += `<rect x="356" y="228" width="248" height="248" fill="url(#soil)" stroke="none"/>`;
+  s += `<rect x="356" y="228" width="248" height="248" fill="none" stroke="#111" stroke-width="2.5"/>`;
+  // console L
+  s += `<rect x="310" y="500" width="322" height="10" fill="#2f3437"/>`;
+  s += `<rect x="310" y="440" width="12" height="70" fill="#2f3437"/>`;
+
+  // ---- dimensions ----
+  s += ext(250, 150, 250, 105) + ext(310, 150, 310, 105);
+  s += dimH(250, 310, 115, "60");
+  s += ext(120, 150, 245, 150) + ext(120, 1350, 245, 1350);
+  s += dimV(135, 150, 1350, "1200");
+  s += ext(332, 500, 332, 610) + ext(632, 500, 632, 610);
+  s += dimH(332, 632, 585, "300");
+  s += ext(632, 150, 720, 150) + ext(632, 500, 720, 500);
+  s += dimV(690, 150, 500, "350");
+  s += ext(312, 1195, 312, 1470) + ext(332, 1195, 332, 1470);
+  s += dimH(312, 332, 1445, "20");
+
+  // ---- labels ----
+  s += txt(740, 250, "KORITO 1200×300×350 – 2×");
+  s += txt(740, 320, "OBLOGA: ROMB 67, RAZMAK 3");
+  s += txt(740, 390, "ALU OKVIR 30×30×2");
+  s += txt(740, 460, "PE VLOŽEK 2 mm + DRENAŽA");
+  s += txt(740, 530, "KONZOLA L 60×60×5 (4×)");
+  s += leader(735, 515, 640, 505);
+  s += leader(735, 445, 610, 300);
+  s += txt(740, 700, "LAMELA ROMB 67: 67×20");
+  s += leader(735, 685, 340, 400);
+  s += txt(740, 780, "STEBRIČEK ALU 60×60×2");
+  s += leader(735, 765, 315, 900);
+  s += txt(740, 880, "PRITRDITEV LAMEL – RF");
+  s += txt(740, 945, "VIJAK 3,9×16 SKOZI");
+  s += txt(740, 1010, "STEBRIČEK V ALU JEDRO,");
+  s += txt(740, 1075, "IZ ZADNJE STRANI (SKRITO)");
+  s += txt(740, 1175, "OSA–OSA STEBRIČKOV 1250");
+  s += txt(740, 1240, "(MAKS. 1450 PO ROKSALU)");
+  s += txt(725, 1620, "PREREZ SKOZI STEBRIČEK IN KORITO (B-B)", "middle");
+
+  document.getElementById('v-sec').innerHTML = s;
+})();
+
+/* =====================================================================
+   PLAN C  (fence band y 350..370, posts y 350..410, planters y 370..670)
+   ===================================================================== */
+(function () {
+  const AX = [200, 1450, 2700, 3950, 5200];
+  let s = '';
+  // posts
+  AX.forEach(x => { s += `<rect x="${x-30}" y="350" width="60" height="60" class="obj"/>`; });
+  // slat band
+  s += `<rect x="200" y="350" width="5000" height="20" class="slat"/>`;
+  // planters
+  [[820, 2020], [3120, 4320]].forEach(([x1, x2]) => {
+    s += `<rect x="${x1}" y="370" width="${x2-x1}" height="300" class="planter"/>`;
+    s += `<rect x="${x1+30}" y="400" width="${x2-x1-60}" height="240" class="hidden"/>`;
+  });
+
+  // dims: post axis chain 1250×4
+  AX.forEach(x => s += ext(x, 340, x, 130));
+  for (let i = 0; i < 4; i++) s += dimH(AX[i], AX[i+1], 175, "1250");
+  // planter depth 300
+  s += ext(4320, 370, 4460, 370) + ext(4320, 670, 4460, 670);
+  s += dimV(4430, 370, 670, "300");
+  // overall
+  s += ext(200, 690, 200, 830) + ext(5200, 690, 5200, 830);
+  s += dimH(200, 5200, 800, "5000");
+
+  // labels
+  s += txt(215, 330, "OSA–OSA STEBRIČKOV 1250");
+  s += txt(2160, 620, "ALU 60×60 (5×)");
+  s += leader(2400, 605, 2700, 400);
+  s += txt(880, 745, "KORITO 1200×300 (2×)");
+  s += txt(3180, 745, "NOTRANJI PE VLOŽEK (ČRTKANO)");
+
+  document.getElementById('v-plan').innerHTML = s;
+})();
+
+/* =====================================================================
+   DETAIL D1 – fixing of slat (schematic)
+   ===================================================================== */
+(function () {
+  let s = '';
+  s += txt(20, 34, "DETALJ D1 – PRITRDITEV LAMELE (SHEMATSKO)", "start", "lbl");
+
+  // post
+  s += `<rect x="90" y="110" width="120" height="360" class="obj"/>`;
+  // L-bracket
+  s += `<rect x="210" y="210" width="14" height="92" fill="#2f3437"/>`;
+  s += `<rect x="210" y="268" width="86" height="14" fill="#2f3437"/>`;
+  // slat profile (ROMB)
+  s += `<path d="M430,116 C462,160 470,205 470,250 C470,295 462,340 430,384 C398,340 390,295 390,250 C390,205 398,160 430,116 Z" fill="#e6eaec" stroke="#111" stroke-width="4"/>`;
+  // alu core
+  s += `<circle cx="430" cy="250" r="34" fill="#c7cdd1" stroke="#111" stroke-width="3.5"/>`;
+  s += `<circle cx="430" cy="250" r="25" fill="#fff" stroke="#111" stroke-width="3"/>`;
+  // screw
+  s += `<line x1="222" y1="250" x2="430" y2="250" stroke="#111" stroke-width="5"/>`;
+  s += `<rect x="206" y="238" width="16" height="24" fill="#111"/>`;
+
+  // dims
+  s += ext(388, 116, 330, 116) + ext(388, 384, 330, 384);
+  s += dimV(345, 116, 384, "67");
+  s += ext(390, 384, 390, 448) + ext(470, 384, 470, 448);
+  s += dimH(390, 470, 436, "20");
+
+  // labels
+  s += txt(500, 120, "ALU JEDRO (OBVEZNO)");
+  s += txt(500, 155, "VGRADNJA V PROFIL");
+  s += leader(497, 132, 452, 228);
+  s += txt(500, 330, "ROMB DESKA-67 (67×20)");
+  s += leader(497, 318, 468, 300);
+  s += txt(500, 430, "RF VIJAK 3,9×16 –");
+  s += txt(500, 465, "IZ ZADNJE STRANI");
+  s += txt(500, 500, "PREDVRTANJE Ø3,2 /");
+  s += txt(500, 535, "WPC Ø4,2–4,5");
+  s += leader(497, 443, 432, 262);
+  s += txt(20, 505, "L-KOTNIK 40×40×4");
+  s += leader(150, 495, 218, 300);
+  s += txt(20, 545, "ALU CEV STEBRIČKA 60×60");
+  s += leader(150, 535, 150, 430);
+  s += txt(20, 600, "MIN. 30 mm OD ROBA REZA · MAKS. 150 mm", "start", "lbl");
+
+  document.getElementById('v-d1').innerHTML = s;
+})();
+
+/* =====================================================================
+   DETAIL D2 – planter box (schematic)
+   ===================================================================== */
+(function () {
+  let s = '';
+  s += txt(20, 34, "DETALJ D2 – KORITO ZA ROŽE (SHEMATSKO)", "start", "lbl");
+
+  // fence slat (left) + planter box
+  s += `<rect x="80" y="70" width="40" height="330" class="slat"/>`;
+  s += `<rect x="120" y="360" width="300" height="40" class="slat"/>`;            // bottom board
+  s += `<rect x="380" y="120" width="40" height="46" class="slat"/>`;             // front cladding
+  s += `<rect x="380" y="186" width="40" height="46" class="slat"/>`;
+  s += `<rect x="380" y="252" width="40" height="46" class="slat"/>`;
+  s += `<rect x="380" y="318" width="40" height="46" class="slat"/>`;
+  // ALU frame corner
+  s += `<rect x="120" y="120" width="36" height="36" fill="#2f3437"/>`;
+  // liner + soil
+  s += `<rect x="136" y="140" width="228" height="220" class="hidden"/>`;
+  s += `<rect x="142" y="182" width="216" height="176" fill="url(#soil)" stroke="none"/>`;
+  s += `<rect x="142" y="182" width="216" height="176" fill="none" stroke="#111" stroke-width="2.5"/>`;
+  // drainage gaps in bottom
+  s += `<rect x="190" y="360" width="12" height="40" fill="#fff"/>`;
+  s += `<rect x="190" y="360" width="12" height="40" fill="none" stroke="#111" stroke-width="2"/>`;
+  s += `<rect x="286" y="360" width="12" height="40" fill="#fff"/>`;
+  s += `<rect x="286" y="360" width="12" height="40" fill="none" stroke="#111" stroke-width="2"/>`;
+  // console L
+  s += `<rect x="80" y="400" width="340" height="14" fill="#2f3437"/>`;
+  s += `<rect x="80" y="330" width="14" height="84" fill="#2f3437"/>`;
+
+  // dims
+  s += ext(120, 400, 120, 470) + ext(420, 400, 420, 470);
+  s += dimH(120, 420, 458, "300");
+  s += ext(420, 120, 500, 120) + ext(420, 400, 500, 400);
+  s += dimV(482, 120, 400, "350");
+
+  // labels
+  s += txt(530, 120, "OBLOGA ROMB 67");
+  s += txt(530, 155, "RAZMAK 3 mm");
+  s += leader(527, 132, 422, 145);
+  s += txt(530, 235, "ALU OKVIR 30×30×2");
+  s += leader(527, 223, 160, 138);
+  s += txt(530, 315, "PE VLOŽEK 2 mm");
+  s += leader(527, 303, 362, 250);
+  s += txt(530, 395, "ZEMLJA + DRENAŽA");
+  s += txt(530, 465, "DNO: DESKE Z");
+  s += txt(530, 500, "RAZMAKOM 3 mm");
+  s += leader(527, 453, 196, 380);
+  s += txt(20, 555, "KONZOLA L 60×60×5 (4× NA KORITO)", "start", "lbl");
+  s += txt(20, 590, "OGRAJNA LAMELA ROMB 67 (V PREREZU 20×67)", "start", "lbl");
+
+  document.getElementById('v-d2').innerHTML = s;
+})();
+</script>
+</body>
+</html>
